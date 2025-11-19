@@ -67,7 +67,7 @@ class E84ControllerThread(QObject):
         if self._thread.isRunning():
             QMetaObject.invokeMethod(
                 self._worker,
-                b"stop_controller",
+                "stop_controller",
                 Qt.ConnectionType.QueuedConnection,
             )
             self._thread.quit()
