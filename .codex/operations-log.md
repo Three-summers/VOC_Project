@@ -94,3 +94,4 @@
 | 2025-11-19T10:02:45+08:00#90 | shell | cat >> verification.md | 更新验证报告，记录 PySide6 缺失导致的阻塞 |
 | 2025-11-19T10:03:05+08:00#91 | plan_update | update_plan | 所有计划步骤标记为完成 |
 | 2025-11-19T10:15:20+08:00#92 | apply_patch | new_loadport/e84_thread.py | 修正 QMetaObject.invokeMethod 字符串参数，避免 stop_controller 调用失败 |
+| 2025-11-19T10:30:05+08:00#103 | apply_patch | gui_main/qml/components/SubNavigationBar.qml | 调整子导航按钮高度并垂直居中，消除下方空白 |

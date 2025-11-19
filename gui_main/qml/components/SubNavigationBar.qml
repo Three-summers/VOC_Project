@@ -14,8 +14,15 @@ Rectangle {
 
     property var items: []
     property string currentKey: ""
+    // 充当互斥锁的角色，当索引更改时调用 setCurrentKey，但是在 setCurrentKey 代码中也修改了索引，避免递归调用
     property bool _blockTabSignal: false
     property real scaleFactor: Components.UiTheme.controlScale
+    readonly property real verticalPadding: Components.UiTheme.spacing("sm")
+    readonly property real layoutHeight: height > 0 ? height : implicitHeight
+    readonly property real availableButtonHeight: Math.max(
+        Components.UiTheme.controlHeight("buttonThin"),
+        Math.min(Components.UiTheme.controlHeight("button"), layoutHeight - 2 * verticalPadding)
+    )
     signal subPageSelected(string key)
 
     function keyForIndex(idx) {
@@ -60,25 +67,32 @@ Rectangle {
 
     TabBar {
         id: tabBar
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         anchors.margins: Components.UiTheme.spacing("xs")
+        height: subNav.availableButtonHeight
         spacing: Components.UiTheme.spacing("xs")
+        // 只有当 items 不为空时显示
         visible: subNav.items && subNav.items.length > 0
         background: Rectangle { color: "transparent" }
 
         Repeater {
             model: subNav.items
+            // 动态生成按钮
             delegate: TabButton {
                 property string key: modelData.key || modelData.title || modelData.text || ("tab" + index)
                 text: modelData.title || modelData.text || modelData.key || ("Tab " + (index + 1))
                 checkable: true
                 width: Math.max(120 * Components.UiTheme.controlScale, text.length * Components.UiTheme.spacing("md"))
+                implicitHeight: subNav.availableButtonHeight - Components.UiTheme.spacing("xs")
                 font.pixelSize: Components.UiTheme.fontSize("label")
                 onClicked: subNav.setCurrentKey(key, true)
             }
         }
 
         onCurrentIndexChanged: {
+            // 这里是防止递归调用的真正逻辑
             if (subNav._blockTabSignal)
                 return;
             const key = subNav.keyForIndex(currentIndex);

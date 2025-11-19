@@ -5,6 +5,9 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtCore import QObject, QTimer, Slot
 
+from socket_client import Client, SocketCommunicator
+from qml_socket_client_bridge import QmlSocketClientBridge
+
 # 将项目根目录加入 sys.path，便于导入 sibling 模块
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -106,6 +109,9 @@ if __name__ == "__main__":
     # 当最后一个窗口被关闭时，不要自动退出应用程序，以在 qml 动态调用 quit 退出
     app.setQuitOnLastWindowClosed(False)
     engine = QQmlApplicationEngine()
+
+    bridge = QmlSocketClientBridge(Client, SocketCommunicator)
+    engine.rootContext().setContextProperty("ClientBridge", bridge)
 
     csv_file_manager = CsvFileManager()
     engine.rootContext().setContextProperty("csvFileManager", csv_file_manager)
