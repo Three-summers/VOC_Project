@@ -1,47 +1,38 @@
 {
-  "timestamp": "2025-11-19T09:45:47+08:00",
+  "timestamp": "2025-11-19T16:02:10+08:00",
   "moduleLocations": {
-    "config_view": "gui_main/qml/views/ConfigView.qml 负责渲染配置主页面，目前仅有占位文本",
-    "sub_navigation": "gui_main/qml/components/SubNavigationBar.qml 提供子标签切换功能，可依据 items 列表生成子页面标签",
-    "command_panel": "gui_main/qml/CommandPanel.qml 根据 currentView 和 currentSubPage 加载 commands/*.qml",
-    "config_commands": "gui_main/qml/commands/ConfigCommands.qml 目前仅提供导入/导出按钮",
-    "navigation_panel": "gui_main/qml/NavigationPanel.qml 按钮列表包含 Config 视图条目",
-    "status_view_reference": "gui_main/qml/views/StatusView.qml 与 InformationPanel.qml 已实现 loadport/foup 子页面，可复用模式"
+    "e84_core": "new_loadport/E84Passive.py 负责 E84 状态机与 GPIO 控制",
+    "thread_wrapper": "new_loadport/e84_thread.py 将 E84Controller 放入 QThread",
+    "gpio_driver": "new_loadport/GPIOController.py 用于读写引脚状态",
+    "serial_stack": "(已删除) CMDSerial/DeviceController/SerialManager 旧串口栈，当前不存在通用串口实现"
   },
   "currentImplementation": {
-    "config_view": "单列布局，展示标题+说明文字+一个空内容占位，缺乏实际配置项与子页面",
-    "subpage_framework": "InformationPanel 自带 SubNavigationBar，用于 Status 视图的 loadport/foup 切换；Config 视图尚未声明 currentSubPage 属性",
-    "commands_binding": "ConfigCommands.qml 默认加载，无针对 loadport/foup 的命令文件，命令面板无相关按钮",
-    "theme_components": "UiTheme.qml 定义 spacing/fontSize/radius，用于保持风格一致"
+    "serial_dependency": "项目当前没有任何串口封装，E84 控制器完全依赖 GPIO 与 PySide6 定时器",
+    "thread_entry": "new_loadport/main.py 启动 QCoreApplication 并运行 E84ControllerThread",
+    "gui": "gui_main 目录提供 QML UI，与 new_loadport 通过桥接类通信"
   },
   "similarReferences": {
-    "status_loadport_ui": "StatusView.qml 通过 Loader + Component 切换 loadport/foup 布局，可借鉴卡片/信息块样式",
-    "status_commands": "commands/Status_loadportCommands.qml 与 commands/Status_foupCommands.qml 展示子页面命令拆分方式",
-    "chart_card_component": "components/ChartCard.qml 包含卡片式数据布局，可用于显示配置状态",
-    "sub_navigation_usage": "InformationPanel.qml 示例了 subNavigationConfig 的使用方式"
+    "old_serial": "Git 历史中曾有 SerialManager/CMDSerial，可参考其接口风格重建新通用串口组件"
   },
   "techStack": [
-    "PySide6 (Python) 启动 QML",
-    "QML + QtQuick Controls 构建 UI",
-    "项目未使用前端框架外部依赖"
+    "Python 3",
+    "PySide6 (QtCore/QThread)",
+    "期望新的串口模块基于 pyserial 或可插拔串口工厂"
   ],
   "testsAndVerification": {
     "automated": [],
-    "notes": "仓库无自动化测试，GUI 需通过手工/本地冒烟运行验证"
+    "notes": "运行 new_loadport/main.py 仍受制于 PySide6 依赖；串口模块需提供可模拟接口便于测试"
   },
   "observationReport": {
     "gaps": [
-      "Config 视图缺少子页面选择，不满足 loadport/foup 展示需求",
-      "命令面板没有针对 loadport/foup 的配置指令",
-      "缺乏可复用的表单/信息卡片用于显示 IP、时间等字段",
-      "currentSubPage 从 InformationPanel 传递下来，但 ConfigView 不接收"
+      "缺少可配置的串口通讯层，无法按命令表配置不同设备",
+      "现有代码没有抽象的命令解析与接收逻辑"
     ],
     "suggestedNext": [
-      "为 ConfigView 添加 currentSubPage 属性并结合 SubNavigationBar 重构布局",
-      "新增 loadport/foup 命令 QML 文件，按照 Status 子页面命名规范",
-      "复用 Components.UiTheme spacing/fontSize，创建卡片式展示区显示 IP/时间/采集状态",
-      "更新 SubNavigationBar 配置，使 Config 视图也能响应子页面切换"
+      "设计一个 GenericSerialDevice 类，构造时注入命令表与解析器",
+      "为发送/接收提供钩子或回调，以便定制",
+      "考虑线程安全和异步事件（可复用之前的 reader 线程模式）"
     ],
-    "toolingNotes": "code-index 工具当前环境不可用，因此改用 sed/rg 直接阅读源码"
+    "toolingNotes": "无 code-index 工具，只能使用 rg/sed"
   }
 }

@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-11-19T16:04:05+08:00",
+  "questionId": "Q1",
+  "question": "串口通用程序是否必须依赖 pyserial？",
+  "analysis": "当前 new_loadport 目录仅剩 E84Passive/e84_thread/GPIOController/main，缺少任何串口封装 (ls new_loadport 结果作为证据)。因此需要一个新的可选依赖模块，默认尝试导入 serial.Serial，若未安装则允许通过 serial_factory 注入模拟对象，以方便测试。",
+  "evidence": [
+    {"command": "ls new_loadport", "output": "E84Passive.py, e84_thread.py, GPIOController.py, main.py"}
+  ],
+  "status": "resolved",
+  "resolution": "新类提供 serial_factory 参数，默认使用 pyserial，未安装时抛出明确异常或允许注入"}

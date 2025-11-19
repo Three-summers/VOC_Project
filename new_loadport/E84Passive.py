@@ -3,7 +3,6 @@ import time
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from CMDSerial import CMDSerialController
 from GPIOController import GPIOController
 
 
@@ -110,15 +109,6 @@ class E84Controller(QObject):
         self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
         self.E84_Key_Old_Value = self.E84_Key_Value.copy()
 
-        # 使用新的协议控制器封装串口管理
-        try:
-            self.cmdserial = CMDSerialController.from_port(
-                port="/dev/ttyUSB0", baudrate=115200
-            )
-        except ConnectionError as exc:
-            print(exc)
-            self.cmdserial = None
-
         self.timeout_timer = QTimer(self)
         self.timeout_timer.setSingleShot(True)
         self.timeout_timer.timeout.connect(self._on_timeout)
@@ -142,9 +132,6 @@ class E84Controller(QObject):
         if self.refresh_timer.isActive():
             self.refresh_timer.stop()
         self._stop_timeout()
-        if self.cmdserial:
-            self.cmdserial.close()
-            self.cmdserial = None
 
     def _run_cycle(self):
         self.Refresh_Input()
@@ -328,8 +315,6 @@ class E84Controller(QObject):
                 print("set L_REQ ON")
 
             self.E84_ResetTimer(ShortTimer)
-            if self.FOUP_status and self.cmdserial:
-                self.cmdserial.simpling_sync(1)
             return 1
         return 0
 

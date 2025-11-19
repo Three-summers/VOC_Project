@@ -110,8 +110,8 @@ if __name__ == "__main__":
     app.setQuitOnLastWindowClosed(False)
     engine = QQmlApplicationEngine()
 
-    bridge = QmlSocketClientBridge(Client, SocketCommunicator)
-    engine.rootContext().setContextProperty("ClientBridge", bridge)
+    socket_bridge = QmlSocketClientBridge(Client, SocketCommunicator)
+    engine.rootContext().setContextProperty("clientBridge", socket_bridge)
 
     csv_file_manager = CsvFileManager()
     engine.rootContext().setContextProperty("csvFileManager", csv_file_manager)

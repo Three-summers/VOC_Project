@@ -95,3 +95,44 @@
 | 2025-11-19T10:03:05+08:00#91 | plan_update | update_plan | 所有计划步骤标记为完成 |
 | 2025-11-19T10:15:20+08:00#92 | apply_patch | new_loadport/e84_thread.py | 修正 QMetaObject.invokeMethod 字符串参数，避免 stop_controller 调用失败 |
 | 2025-11-19T10:30:05+08:00#103 | apply_patch | gui_main/qml/components/SubNavigationBar.qml | 调整子导航按钮高度并垂直居中，消除下方空白 |
+| 2025-11-19T14:53:10+08:00#104 | sequential-thinking | 初始调用 | 评估新需求：保留 E84 逻辑，移除串口相关模块 |
+| 2025-11-19T14:53:40+08:00#105 | shell | ls new_loadport | 查看 new_loadport 目录，定位串口相关脚本 |
+| 2025-11-19T14:54:05+08:00#106 | shell | sed -n '1,200p' new_loadport/DeviceController.py | 阅读旧版串口协议控制器实现 |
+| 2025-11-19T14:54:25+08:00#107 | shell | sed -n '1,200p' new_loadport/SerialManager.py | 查看串口管理线程与依赖 pyserial |
+| 2025-11-19T14:54:45+08:00#108 | shell | sed -n '1,200p' new_loadport/CMDSerial.py | 检查串口控制器封装及旧接口 |
+| 2025-11-19T14:55:05+08:00#109 | shell | sed -n '1,240p' new_loadport/E84Passive.py | 确认 E84 控制器中串口引用与调用点 |
+| 2025-11-19T14:55:40+08:00#110 | shell | cat > .codex/context-scan.json | 更新上下文扫描，聚焦 E84 与串口模块 |
+| 2025-11-19T14:56:20+08:00#111 | shell | cat > .codex/context-question-5.json | 记录本次串口移除的疑问列表 |
+| 2025-11-19T14:57:05+08:00#112 | shell | cat > .codex/context-question-6.json | 深挖串口调用点，确认可安全移除 |
+| 2025-11-19T14:57:40+08:00#113 | shell | cat > .codex/context-sufficiency.json | 完成充分性检查，确认可实施串口移除 |
+| 2025-11-19T14:58:35+08:00#114 | shrimp-plan_task | plan_task | 串口移除需求规划 |
+| 2025-11-19T14:58:50+08:00#115 | shrimp-analyze_task | analyze_task | 评估移除串口的技术方案 |
+| 2025-11-19T14:59:05+08:00#116 | shrimp-reflect_task | reflect_task | 确认方案可行性 |
+| 2025-11-19T14:59:25+08:00#117 | shrimp-split_tasks | split_tasks | 拆分 2 个子任务 |
+| 2025-11-19T14:59:40+08:00#118 | plan_update | update_plan | 建立串口移除的两步执行计划 |
+| 2025-11-19T15:00:30+08:00#119 | apply_patch | new_loadport/E84Passive.py | 移除 CMDSerial 导入及所有串口操作 |
+| 2025-11-19T15:01:25+08:00#120 | apply_patch | 删除 new_loadport/CMDSerial.py | 串口控制器文件已移除 |
+| 2025-11-19T15:01:35+08:00#121 | apply_patch | 删除 new_loadport/DeviceController.py | 移除协议控制器 |
+| 2025-11-19T15:01:45+08:00#122 | apply_patch | 删除 new_loadport/SerialManager.py | 移除串口管理器 |
+| 2025-11-19T15:02:05+08:00#123 | plan_update | update_plan | 串口移除计划两项任务均已完成 |
+| 2025-11-19T15:02:20+08:00#124 | shell | QT_QPA_PLATFORM=offscreen python3 new_loadport/main.py | 冒烟测试因缺少 PySide6 失败 |
+| 2025-11-19T15:02:30+08:00#125 | shell | cat >> .codex/testing.md | 记录测试失败（缺少 PySide6） |
+| 2025-11-19T15:02:45+08:00#126 | shell | cat >> verification.md | 更新验证报告（记录缺少 PySide6 的阻塞） |
+| 2025-11-19T16:02:10+08:00#127 | shell | cat > .codex/context-scan.json | 重新扫描上下文，记录串口栈缺失现状 |
+| 2025-11-19T16:02:30+08:00#128 | sequential-thinking | 再次调用 | 识别新串口模块的关键疑问 |
+| 2025-11-19T16:02:55+08:00#129 | shell | cat > .codex/context-question-7.json | 记录疑问列表 |
+| 2025-11-19T16:04:05+08:00#130 | shell | cat > .codex/context-question-8.json | 深挖 Q1：串口依赖注入策略 |
+| 2025-11-19T16:04:45+08:00#131 | shell | cat > .codex/context-question-9.json | 深挖 Q2：命令表 dataclass 方案 |
+| 2025-11-19T16:05:20+08:00#132 | shell | cat > .codex/context-sufficiency.json | 完成新任务的充分性检查 |
+| 2025-11-19T16:06:30+08:00#133 | shrimp-plan_task | plan_task | 规划通用串口组件实现 |
+| 2025-11-19T16:06:45+08:00#134 | shrimp-analyze_task | analyze_task | 形成初步方案 |
+| 2025-11-19T16:07:05+08:00#135 | shrimp-reflect_task | reflect_task | 审视方案并确定结构 |
+| 2025-11-19T16:07:25+08:00#136 | shrimp-split_tasks | split_tasks | 拆解两项任务 |
+| 2025-11-19T16:07:35+08:00#137 | plan_update | update_plan | 设置新的执行计划 |
+| 2025-11-19T16:07:55+08:00#138 | apply_patch | new_loadport/serial_device.py | 新增可配置的通用串口模块 |
+| 2025-11-19T16:08:20+08:00#139 | mkdir/tests | 创建 tests 目录，用于新增单元测试 |
+| 2025-11-19T16:08:30+08:00#140 | apply_patch | tests/test_serial_device.py | 添加基于内存串口的单元测试 |
+| 2025-11-19T16:09:05+08:00#141 | shell | python3 -m unittest tests/test_serial_device.py | 单元测试通过 |
+| 2025-11-19T16:09:05+08:00#142 | shell | cat >> .codex/testing.md | 记录单测结果 |
+| 2025-11-19T16:09:20+08:00#143 | plan_update | update_plan | 标记串口模块与测试任务完成 |
+| 2025-11-19T16:09:35+08:00#144 | shell | rm new_loadport/__pycache__/serial_device.cpython-310.pyc | 移除自动生成的 pyc |

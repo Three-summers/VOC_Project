@@ -27,6 +27,15 @@ Column {
     CustomButton {
         text: "控制采集"
         width: parent.width
-        onClicked: console.log("Config/FOUP: 控制采集")
+        // onClicked: console.log("Config/FOUP: 控制采集")
+        onClicked: {
+            if (clientBridge == null) {
+                console.log("clientBridge is null");
+                return;
+            }
+            clientBridge.connectSocket("127.0.0.1", 65432);
+            clientBridge.runShellAsync("ls -al");
+            clientBridge.runShellFinished.connect((out) => console.log(out));
+        }
     }
 }

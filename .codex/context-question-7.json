@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-11-19T16:02:55+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "是否需要重新引入 pyserial 依赖？可以通过注入 serial factory 以便测试吗？",
+      "priority": "high",
+      "status": "open"
+    },
+    {
+      "id": "Q2",
+      "question": "如何定义命令表？使用 dataclass/字典还是回调？",
+      "priority": "high",
+      "status": "open"
+    },
+    {
+      "id": "Q3",
+      "question": "接收逻辑需要运行在独立线程还是事件循环？",
+      "priority": "medium",
+      "status": "open"
+    }
+  ]
+}

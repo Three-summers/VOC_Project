@@ -1,11 +1,10 @@
 {
-  "timestamp": "2025-11-19T09:52:10+08:00",
+  "timestamp": "2025-11-19T16:05:20+08:00",
   "canDefineInterfaces": true,
   "techChoiceUnderstood": true,
   "risksIdentified": [
-    "需要在 InformationPanel.subNavigationConfig 中新增 Config 条目，否则子页面导航不出现",
-    "CommandPanel 需要支持多视图子命令，修改逻辑时需确保 Status 现有功能不回归",
-    "UI 仅展示静态数据，但后续接入真实数据时要考虑属性绑定接口"
+    "pyserial 可能未安装，需要允许注入 serial factory",
+    "接收线程需安全终止，避免 QThread 冲突"
   ],
-  "verificationPlan": "运行 gui_main/main.py，切换至 Config -> Loadport/FOUP 子页面，确认信息卡片与命令按钮切换正确；命令点击暂以 console.log 验证"
+  "verificationPlan": "编写单元/冒烟脚本调用新的 GenericSerialDevice（可注入 mock transport）验证命令构建与回调执行；运行-lint  limited due to dependencies"
 }
