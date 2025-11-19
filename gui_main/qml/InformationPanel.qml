@@ -18,6 +18,10 @@ Rectangle {
             { key: "loadport", title: "Loadport" },
             { key: "foup", title: "FOUP" }
         ],
+        "Config": [
+            { key: "loadport", title: "Loadport" },
+            { key: "foup", title: "FOUP" }
+        ]
     })
 
     function resolveViewSource(name) {

@@ -38,7 +38,9 @@ Rectangle {
         commandPanel._activeComponent = null;
         commandLoader.sourceComponent = null;
         commandLoader.source = "";
-        if (!subKey || viewName !== "Status") {
+        const subCommandViews = ["Status", "Config"];
+        const supportsSubCommands = subCommandViews.indexOf(viewName) !== -1;
+        if (!subKey || !supportsSubCommands) {
             commandLoader.setSource(basePath);
             return;
         }

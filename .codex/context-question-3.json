@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-11-19T09:50:12+08:00",
+  "questionId": "Q1",
+  "question": "ConfigView 如何接收 currentSubPage 并根据 key 切换 UI？",
+  "analysis": "InformationPanel.qml 中的 propagateSubPage() 会在 Loader 加载完成后检查 viewLoader.item 是否包含 currentSubPage 属性并直接赋值 (lines referencing property alias currentSubPage)。因此只要 ConfigView 声明 property string currentSubPage 并根据该值切换 Loader/StackView，即可与 SubNavigationBar/CommandPanel 同步。",
+  "evidence": [
+    {
+      "file": "gui_main/qml/InformationPanel.qml",
+      "detail": "propagateSubPage() 函数：如果 viewLoader.item.currentSubPage 存在则赋值 subNavBar.currentKey，并在 SubNavigationBar.onSubPageSelected 里调用该函数"
+    }
+  ],
+  "status": "resolved",
+  "resolution": "ConfigView 需定义 currentSubPage (默认 loadport) 并在 Loader 中根据 key 切换不同组件，SubNavigationBar 则通过 subNavigationConfig[\"Config\"] 提供 loadport/foup 标签"
+}

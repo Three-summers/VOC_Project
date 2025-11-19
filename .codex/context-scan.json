@@ -1,42 +1,47 @@
 {
-  "timestamp": "2025-11-18T15:06:41+08:00",
+  "timestamp": "2025-11-19T09:45:47+08:00",
   "moduleLocations": {
-    "gui_entry": "gui_main/main.py 使用 QApplication + QQmlApplicationEngine 加载 qml/main.qml",
-    "gui_alarm": "gui_main/alarm_store.py 定义 AlarmStore(AlarmModel)",
-    "gui_title": "gui_main/qml/TitlePanel.qml objectName=title_message, messageText 控制 systemMessage",
-    "gui_alarm_panel": "InformationPanel/CommandPanel 中的 alarmStoreRef 属性使用 AlarmStore",
-    "loadport_thread": "new_loadport/e84_thread.py 定义 E84ControllerThread 与 _E84Worker",
-    "loadport_controller": "new_loadport/E84Passive.py 定义状态机，QTimer 驱动"
+    "config_view": "gui_main/qml/views/ConfigView.qml 负责渲染配置主页面，目前仅有占位文本",
+    "sub_navigation": "gui_main/qml/components/SubNavigationBar.qml 提供子标签切换功能，可依据 items 列表生成子页面标签",
+    "command_panel": "gui_main/qml/CommandPanel.qml 根据 currentView 和 currentSubPage 加载 commands/*.qml",
+    "config_commands": "gui_main/qml/commands/ConfigCommands.qml 目前仅提供导入/导出按钮",
+    "navigation_panel": "gui_main/qml/NavigationPanel.qml 按钮列表包含 Config 视图条目",
+    "status_view_reference": "gui_main/qml/views/StatusView.qml 与 InformationPanel.qml 已实现 loadport/foup 子页面，可复用模式"
   },
   "currentImplementation": {
-    "new_loadport": "main.py 作为独立 QCoreApplication，ConsoleBridge 打印线程发出的状态/警告/错误",
-    "thread_model": "E84ControllerThread 将 E84Controller 放入 QThread 中，通过自定义信号 e84_state_changed/e84_warning/system_event 等对外广播",
-    "gui_binding": "GUI 当前仅通过 AlarmStore.addAlarm 手动添加示例告警，TitlePanel systemMessage 默认为 Hello World"
+    "config_view": "单列布局，展示标题+说明文字+一个空内容占位，缺乏实际配置项与子页面",
+    "subpage_framework": "InformationPanel 自带 SubNavigationBar，用于 Status 视图的 loadport/foup 切换；Config 视图尚未声明 currentSubPage 属性",
+    "commands_binding": "ConfigCommands.qml 默认加载，无针对 loadport/foup 的命令文件，命令面板无相关按钮",
+    "theme_components": "UiTheme.qml 定义 spacing/fontSize/radius，用于保持风格一致"
   },
   "similarReferences": {
-    "thread_to_gui": "new_loadport/main.py 展示了如何监听线程信号并在主线程处理，可参考信号接线模式",
-    "alarm_flow": "alarm_store.AlarmStore.addAlarm/closeAlarms/clearAlarms 供 QML 调用",
-    "message_area": "TitlePanel.qml 暴露 property alias systemMessage 供 Python 设置"
+    "status_loadport_ui": "StatusView.qml 通过 Loader + Component 切换 loadport/foup 布局，可借鉴卡片/信息块样式",
+    "status_commands": "commands/Status_loadportCommands.qml 与 commands/Status_foupCommands.qml 展示子页面命令拆分方式",
+    "chart_card_component": "components/ChartCard.qml 包含卡片式数据布局，可用于显示配置状态",
+    "sub_navigation_usage": "InformationPanel.qml 示例了 subNavigationConfig 的使用方式"
   },
   "techStack": [
-    "Python 3 + PySide6 for GUI/QThread",
-    "QML for前端组件"
+    "PySide6 (Python) 启动 QML",
+    "QML + QtQuick Controls 构建 UI",
+    "项目未使用前端框架外部依赖"
   ],
   "testsAndVerification": {
     "automated": [],
-    "notes": "仓库中未发现显式测试脚本，当前仅可通过运行 gui_main/main.py 进行手动验证"
+    "notes": "仓库无自动化测试，GUI 需通过手工/本地冒烟运行验证"
   },
   "observationReport": {
     "gaps": [
-      "新 loadport 线程未与 GUI main.py 整合，缺少跨目录导入与对象生命周期管理",
-      "AlarmStore 目前仅注入示例数据，没有统一接口供后台线程触发",
-      "TitlePanel systemMessage 仅设置一次，缺少全局对象引用"
+      "Config 视图缺少子页面选择，不满足 loadport/foup 展示需求",
+      "命令面板没有针对 loadport/foup 的配置指令",
+      "缺乏可复用的表单/信息卡片用于显示 IP、时间等字段",
+      "currentSubPage 从 InformationPanel 传递下来，但 ConfigView 不接收"
     ],
     "suggestedNext": [
-      "确认 GUI 层如何访问 AlarmStore/TitlePanel（例如 rootObjects 查找）以便注入线程事件",
-      "梳理线程错误/警告/状态映射到 AlarmStore 与 messageArea 的格式",
-      "明确 GUI 运行时如何启动/停止 loadport 线程（应用生命周期钩子）"
+      "为 ConfigView 添加 currentSubPage 属性并结合 SubNavigationBar 重构布局",
+      "新增 loadport/foup 命令 QML 文件，按照 Status 子页面命名规范",
+      "复用 Components.UiTheme spacing/fontSize，创建卡片式展示区显示 IP/时间/采集状态",
+      "更新 SubNavigationBar 配置，使 Config 视图也能响应子页面切换"
     ],
-    "toolingNotes": "code-index 工具在当前环境不可用，只能使用 ripgrep/sed 直接查阅源码"
+    "toolingNotes": "code-index 工具当前环境不可用，因此改用 sed/rg 直接阅读源码"
   }
 }

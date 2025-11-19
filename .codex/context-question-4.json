@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-11-19T09:51:02+08:00",
+  "questionId": "Q3",
+  "question": "命令面板能否为 Config 子页面加载独立 QML？",
+  "analysis": "CommandPanel.qml 的 loadCommandsFor(viewName, subKey) 仅当 viewName === \"Status\" 且 subKey 非空时才动态拼接 commands/Status_<subKey>Commands.qml，其余视图直接加载 commands/<viewName>Commands.qml。因此要让 Config 子页面拥有独立命令文件，需要放宽判断，允许 viewName === \"Config\" 时也拼接子页面路径。",
+  "evidence": [
+    {
+      "file": "gui_main/qml/CommandPanel.qml",
+      "detail": "if (!subKey || viewName !== \"Status\") { commandLoader.setSource(basePath); return; } (line ~29) 显示当前只针对 Status 子页面"
+    }
+  ],
+  "status": "resolved",
+  "resolution": "更新 loadCommandsFor 逻辑，允许 Config 视图与未来其他视图共享 SubNavigation 命名规范"
+}
