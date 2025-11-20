@@ -136,3 +136,18 @@
 | 2025-11-19T16:09:05+08:00#142 | shell | cat >> .codex/testing.md | 记录单测结果 |
 | 2025-11-19T16:09:20+08:00#143 | plan_update | update_plan | 标记串口模块与测试任务完成 |
 | 2025-11-19T16:09:35+08:00#144 | shell | rm new_loadport/__pycache__/serial_device.cpython-310.pyc | 移除自动生成的 pyc |
+| 2025-11-19T17:05:00+08:00#145 | shell | cat > .codex/context-scan.json | 更新扫描以准备项目重构 |
+| 2025-11-19T17:05:45+08:00#146 | shell | cat > .codex/context-question-10.json | 记录目录重构疑问 |
+| 2025-11-19T17:06:20+08:00#147 | shell | cat > .codex/context-sufficiency.json | 记录目录重构充分性检查 |
+| 2025-11-19T17:08:05+08:00#148 | shell | mkdir -p src/voc_app && mv gui_main src/voc_app/gui && mv new_loadport src/voc_app/loadport | 创建新包结构并迁移原有目录 |
+| 2025-11-19T17:08:10+08:00#149 | shell | touch src/__init__.py src/voc_app/__init__.py src/voc_app/gui/__init__.py src/voc_app/loadport/__init__.py | 添加包初始化文件 |
+| 2025-11-19T17:08:25+08:00#150 | shell | mv src/voc_app/gui/main.py src/voc_app/gui/app.py | GUI 入口重命名为 app.py |
+| 2025-11-19T17:08:50+08:00#151 | apply_patch | src/voc_app/gui/app.py | 更新 GUI 入口引用新的包路径与资源定位 |
+| 2025-11-19T17:08:55+08:00#152 | apply_patch | src/voc_app/loadport/main.py | 更新 loadport CLI 的包引用与路径设置 |
+| 2025-11-19T17:09:00+08:00#153 | apply_patch | src/voc_app/loadport/e84_thread.py / E84Passive.py | 改为包级导入 |
+| 2025-11-19T17:09:05+08:00#154 | apply_patch | tests/test_serial_device.py | 测试文件指向新包路径 |
+| 2025-11-19T17:09:10+08:00#155 | shell | python3 -m unittest tests/test_serial_device.py | 包重构后单元测试通过 |
+| 2025-11-19T17:09:12+08:00#156 | shell | cat >> .codex/testing.md | 记录单测结果 |
+| 2025-11-19T17:09:30+08:00#157 | apply_patch | verification.md | 更新验证命令以匹配新包结构 |
+| 2025-11-19T17:09:40+08:00#158 | shell | mkdir -p docs && cat > docs/STRUCTURE.md | 新增项目结构文档 |
+| 2025-11-19T17:09:50+08:00#159 | plan_update | update_plan | 目录重构三步任务全部完成 |

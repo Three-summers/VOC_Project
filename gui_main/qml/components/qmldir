@@ -1,2 +1,0 @@
-module Components
-singleton UiTheme 1.0 UiTheme.qml

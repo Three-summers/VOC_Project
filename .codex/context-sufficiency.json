@@ -1,10 +1,10 @@
 {
-  "timestamp": "2025-11-19T16:05:20+08:00",
+  "timestamp": "2025-11-19T17:06:20+08:00",
   "canDefineInterfaces": true,
   "techChoiceUnderstood": true,
   "risksIdentified": [
-    "pyserial 可能未安装，需要允许注入 serial factory",
-    "接收线程需安全终止，避免 QThread 冲突"
+    "移动文件可能导致相对路径、QML 引用失效",
+    "tests 需要同步更新导入路径"
   ],
-  "verificationPlan": "编写单元/冒烟脚本调用新的 GenericSerialDevice（可注入 mock transport）验证命令构建与回调执行；运行-lint  limited due to dependencies"
+  "verificationPlan": "运行 python -m unittest tests/test_serial_device.py 并尝试启动 gui/loadport 入口以确认路径更新"
 }
