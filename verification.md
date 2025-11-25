@@ -1,12 +1,20 @@
 # Verification Report
 
-- Date: $ts
+- Date: 2025-11-25T10:50:06+08:00
 - Executor: Codex
-- Scope: Integrate Loadport 线程与 GUI 报警/消息同步
-- Command: `QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app`
+- Scope: GUI 调试（禁用 loadport 硬件依赖）
+- Command: `PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app`
 - Result: ⚠️ Blocked
-- Details: 运行过程中加载 new_loadport 控制器依赖 `RPi.GPIO`，该硬件库在当前容器不可用，导致 ModuleNotFoundError。除硬件依赖外，其余 Python 层逻辑（线程桥接、AlarmStore/TitlePanel 更新）已在代码中实现。
-- Risk Assessment: 中。需要在具备 RPi.GPIO 的目标环境执行同样命令确认线程可正常启动并推送告警；如需在无硬件环境下测试，可考虑提供 GPIO 模拟实现。
+- Details: 命令因缺少 `PySide6` 模块而失败，说明当前阻塞已切换为 GUI 依赖；此前最先触发的 `RPi.GPIO` 导入错误不再出现，证明注释 loadport 硬件代码已生效。
+- Risk Assessment: 中偏低。只需在具备 PySide6 的环境重试即可验证 GUI；恢复 loadport 逻辑时重新取消注释即可。
+
+## Verification - 2025-11-25T10:50:08+08:00
+- Executor: Codex
+- Scope: GenericSerialDevice regression
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures。确认在注释 loadport 代码后串口模块仍按预期工作。
+- Risk Assessment: 低。串口层未受本次修改影响，可作为最小回归依据。
 
 ## Verification - 2025-11-19T10:02:05+08:00
 - Executor: Codex
@@ -31,3 +39,11 @@
 - Result: ✅ Passed
 - Details: 1 test in 0.12s，確認串口命令/解析流程在最新分析後仍穩定。GUI/Loadport 驗證仍受 PySide6/RPi.GPIO 缺失阻塞，未重試。
 - Risk Assessment: 低。串口模組已可在純 Python 環境持續驗證；整體交付仍依賴外部 GUI/硬體環境。
+
+## Verification - 2025-11-25T11:25:19+08:00
+- Executor: Codex
+- Scope: 工业风 UI 改造后基础回归
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures。UI 仅修改 QML/样式层，串口单测仍然通过，说明后端逻辑未受影响。
+- Risk Assessment: 中。GUI 冒烟测试仍因 PySide6 缺失而无法执行，需在具备依赖的目标站点重新运行以验证 QML。当前结果仅覆盖 Python 层。

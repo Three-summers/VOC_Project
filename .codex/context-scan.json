@@ -1,75 +1,77 @@
 {
-  "timestamp": "2025-11-24T10:11:42+08:00",
-  "rootStructure": {
-    "src/voc_app/gui": [
-      "app.py",
-      "alarm_store.py",
-      "csv_model.py",
-      "file_tree_browser.py",
-      "socket_client.py",
-      "qml_socket_client_bridge.py",
-      "qml/",
-      "resources/",
-      "Log/"
-    ],
-    "src/voc_app/loadport": [
-      "E84Passive.py",
-      "e84_thread.py",
-      "GPIOController.py",
-      "serial_device.py",
-      "main.py"
-    ],
-    "examples": ["ascii_serial_demo.py"],
-    "tests": ["test_serial_device.py"],
-    "docs": ["STRUCTURE.md"],
-    "verification": ["verification.md", ".codex/testing.md"]
-  },
-  "currentImplementation": [
-    {
-      "feature": "GUI 启动与数据桥接",
-      "files": ["src/voc_app/gui/app.py", "src/voc_app/gui/qml/main.qml"],
-      "notes": "使用 PySide6 QApplication + QQmlApplicationEngine，绑定 ClientBridge/CsvFileManager/AlarmStore，将 LoadportBridge 信号推送到 TitlePanel。"
+  "timestamp": "2025-11-25T11:13:58+08:00",
+  "taskScope": "调整 GUI 为工业风灰色调、添加标题栏 Alarms 弹框、增强数据日志列选择与文件树视觉",
+  "locations": {
+    "titlePanel": {
+      "file": "src/voc_app/gui/qml/TitlePanel.qml",
+      "role": "顶栏包含时钟/视图名称/消息条/Login-Quit 控件",
+      "currentStyle": "背景 #333333，消息栏 Rectangle 仅按内容宽度扩张，文本灰色 (#aaaaaa)，无报警对比色或弹框",
+      "changeTargets": ["扩大消息区域宽度并在报警时切换文字为红色","插入只读 Alarms 弹出面板并与导航栏状态同步","统一顶部配色为工业灰+高对比" ]
     },
-    {
-      "feature": "E84 控制线程",
-      "files": ["src/voc_app/loadport/e84_thread.py", "src/voc_app/loadport/E84Passive.py"],
-      "notes": "QThread + QObject worker 在后台运行 E84Controller，并通过信号将状态/警告/致命错误推送回 GUI。"
+    "navigationPanel": {
+      "file": "src/voc_app/gui/qml/NavigationPanel.qml",
+      "role": "底部导航，右侧按钮含 Alarms/Help，hasNewAlarms 属性控制 CustomButton status",
+      "currentState": "按钮颜色由 CustomButton status 控制，尚无与标题栏视觉/弹框联动",
+      "changeTargets": ["与 TitlePanel 弹出框共享 Alarm 状态","强化视觉对比" ]
     },
-    {
-      "feature": "通用串口组件与示例",
-      "files": ["src/voc_app/loadport/serial_device.py", "examples/ascii_serial_demo.py"],
-      "notes": "GenericSerialDevice + GenericSerialCommand 支持注入命令表、parser、raw listener；示例通过换行分帧展示交互流程。"
+    "customButton": {
+      "file": "src/voc_app/gui/qml/components/CustomButton.qml",
+      "role": "所有按钮的状态/颜色源",
+      "currentState": "默认背景 #c0c0c0，alarm 状态纯红/黄/绿/蓝色彩偏亮，非工业灰系",
+      "changeTargets": ["调低饱和度并引入多灰阶底色","增加对比度（边框/文本）" ]
+    },
+    "uiTheme": {
+      "file": "src/voc_app/gui/qml/components/UiTheme.qml",
+      "role": "字体/控件/间距尺寸缩放",
+      "currentState": "仅定义尺寸，无配色/阴影抽象；配色需在各 QML 单独设置",
+      "changeTargets": ["必要时新增集中调色常量，便于工业风实现"]
+    },
+    "messageArea": {
+      "file": "src/voc_app/gui/qml/TitlePanel.qml#RowLayout",
+      "role": "系统消息文本",
+      "currentState": "RowLayout 中的 Rectangle 没有 Layout.fillWidth，导致宽度窄且缺少状态颜色",
+      "changeTargets": ["给予最小/首选宽度或 fillWidth","添加 alarm 状态颜色切换"]
+    },
+    "dataLogView": {
+      "file": "src/voc_app/gui/qml/views/DataLogView.qml",
+      "role": "数据日志主界面（列列表 + 文件树 + 图表）",
+      "currentState": "CheckBox 使用默认像素尺寸（与 80px 高度行不匹配）；列数多时显得过小；背景主色是浅灰 #f0f0f0",
+      "changeTargets": ["放大复选框指标并保持易触控","适度提高对比度"]
+    },
+    "fileTree": {
+      "file": "src/voc_app/gui/qml/components/FileTreeBrowserView.qml",
+      "role": "数据日志左侧目录树",
+      "currentState": "选中项背景色 #1a87cefa（蓝）且 Rectangle 填满整行，Row 内左边距造成文本在背景内偏左，视觉不居中",
+      "changeTargets": ["调整选中色为工业灰暗蓝并将文本容器居中/保持统一 padding"]
     }
-  ],
+  },
   "techStack": {
-    "language": "Python 3.10",
-    "gui": "PySide6 + QML",
-    "concurrency": "QThread + QObject worker",
-    "hardware": "自定义 E84Passive 控制器、可选 pyserial",
-    "testing": "unittest",
-    "tooling": "无 pyproject，直接使用 python -m"
+    "language": "Python 3 + PySide6 (QML)",
+    "ui": "QtQuick.Controls 2 + 自定义组件",
+    "theme": "当前以硬编码颜色为主，无集中调色",
+    "testing": "unittest 仅覆盖串口模块"
   },
   "tests": {
     "unit": {
-      "command": "python3 -m unittest tests/test_serial_device.py",
-      "coverage": "验证 GenericSerialDevice send/receive 流程，使用内存串口 stub"
+      "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
+      "status": "可运行，覆盖串口逻辑"
     },
     "gui": {
-      "command": "QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app",
-      "status": "历史记录表明缺少 PySide6/硬件依赖导致冒烟测试失败"
+      "command": "PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app",
+      "status": "缺少 PySide6/RPi.GPIO，仍无法自动运行"
     }
   },
   "observationReport": {
-    "knownGaps": [
-      "仅有串口单元测试，GUI/E84 未覆盖",
-      "运行依赖 PySide6 与硬件（RPi.GPIO 等）目前缺失，verification.md 中标记为阻塞",
-      "缺少 pyproject/requirements，依赖管理全靠描述",
-      "socket_client.py 中 Communicator 仅实现 Socket/Serial，但 GUI 侧未实际使用（可能缺乏服务器/设备实现）"
-    ],
-    "nextFocus": [
-      "确认 GUI 与 loadport 是否可完全离线运行或需要硬件模拟",
-      "梳理预期交付：是桌面 GUI + E84 控制还是串口库示例",
-      "评估测试策略，至少扩展到 GUI 逻辑/ loadport 状态机"
+    "anomalies": [
+      "主题颜色分散在多个 QML 文件且非工业灰，需要统一色板",
+      "无现成 AlarmStore（在 main.qml 中被注释），需确保导航栏 hasNewAlarms 仍可驱动标题弹框（可能使用占位属性）",
+      "DataLogView 缺少 CheckBox 样式自定义，必须自建 indicator" ],
+    "infoGaps": [
+      "暂无可用的 code-index 工具，所有检索通过 shell/rg 手工完成" ],
+    "recommendedFocus": [
+      "确定是否恢复 main.qml 中的 alarmStore 或提供 mock 以驱动状态",
+      "梳理 TitlePanel/NavPanel 之间共享属性的最佳位置（可能通过 main.qml property/Binding）",
+      "调研 Qt Quick Controls 2 中 CheckBox 自定义 indicator 的做法以确保触控尺寸 >= 44px"
     ]
   }
 }

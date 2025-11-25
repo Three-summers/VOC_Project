@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-11-25T11:14:57+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "text": "导航栏 hasNewAlarms 当前始终为 false；要让标题栏弹框同步状态，需要从哪里获取 alarm 布尔/列表？是否应恢复 main.qml 的 alarmStore 伪数据或添加新的上下文属性？",
+      "priority": "high",
+      "blockingReason": "若无共享数据源，弹框无法与导航栏一致，需求无法落地"
+    },
+    {
+      "id": "Q2",
+      "text": "新建的 Alarms 弹出框需要显示哪些内容？如果仅显示状态文本，是否复用现有 AlarmStore ListModel 结构，还是以占位线索呈现？",
+      "priority": "medium",
+      "notes": "需求仅说“显示警报状态”，需确定字段与布局"
+    },
+    {
+      "id": "Q3",
+      "text": "工业风灰色调应通过 UiTheme 增加集中调色常量还是在各组件写死？集中管理可简化维护，但会否影响现有配色逻辑？",
+      "priority": "medium",
+      "notes": "需决定 color palette 的放置位置"
+    },
+    {
+      "id": "Q4",
+      "text": "DataLogView 的 CheckBox 指示器如何放大？Qt Quick Controls 2 是否允许直接 set implicitIndicatorWidth，还是需要自定义 indicator Item？",
+      "priority": "medium",
+      "notes": "影响触控尺寸与实现复杂度"
+    },
+    {
+      "id": "Q5",
+      "text": "FileTreeBrowserView 选中高亮 Rectangle 填满整行且 Row 带左缩进，如何在保持层级缩进的同时让背景/文本显得居中？",
+      "priority": "low",
+      "notes": "或许需要在背景中加入 padding/Alignment 调整"
+    }
+  ]
+}

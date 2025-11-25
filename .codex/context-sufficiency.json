@@ -1,15 +1,15 @@
 {
-  "timestamp": "2025-11-24T10:35:00+08:00",
+  "timestamp": "2025-11-25T11:16:12+08:00",
   "canDefineInterfaces": true,
-  "interfacesNotes": "GUI 暴露 QML context property (clientBridge、csvFileManager、alarmStore、chartListModel)，loadport 线程通过 LoadportBridge/E84ControllerThread 信号交互，GenericSerialDevice API 清晰 (start/stop/send_command)。",
+  "interfacesNotes": "主入口 app.py 暴露 alarmStore/csvFileManager/clientBridge 等 context 属性；导航栏已通过 hasNewAlarms 读取 alarmStore.hasActiveAlarm，因此只需在 TitlePanel 暴露 alarmStoreRef 与消息状态属性即可定义接口契约。DataLogView 的列选择 delegate 已知结构 (model.columnName/dataPoints)，复选框可通过 setColumnSelected(name, bool) 更新；文件树 Row 使用 node.filePath/node.depth，允许我们约束高亮与布局接口。",
   "techChoiceUnderstood": true,
-  "techNotes": "PySide6 用于 GUI/QThread，RPi.GPIO 驱动硬件引脚，串口模块用 pyserial 可选注入，整体遵循之前文档描述。",
+  "techNotes": "UI 栈由 QtQuick.Controls 2 + QML 构成，PySide6 负责加载。颜色主题目前硬编码，可通过新增 palette JavaScript 对象或在 UiTheme Singleton 中扩展属性集中管理。CheckBox/Popup/Rectangle 等控件可自定义 indicator/background 实现工业灰风格。",
   "risksIdentified": [
-    "环境缺乏 PySide6/RPi.GPIO，导致 GUI/loadport 验证被阻塞",
-    "硬件依赖未模拟，无法确认 GPIO 逻辑",
-    "测试仅覆盖串口模块，GUI/E84 缺乏自动化测试",
-    "缺少 pyproject/requirements，依赖管理靠口头描述"
+    "未启用 alarmStoreRef 时，标题栏弹框可能拿不到状态，需在 main.qml 显式传递",
+    "CustomButton 全局配色调整可能影响其他按钮；需验证默认状态仍可读",
+    "复选框与文件树重绘需确保触控区域 >= 44px，且不破坏现有布局",
+    "无法在本机运行 PySide6 GUI，需通过代码审查与静态验证确保逻辑正确"
   ],
-  "verificationPlan": "1) 在具备 PySide6 + RPi.GPIO 的目标环境运行 `QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app` 观察 Alarm/Config 行为；2) 同环境下运行 `python3 -m voc_app.loadport.main` 验证 E84 线程；3) 本地持续运行 `python3 -m unittest tests/test_serial_device.py` 保障串口库；4) 通过 examples/ascii_serial_demo.py 做手动串口演示",
+  "verificationPlan": "1) 运行 `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py` 作为回归基准；2) 若环境允许，执行 `PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app` 验证 QML 是否加载（若缺库则在 verification.md 记录原因）；3) 静态检查 QML 编译错误（qmlimportscanner/qmllint 不可用时，使用 `python3 -m voc_app.gui.app` dry-run）。",
   "missingInfo": []
 }

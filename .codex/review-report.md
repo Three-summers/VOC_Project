@@ -27,3 +27,15 @@
 - 主要阻塞：缺少 PySide6、缺少 RPi.GPIO/實體硬體。
 - 次要風險：GUI 只靠人工觀察，缺少自動驗證。
 - 若未解決，無法證明“達到預期效果”。
+
+## Review - 2025-11-25T10:50:20+08:00
+- Task: 临时禁用 loadport 硬件线程以便 GUI 调试
+- Scores:
+  - Technical Quality: 80/100 — 注释粒度清晰且留有中文说明，回归单测通过。
+  - Strategic Alignment: 75/100 — 与“先专注 GUI 调试”需求一致，但仍缺 PySide6 运行环境。
+  - Composite: 78/100
+  - Recommendation: 需改进（等待 PySide6 环境再验证 GUI 整体流程）
+- Findings:
+  1. `src/voc_app/gui/app.py` 现已禁用硬件线程，命令阻塞从 RPi.GPIO 转为 PySide6 缺失，说明目标达成。
+  2. verification/testing 文档同步更新，但注释代码后需提醒未来恢复步骤。
+- Risks: 仍无法真正运行 GUI；须安装 PySide6 后才可进行冒烟测试。

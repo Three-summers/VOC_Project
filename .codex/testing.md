@@ -38,3 +38,24 @@
 - Command: `python3 -m unittest tests/test_serial_device.py`
 - Result: Passed
 - Output Summary: 1 test, 0 failures，確認 GenericSerialDevice 行為在最新結構掃描後仍可運作。
+
+## 2025-11-25T10:50:06+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app`
+- Result: Failed
+- Output Summary: `ModuleNotFoundError: No module named 'PySide6'`，当前环境缺少 GUI 运行依赖；但已确认未再出现 `RPi.GPIO` 相关导入错误。
+- Notes: 需在具有 PySide6 的环境复测；本次目标仅验证注释 loadport 后阻塞原因已切换为 PySide6 缺失。
+
+## 2025-11-25T10:50:08+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures，确认串口模块在移除 loadport 依赖后仍工作正常。
+- Notes: 作为基础回归，证明注释硬件代码未影响核心串口逻辑。
+
+## 2025-11-25T11:25:19+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；证明新增工业风 UI 改动未影响现有串口逻辑。
+- Notes: 继续保留 GUI 冒烟测试的 PySide6 缺失风险，待依赖安装后再运行。
