@@ -14,7 +14,8 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.append(str(SRC_DIR))
 
-from voc_app.loadport.e84_thread import E84ControllerThread
+# 非树莓环境调试：临时禁用 loadport 硬件线程的导入，避免 RPi.GPIO 依赖阻塞 GUI 启动
+# from voc_app.loadport.e84_thread import E84ControllerThread
 from voc_app.gui.socket_client import Client, SocketCommunicator
 from voc_app.gui.qml_socket_client_bridge import QmlSocketClientBridge
 from voc_app.gui.csv_model import (
@@ -40,6 +41,8 @@ class AuthenticationManager(QObject):
         return False
 
 
+# 非树莓环境调试：暂时注释 LoadportBridge，避免触发硬件线程
+'''
 class LoadportBridge(QObject):
     """负责启动 loadport 线程并将错误/状态推送到 GUI"""
 
@@ -101,6 +104,7 @@ class LoadportBridge(QObject):
 
     def _on_state_changed(self, state: str):
         self._set_title_message(f"E84 状态: {state}")
+'''
 
 
 if __name__ == "__main__":
@@ -169,9 +173,11 @@ if __name__ == "__main__":
     # if csv_file_manager.csvFiles:
     #     csv_file_manager.parse_csv_file(csv_file_manager.csvFiles[0])
 
-    # 启动 loadport 后台线程，将错误/状态推送到 Alarm 与 TitlePanel
+    # 非树莓环境调试：暂时不启动 loadport 后台线程，避免触发 RPi.GPIO 依赖
+    '''
     bridge = LoadportBridge(alarm_store=alarm_store, title_panel=main_item)
     bridge.start()
     app.aboutToQuit.connect(bridge.shutdown)
+    '''
 
     sys.exit(app.exec())
