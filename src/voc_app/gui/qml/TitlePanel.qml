@@ -6,7 +6,7 @@ import "./components" as Components
 
 Rectangle {
     id: titlePanel
-    color: "#333333"
+    color: Components.UiTheme.color("surface")
     implicitHeight: Components.UiTheme.controlHeight("titleBar")  // 高度随缩放因子变化
     objectName: "title_message"
 
@@ -15,6 +15,11 @@ Rectangle {
     property bool isLoggedIn: false
     property string loggedInUser: ""
     property real scaleFactor: Components.UiTheme.controlScale
+    property var alarmStoreRef: null
+    readonly property bool hasActiveAlarm: alarmStoreRef && alarmStoreRef.hasActiveAlarm
+    readonly property int alarmItemCount: (alarmStoreRef && alarmStoreRef.alarmModel && alarmStoreRef.alarmModel.count !== undefined)
+        ? alarmStoreRef.alarmModel.count
+        : 0
 
     ColumnLayout {
         anchors.fill: parent
@@ -37,9 +42,15 @@ Rectangle {
 
             // 基础信息 - 日期/时间显示
             Frame {
+                background: Rectangle {
+                    color: Components.UiTheme.color("panel")
+                    radius: Components.UiTheme.radius("md")
+                    border.color: Components.UiTheme.color("outline")
+                }
+                padding: Components.UiTheme.spacing("md")
                 Text {
                     id: dateTime
-                    color: "white"
+                    color: Components.UiTheme.color("textPrimary")
                     font.pixelSize: Components.UiTheme.fontSize("title")
                     Layout.leftMargin: Components.UiTheme.spacing("lg")
                     Layout.alignment: Qt.AlignVCenter
@@ -57,15 +68,33 @@ Rectangle {
 
             // 基础信息 - 当前视图名称
             Frame {
+                background: Rectangle {
+                    color: Components.UiTheme.color("panel")
+                    radius: Components.UiTheme.radius("md")
+                    border.color: Components.UiTheme.color("outline")
+                }
+                padding: Components.UiTheme.spacing("md")
                 Text {
                     id: viewName
                     text: "Default View"
-                    color: "white"
+                    color: Components.UiTheme.color("textPrimary")
                     font.bold: true
                     font.pixelSize: Components.UiTheme.fontSize("title")
                     Layout.leftMargin: Components.UiTheme.spacing("lg")
                     Layout.alignment: Qt.AlignVCenter
                 }
+            }
+
+            CustomButton {
+                id: alarmButton
+                text: titlePanel.hasActiveAlarm ? qsTr("ALARMS") : qsTr("Alarms")
+                Layout.preferredWidth: Components.UiTheme.controlWidth("button")
+                Layout.preferredHeight: Components.UiTheme.controlHeight("buttonThin")
+                Layout.alignment: Qt.AlignVCenter
+                status: titlePanel.hasActiveAlarm ? "alarm" : "normal"
+                scaleFactor: titlePanel.scaleFactor
+                enabled: !!titlePanel.alarmStoreRef
+                onClicked: alarmPopup.open()
             }
 
             // 占位符，推开登录按钮
@@ -101,19 +130,32 @@ Rectangle {
             Rectangle {
                 id: messageArea
                 Layout.fillHeight: true
-                color: "#222222"
+                Layout.fillWidth: true
+                Layout.minimumWidth: 360 * Components.UiTheme.controlScale
+                color: titlePanel.hasActiveAlarm ? Components.UiTheme.color("panelAlt") : Components.UiTheme.color("panel")
+                border.color: titlePanel.hasActiveAlarm ? Components.UiTheme.color("accentAlarm") : Components.UiTheme.color("outline")
+                border.width: 1
+                radius: Components.UiTheme.radius("md")
+                Behavior on color { ColorAnimation { duration: 200 } }
+                Behavior on border.color { ColorAnimation { duration: 200 } }
                 Text {
                     id: messageText
                     text: "System message area..."
-                    color: "#aaaaaa"
+                    color: titlePanel.hasActiveAlarm ? Components.UiTheme.color("accentAlarm") : Components.UiTheme.color("textSecondary")
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: Components.UiTheme.spacing("lg")
                     font.pixelSize: Components.UiTheme.fontSize("body")
+                    elide: Text.ElideRight
+                    wrapMode: Text.NoWrap
+                    width: parent.width - Components.UiTheme.spacing("xl")
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredWidth: Components.UiTheme.spacing("xl")
+            }
 
             // 预留退出按钮
             CustomButton {
@@ -124,6 +166,83 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
                 scaleFactor: titlePanel.scaleFactor
                 onClicked: Qt.quit()
+            }
+        }
+    }
+
+    Popup {
+        id: alarmPopup
+        parent: titlePanel
+        modal: false
+        focus: true
+        y: titlePanel.height - Components.UiTheme.spacing("sm")
+        x: titlePanel.width - width - Components.UiTheme.spacing("lg")
+        implicitWidth: Math.min(titlePanel.width * 0.45, 420 * Components.UiTheme.controlScale)
+        padding: Components.UiTheme.spacing("md")
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle {
+            color: Components.UiTheme.color("panel")
+            radius: Components.UiTheme.radius("md")
+            border.color: Components.UiTheme.color("outline")
+            border.width: 1
+        }
+
+        contentItem: ColumnLayout {
+            spacing: Components.UiTheme.spacing("md")
+            Text {
+                text: titlePanel.hasActiveAlarm ? qsTr("活动警报") : qsTr("没有活动警报")
+                color: titlePanel.hasActiveAlarm ? Components.UiTheme.color("accentAlarm") : Components.UiTheme.color("textSecondary")
+                font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                font.bold: true
+            }
+
+            ListView {
+                id: alarmList
+                implicitHeight: Math.min(280 * Components.UiTheme.controlScale, contentHeight)
+                Layout.fillWidth: true
+                clip: true
+                model: titlePanel.alarmStoreRef ? titlePanel.alarmStoreRef.alarmModel : null
+                visible: titlePanel.hasActiveAlarm && titlePanel.alarmItemCount > 0
+                delegate: Rectangle {
+                    width: alarmList.width
+                    height: implicitHeight
+                    color: index % 2 === 0 ? Components.UiTheme.color("surface") : Components.UiTheme.color("panel")
+                    implicitHeight: timestampText.implicitHeight + messageItem.implicitHeight + Components.UiTheme.spacing("md") * 2
+                    Column {
+                        anchors.fill: parent
+                        anchors.margins: Components.UiTheme.spacing("md")
+                        spacing: Components.UiTheme.spacing("xs")
+                        Text {
+                            id: timestampText
+                            text: timestamp
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("caption")
+                        }
+                        Text {
+                            id: messageItem
+                            text: message
+                            color: Components.UiTheme.color("textPrimary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            wrapMode: Text.WordWrap
+                        }
+                    }
+                }
+            }
+
+            Text {
+                visible: !titlePanel.hasActiveAlarm || titlePanel.alarmItemCount === 0
+                text: titlePanel.hasActiveAlarm ? qsTr("暂无报警记录") : qsTr("暂无报警记录")
+                color: Components.UiTheme.color("textSecondary")
+                font.pixelSize: Components.UiTheme.fontSize("body")
+            }
+
+            CustomButton {
+                text: qsTr("关闭")
+                Layout.alignment: Qt.AlignRight
+                Layout.preferredWidth: Components.UiTheme.controlWidth("button") * 0.8
+                Layout.preferredHeight: Components.UiTheme.controlHeight("buttonThin")
+                scaleFactor: titlePanel.scaleFactor
+                onClicked: alarmPopup.close()
             }
         }
     }

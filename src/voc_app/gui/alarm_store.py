@@ -2,6 +2,7 @@ from PySide6.QtCore import (
     QObject,
     QAbstractListModel,
     QModelIndex,
+    QPersistentModelIndex,
     Qt,
     QByteArray,
     Property,
@@ -14,16 +15,24 @@ class AlarmModel(QAbstractListModel):
     TimestampRole = Qt.ItemDataRole.UserRole + 1
     MessageRole = Qt.ItemDataRole.UserRole + 2
 
+    countChanged = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._items = []
 
-    def rowCount(self, parent=QModelIndex()) -> int:
+    def rowCount(
+        self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()
+    ) -> int:
         if parent.isValid():
             return 0
         return len(self._items)
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+    @Property(int, notify=countChanged)
+    def count(self) -> int:
+        return len(self._items)
+
+    def data(self, index, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
         try:
@@ -46,6 +55,7 @@ class AlarmModel(QAbstractListModel):
     def add_alarm(self, timestamp: str, message: str):
         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
         self._items.append({"timestamp": timestamp, "message": message})
+        self.countChanged.emit()
         self.endInsertRows()
 
     def clear(self):
@@ -53,6 +63,7 @@ class AlarmModel(QAbstractListModel):
             return
         self.beginResetModel()
         self._items = []
+        self.countChanged.emit()
         self.endResetModel()
 
 

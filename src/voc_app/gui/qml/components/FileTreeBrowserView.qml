@@ -102,6 +102,7 @@ Rectangle {
                     font.pixelSize: Components.UiTheme.fontSize("subtitle")
                     padding: 6 * root.scaleFactor
                     width: treeColumn.width
+                    color: Components.UiTheme.color("textOnLight")
                 }
 
                 TextField {
@@ -112,6 +113,8 @@ Rectangle {
                     font.pixelSize: Components.UiTheme.fontSize("body")
                     padding: 8 * root.scaleFactor
                     text: root.filterText
+                    color: Components.UiTheme.color("textOnLight")
+                    placeholderTextColor: Components.UiTheme.color("textOnLightMuted")
                     onTextChanged: root.filterText = text
                 }
 
@@ -172,21 +175,21 @@ Rectangle {
             property int depth: 0
             property bool expanded: false
             property bool hasLoadedChildren: false
+            property real depthIndent: 12 * root.scaleFactor + depth * 18 * root.scaleFactor
 
             Item {
                 width: treeColumn.width
                 height: 44 * root.scaleFactor
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: root.selectedPath === node.filePath ? "#1a87cefa" : "transparent"
-                }
-
                 Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: 12 * root.scaleFactor + depth * 18 * root.scaleFactor
+                    id: rowContent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: node.depthIndent
                     anchors.rightMargin: 10 * root.scaleFactor
                     spacing: 6 * root.scaleFactor
+                    height: implicitHeight
 
                     Text {
                         width: fileIsDir ? 12 : 0
@@ -194,7 +197,7 @@ Rectangle {
                         text: expanded ? "▾" : "▸"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        color: "#555"
+                        color: Components.UiTheme.color("textOnLightMuted")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -202,10 +205,27 @@ Rectangle {
                         id: nameLabel
                         text: depth === 0 ? root.relativePath(node.filePath) : node.fileName
                         elide: Text.ElideRight
-                        color: "#222"
+                        color: Components.UiTheme.color("textOnLight")
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
+                }
+
+                Rectangle {
+                    z: -1
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.leftMargin: Math.max(Components.UiTheme.spacing("sm"), node.depthIndent - Components.UiTheme.spacing("sm"))
+                    anchors.rightMargin: Components.UiTheme.spacing("sm")
+                    anchors.topMargin: Components.UiTheme.spacing("xs")
+                    anchors.bottomMargin: Components.UiTheme.spacing("xs")
+                    radius: Components.UiTheme.radius("md")
+                    color: Components.UiTheme.color("accentInfo")
+                    opacity: root.selectedPath === node.filePath ? 0.25 : 0
+                    border.color: root.selectedPath === node.filePath ? Components.UiTheme.color("accentInfo") : "transparent"
+                    border.width: 1
                 }
 
                 MouseArea {

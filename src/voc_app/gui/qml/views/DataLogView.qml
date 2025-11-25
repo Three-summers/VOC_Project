@@ -8,7 +8,7 @@ import "../components" as Components
 
 Rectangle {
     id: dataLogView
-    color: "#f0f0f0"
+    color: Components.UiTheme.color("background")
 
     property var csvFileManagerRef: null
     property real scaleFactor: Components.UiTheme.controlScale
@@ -309,12 +309,12 @@ Rectangle {
                     text: chartsVisible ? "绘图结果" : "列信息"
                     font.bold: true
                     font.pixelSize: Components.UiTheme.fontSize("title")
-                    color: "#333"
+                    color: Components.UiTheme.color("textOnLight")
                 }
 
                 Text {
                     text: lastSettingsSummary
-                    color: "#666"
+                    color: Components.UiTheme.color("textOnLightMuted")
                     wrapMode: Text.WordWrap
                     font.pixelSize: Components.UiTheme.fontSize("body")
                 }
@@ -340,40 +340,60 @@ Rectangle {
                                 delegate: Rectangle {
                                     width: columnInfoList.width
                                     height: Components.UiTheme.controlHeight(80)
-                                    border.color: "#e0e0e0"
-                                    color: index % 2 === 0 ? "#fafafa" : "#ffffff"
+                                    border.color: Components.UiTheme.color("outline")
+                                    color: index % 2 === 0 ? Components.UiTheme.color("panel") : Components.UiTheme.color("panelAlt")
                                     RowLayout {
                                         anchors.fill: parent
                                         anchors.margins: Components.UiTheme.spacing("md")
                                         spacing: Components.UiTheme.spacing("md")
 
                                         CheckBox {
+                                            id: columnCheck
                                             checked: dataLogView.isColumnSelected(model.columnName)
                                             onToggled: dataLogView.setColumnSelected(model.columnName, checked)
+                                            leftPadding: Components.UiTheme.spacing("md")
+                                            rightPadding: Components.UiTheme.spacing("sm")
+                                            implicitWidth: Components.UiTheme.px(60)
+                                            implicitHeight: Components.UiTheme.controlHeight("buttonThin")
+                                            indicator: Rectangle {
+                                                implicitWidth: 32 * Components.UiTheme.controlScale
+                                                implicitHeight: implicitWidth
+                                                radius: Components.UiTheme.radius("md")
+                                                border.color: columnCheck.checked ? Components.UiTheme.color("accentInfo") : Components.UiTheme.color("outlineStrong")
+                                                border.width: 2
+                                                color: columnCheck.checked ? Components.UiTheme.color("accentInfo") : "transparent"
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                Text {
+                                                    text: columnCheck.checked ? "✓" : ""
+                                                    anchors.centerIn: parent
+                                                    font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                                                    color: Components.UiTheme.color("textPrimary")
+                                                }
+                                            }
                                         }
 
                                         ColumnLayout {
                                             Layout.fillWidth: true
-                                            spacing: 4
+                                            spacing: Components.UiTheme.spacing("xs")
 
                                             Text {
                                                 text: model.columnName
                                                 font.bold: true
-                                                color: "#333"
+                                                color: Components.UiTheme.color("textPrimary")
                                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
                                             }
 
                                             Text {
                                                 readonly property var stats: dataLogView.computeStats(model.dataPoints)
                                                 text: "点数: " + stats.count + "    最小值: " + stats.min.toFixed(2) + "    最大值: " + stats.max.toFixed(2)
-                                                color: "#666"
+                                                color: Components.UiTheme.color("textSecondary")
                                                 font.pixelSize: Components.UiTheme.fontSize("label")
                                             }
                                         }
                                     }
                                 }
-                            }
                         }
+                    }
                     }
 
                     // 绘图面板
@@ -495,12 +515,28 @@ Rectangle {
                             RowLayout {
                                 anchors.fill: parent
                                 CheckBox {
+                                    id: columnExportCheck
                                     checked: dataLogView.isColumnSelected(model.columnName)
                                     onToggled: dataLogView.setColumnSelected(model.columnName, checked)
+                                    indicator: Rectangle {
+                                        implicitWidth: 28 * Components.UiTheme.controlScale
+                                        implicitHeight: implicitWidth
+                                        radius: Components.UiTheme.radius("md")
+                                        border.color: columnExportCheck.checked ? Components.UiTheme.color("accentInfo") : Components.UiTheme.color("outlineStrong")
+                                        border.width: 2
+                                        color: columnExportCheck.checked ? Components.UiTheme.color("accentInfo") : "transparent"
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        Text {
+                                            text: columnExportCheck.checked ? "✓" : ""
+                                            anchors.centerIn: parent
+                                            font.pixelSize: Components.UiTheme.fontSize("body")
+                                            color: Components.UiTheme.color("textPrimary")
+                                        }
+                                    }
                                 }
                                 Text {
                                     text: model.columnName
-                                    color: "#333"
+                                    color: Components.UiTheme.color("textOnLight")
                                     font.pixelSize: Components.UiTheme.fontSize("body")
                                 }
                             }
@@ -517,7 +553,7 @@ Rectangle {
                         spacing: Components.UiTheme.spacing("md")
                         Text {
                             text: "导出文件名："
-                            color: "#333"
+                            color: Components.UiTheme.color("textOnLight")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
                         TextField {

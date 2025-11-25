@@ -68,6 +68,7 @@ ApplicationWindow {
             Layout.preferredHeight: Components.UiTheme.controlHeight("titleBar")
             scaleFactor: Components.UiTheme.controlScale
             currentViewName: root.currentView
+            alarmStoreRef: typeof alarmStore !== "undefined" ? alarmStore : null
         }
 
         // 中间区域，包含信息面板和命令面板

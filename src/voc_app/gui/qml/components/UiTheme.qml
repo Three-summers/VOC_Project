@@ -18,6 +18,27 @@ QtObject {
     Component.onCompleted: updateScales()
     onBaseScaleChanged: updateScales()
 
+    // 工业风调色板，供所有 QML 复用，避免散落的硬编码色值
+    property var palette: ({
+        background: "#0f1113",
+        surface: "#171a1d",
+        panel: "#1f2327",
+        panelAlt: "#272c31",
+        outline: "#3c4247",
+        outlineStrong: "#5a6168",
+        buttonBase: "#30363c",
+        buttonHover: "#3b4249",
+        buttonDown: "#454d55",
+        textPrimary: "#f2f4f5",
+        textSecondary: "#a3a9af",
+        textOnLight: "#101417",
+        textOnLightMuted: "#4a5259",
+        accentInfo: "#4d91c9",
+        accentSuccess: "#5faa7b",
+        accentWarning: "#f4ba4f",
+        accentAlarm: "#e35d5d"
+    })
+
     function updateScales() {
         const clamped = Math.min(maxScale, Math.max(minScale, baseScale));
         fontScale = Math.min(1.4, Math.max(0.9, 1 + (clamped - 1) * 0.7));
@@ -120,5 +141,11 @@ QtObject {
         if (target === "spacing")
             return value * spacingScale;
         return value * controlScale;
+    }
+
+    function color(role, fallback) {
+        if (palette && role in palette)
+            return palette[role];
+        return fallback !== undefined ? fallback : "#ffffff";
     }
 }

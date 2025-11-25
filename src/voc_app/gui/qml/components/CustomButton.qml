@@ -27,37 +27,66 @@ Button {
     readonly property real resolvedScale: Math.min(1.4, Math.max(0.9, scaleFactor))
     property real fontScale: Components.UiTheme.fontScale
 
-    function getStatusColor() {
+    readonly property var palette: Components.UiTheme.palette
+
+    function statusFillColor() {
         switch (status) {
-            case "alarm":
-                return "#FF0000"; // 鲜红色
-            case "warning":
-                return "#FFFF00"; // 鲜黄色
-            case "processing":
-                return "#0000FF"; // 中蓝色
-            case "attention":
-                return "#00FF00"; // 中绿色
-            case "ready":
-                return "#00FF00"; // 中绿色 (Jobs button special state)
-            default:
-                return "#808080"; // 默认边框颜色
+        case "alarm":
+            return palette.accentAlarm;
+        case "warning":
+            return palette.accentWarning;
+        case "processing":
+            return palette.accentInfo;
+        case "attention":
+        case "ready":
+            return palette.accentSuccess;
+        default:
+            if (control.checked && control.twoState)
+                return palette.accentInfo;
+            if (control.down)
+                return palette.buttonDown;
+            return palette.buttonBase;
+        }
+    }
+
+    function statusBorderColor() {
+        switch (status) {
+        case "alarm":
+            return palette.accentAlarm;
+        case "warning":
+            return palette.accentWarning;
+        case "processing":
+            return palette.accentInfo;
+        case "attention":
+        case "ready":
+            return palette.accentSuccess;
+        default:
+            if (control.checked && control.twoState)
+                return palette.accentInfo;
+            return palette.outline;
+        }
+    }
+
+    function statusTextColor() {
+        switch (status) {
+        case "alarm":
+        case "warning":
+        case "processing":
+        case "attention":
+        case "ready":
+            return palette.textPrimary;
+        default:
+            if (control.checked && control.twoState)
+                return palette.textPrimary;
+            return palette.textPrimary;
         }
     }
 
     background: Rectangle {
-        // 视觉反馈：按下状态通过阴影或颜色变化
-        color: {
-            if (control.status === "alarm") return "#FF0000";
-            if (control.status === "warning") return "#FFFF00";
-            if (control.status === "ready") return "#00FF00";
-            if (control.checked && control.twoState) return "#0000FF"; // 双态按钮选中时为中蓝色
-            if (control.down) return "#b0b0b0"; // 瞬时按钮按下时
-            return "#c0c0c0"; // 默认颜色
-        }
-        
-        // 突出显示区域环绕按钮边缘
-        border.color: getStatusColor()
-        border.width: status === "normal" ? Math.max(1, control.resolvedScale) : Math.max(2, 4 * control.resolvedScale) // 突出显示时边框更粗
+        // 视觉反馈：按下、双态选中或报警时均切换为相应强调色
+        color: control.status === "warning" ? Qt.darker(statusFillColor(), 1.08) : statusFillColor()
+        border.color: statusBorderColor()
+        border.width: status === "normal" ? Math.max(1, control.resolvedScale) : Math.max(2, 4 * control.resolvedScale)
         radius: 4 * control.resolvedScale
     }
 
@@ -74,13 +103,7 @@ Button {
                 (control.font.pixelSize > 0 ? control.font.pixelSize : control.baseFontPixelSize) * control.fontScale
             )
         )
-        color: {
-            if (control.status === "alarm" || control.status === "warning" || control.status === "ready" || (control.checked && control.twoState)) {
-                return "white"; // 突出显示时文本颜色变为白色
-            } else {
-                return "#000000";
-            }
-        }
+        color: statusTextColor()
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
     }
