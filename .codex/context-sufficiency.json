@@ -1,10 +1,15 @@
 {
-  "timestamp": "2025-11-19T17:06:20+08:00",
+  "timestamp": "2025-11-24T10:35:00+08:00",
   "canDefineInterfaces": true,
+  "interfacesNotes": "GUI 暴露 QML context property (clientBridge、csvFileManager、alarmStore、chartListModel)，loadport 线程通过 LoadportBridge/E84ControllerThread 信号交互，GenericSerialDevice API 清晰 (start/stop/send_command)。",
   "techChoiceUnderstood": true,
+  "techNotes": "PySide6 用于 GUI/QThread，RPi.GPIO 驱动硬件引脚，串口模块用 pyserial 可选注入，整体遵循之前文档描述。",
   "risksIdentified": [
-    "移动文件可能导致相对路径、QML 引用失效",
-    "tests 需要同步更新导入路径"
+    "环境缺乏 PySide6/RPi.GPIO，导致 GUI/loadport 验证被阻塞",
+    "硬件依赖未模拟，无法确认 GPIO 逻辑",
+    "测试仅覆盖串口模块，GUI/E84 缺乏自动化测试",
+    "缺少 pyproject/requirements，依赖管理靠口头描述"
   ],
-  "verificationPlan": "运行 python -m unittest tests/test_serial_device.py 并尝试启动 gui/loadport 入口以确认路径更新"
+  "verificationPlan": "1) 在具备 PySide6 + RPi.GPIO 的目标环境运行 `QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app` 观察 Alarm/Config 行为；2) 同环境下运行 `python3 -m voc_app.loadport.main` 验证 E84 线程；3) 本地持续运行 `python3 -m unittest tests/test_serial_device.py` 保障串口库；4) 通过 examples/ascii_serial_demo.py 做手动串口演示",
+  "missingInfo": []
 }

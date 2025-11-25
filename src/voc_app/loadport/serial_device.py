@@ -50,6 +50,7 @@ class GenericSerialCommand:
     build_frame: Callable[..., bytes]
     response_parser: Optional[ResponseParserFn] = None
     response_handler: Optional[ResponseHandlerFn] = None
+    # 预留字段
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -69,16 +70,23 @@ class GenericSerialDevice:
         self.port = port
         self.baudrate = baudrate
         self.timeout = timeout
+
+        # 串口可支持自测
         self._serial_factory = serial_factory or self._default_serial_factory
         self._serial: Optional[SerialTransport] = None
+
+        # 接收解析线程
         self._reader_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._write_lock = threading.Lock()
+
         self._last_error: Optional[Exception] = None
         self.idle_sleep = idle_sleep
 
+        # 命令表用于解析
         self.command_table: Dict[str, GenericSerialCommand] = command_table or {}
         self.parser: ParserFn = parser or self._default_parser
+        # 用于广播机制，用于在解析之前依次执行其中的回调函数，但要注意不能存在耗时操作
         self.raw_listeners: list[Callable[[bytes], None]] = []
 
     # ------------------------------------------------------------------
@@ -92,6 +100,7 @@ class GenericSerialDevice:
         return serial.Serial(**kwargs)
 
     def start(self) -> None:
+        # 如果属性不存在，返回 False
         if self._serial and getattr(self._serial, "is_open", False):
             return
         self._serial = self._serial_factory(
@@ -112,6 +121,7 @@ class GenericSerialDevice:
             self._serial.close()
         self._serial = None
 
+    # 支持 with 操作
     def __enter__(self) -> "GenericSerialDevice":
         self.start()
         return self
@@ -161,6 +171,7 @@ class GenericSerialDevice:
         serial_obj = self._serial
         while not self._stop_event.is_set() and getattr(serial_obj, "is_open", False):
             try:
+                # in_waiting 属性返回的是当前操作系统的串口输入缓冲区中已经接收但尚未读取的字节数
                 waiting = getattr(serial_obj, "in_waiting", 0)
                 size = waiting if waiting else 1
                 chunk = serial_obj.read(size)

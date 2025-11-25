@@ -3,7 +3,7 @@ import time
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from voc_app.loadport.GPIOController import GPIOController
+from voc_app.loadport.gpio_controller import GPIOController
 
 
 SIG_ON = False

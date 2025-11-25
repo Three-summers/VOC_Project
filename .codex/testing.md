@@ -32,3 +32,9 @@
 - Command: `python3 -m unittest tests/test_serial_device.py`
 - Result: Passed
 - Output Summary: 1 test, 0 failures，验证重构后包路径可用。
+
+## 2025-11-24T10:50:00+08:00
+- Executor: Codex
+- Command: `python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures，確認 GenericSerialDevice 行為在最新結構掃描後仍可運作。

@@ -1,30 +1,75 @@
 {
-  "timestamp": "2025-11-19T17:05:00+08:00",
+  "timestamp": "2025-11-24T10:11:42+08:00",
   "rootStructure": {
-    "gui_main": ["main.py", "qml/", "alarm_store.py", "csv_model.py", "file_tree_browser.py", "socket_client.py", "qml_socket_client_bridge.py", "resources/"],
-    "new_loadport": ["E84Passive.py", "e84_thread.py", "GPIOController.py", "serial_device.py", "main.py"],
+    "src/voc_app/gui": [
+      "app.py",
+      "alarm_store.py",
+      "csv_model.py",
+      "file_tree_browser.py",
+      "socket_client.py",
+      "qml_socket_client_bridge.py",
+      "qml/",
+      "resources/",
+      "Log/"
+    ],
+    "src/voc_app/loadport": [
+      "E84Passive.py",
+      "e84_thread.py",
+      "GPIOController.py",
+      "serial_device.py",
+      "main.py"
+    ],
+    "examples": ["ascii_serial_demo.py"],
     "tests": ["test_serial_device.py"],
-    "sharedDocs": ["verification.md"]
+    "docs": ["STRUCTURE.md"],
+    "verification": ["verification.md", ".codex/testing.md"]
   },
-  "currentIssues": [
-    "Python 模块散落在 gui_main/new_loadport 目录，缺少统一包结构",
-    "QML 与 Python 同层放置，资源定位依赖 cwd，运行脚本需要手工调路径",
-    "没有 src/ 目录或 pyproject，无法直接 pip 安装或引用",
-    "tests 目录引用旧的包路径（new_loadport），未来重构需同步"
+  "currentImplementation": [
+    {
+      "feature": "GUI 启动与数据桥接",
+      "files": ["src/voc_app/gui/app.py", "src/voc_app/gui/qml/main.qml"],
+      "notes": "使用 PySide6 QApplication + QQmlApplicationEngine，绑定 ClientBridge/CsvFileManager/AlarmStore，将 LoadportBridge 信号推送到 TitlePanel。"
+    },
+    {
+      "feature": "E84 控制线程",
+      "files": ["src/voc_app/loadport/e84_thread.py", "src/voc_app/loadport/E84Passive.py"],
+      "notes": "QThread + QObject worker 在后台运行 E84Controller，并通过信号将状态/警告/致命错误推送回 GUI。"
+    },
+    {
+      "feature": "通用串口组件与示例",
+      "files": ["src/voc_app/loadport/serial_device.py", "examples/ascii_serial_demo.py"],
+      "notes": "GenericSerialDevice + GenericSerialCommand 支持注入命令表、parser、raw listener；示例通过换行分帧展示交互流程。"
+    }
   ],
-  "goals": [
-    "引入 src/voc_app 包含 gui 与 loadport 子包，形成现代化结构",
-    "将 QML/资源保留在 gui 子包内部，使用 __file__ 计算路径",
-    "提供统一入口（例如 scripts/run_gui.py 或 python -m voc_app.gui.main）",
-    "更新 tests/ 与其他模块以新包路径运行"
-  ],
-  "references": {
-    "gui_entry": "gui_main/main.py 使用 QApplication + QQmlApplicationEngine",
-    "loadport_entry": "new_loadport/main.py 作为 QCoreApplication 示例",
-    "serial_device": "new_loadport/serial_device.py 提供通用串口实现"
+  "techStack": {
+    "language": "Python 3.10",
+    "gui": "PySide6 + QML",
+    "concurrency": "QThread + QObject worker",
+    "hardware": "自定义 E84Passive 控制器、可选 pyserial",
+    "testing": "unittest",
+    "tooling": "无 pyproject，直接使用 python -m"
+  },
+  "tests": {
+    "unit": {
+      "command": "python3 -m unittest tests/test_serial_device.py",
+      "coverage": "验证 GenericSerialDevice send/receive 流程，使用内存串口 stub"
+    },
+    "gui": {
+      "command": "QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app",
+      "status": "历史记录表明缺少 PySide6/硬件依赖导致冒烟测试失败"
+    }
   },
   "observationReport": {
-    "gaps": ["缺少 __init__.py 形成包", "资源路径依赖相对路径"],
-    "suggestedNext": ["创建 src/voc_app with gui/loadport", "更新 imports/test", "调整 run 脚本"]
+    "knownGaps": [
+      "仅有串口单元测试，GUI/E84 未覆盖",
+      "运行依赖 PySide6 与硬件（RPi.GPIO 等）目前缺失，verification.md 中标记为阻塞",
+      "缺少 pyproject/requirements，依赖管理全靠描述",
+      "socket_client.py 中 Communicator 仅实现 Socket/Serial，但 GUI 侧未实际使用（可能缺乏服务器/设备实现）"
+    ],
+    "nextFocus": [
+      "确认 GUI 与 loadport 是否可完全离线运行或需要硬件模拟",
+      "梳理预期交付：是桌面 GUI + E84 控制还是串口库示例",
+      "评估测试策略，至少扩展到 GUI 逻辑/ loadport 状态机"
+    ]
   }
 }

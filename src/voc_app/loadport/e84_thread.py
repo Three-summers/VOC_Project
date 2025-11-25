@@ -1,6 +1,6 @@
 from PySide6.QtCore import QObject, QThread, Signal, Slot, QMetaObject, Qt
 
-from voc_app.loadport.E84Passive import E84Controller
+from voc_app.loadport.e84_passive import E84Controller
 
 
 class _E84Worker(QObject):
