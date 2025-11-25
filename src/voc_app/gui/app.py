@@ -167,17 +167,18 @@ if __name__ == "__main__":
     # 暴露出消息框属性
     root_obj = engine.rootObjects()[0]
     main_item = root_obj.findChild(QObject, "title_message")
-    main_item.setProperty("systemMessage", "Hello World")
+    if main_item != None:
+        main_item.setProperty("systemMessage", "Hello World")
 
     # 启动后如存在 CSV 日志，预先解析一份，便于 DataLog/FileView 直接展示
     # if csv_file_manager.csvFiles:
     #     csv_file_manager.parse_csv_file(csv_file_manager.csvFiles[0])
 
     # 非树莓环境调试：暂时不启动 loadport 后台线程，避免触发 RPi.GPIO 依赖
-    '''
+    """
     bridge = LoadportBridge(alarm_store=alarm_store, title_panel=main_item)
     bridge.start()
     app.aboutToQuit.connect(bridge.shutdown)
-    '''
+    """
 
     sys.exit(app.exec())

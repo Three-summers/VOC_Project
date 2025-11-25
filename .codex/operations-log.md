@@ -334,3 +334,9 @@
 | 2025-11-25T13:16:05+08:00#340 | shell | date -Iseconds | 记录报警弹窗修复开始时间 |
 | 2025-11-25T13:16:20+08:00#341 | apply_patch | src/voc_app/gui/qml/TitlePanel.qml | 绑定 alarmModel.count 并用 hasActiveAlarm 控制列表可见性 |
 | 2025-11-25T13:16:31+08:00#342 | shell | date -Iseconds | 记录报警弹窗修复完成时间 |
+| 2025-11-25T13:59:58+08:00#343 | shell | date -Iseconds | 记录 LoginDialog 排版优化开始时间 |
+| 2025-11-25T14:00:15+08:00#344 | apply_patch | src/voc_app/gui/qml/components/LoginDialog.qml | footer 增加边距/按钮尺寸，避免 Cancel/OK 挤在一起 |
+| 2025-11-25T14:00:26+08:00#345 | shell | date -Iseconds | 记录 LoginDialog 修复完成时间 |
+| 2025-11-25T14:07:03+08:00#346 | shell | date -Iseconds | 记录 LoginDialog 引入 UiTheme import 的时间戳 |
+| 2025-11-25T14:07:20+08:00#347 | apply_patch | src/voc_app/gui/qml/components/LoginDialog.qml | 增加 `import "./" as Components` 解决引用错误 |
+| 2025-11-25T14:07:35+08:00#348 | shell | date -Iseconds | 记录修复完成时间 |

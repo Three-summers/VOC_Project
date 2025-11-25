@@ -14,19 +14,19 @@ class QmlSocketClientBridge(QObject):
 
     典型用法（Python）:
         bridge = QmlSocketClientBridge(Client, SocketCommunicator)
-        engine.rootContext().setContextProperty("ClientBridge", bridge)
+        engine.rootContext().setContextProperty("clientBridge", bridge)
 
     典型用法（QML）:
         // 连接
-        // ClientBridge.connectSocket("127.0.0.1", 9000)
+        // clientBridge.connectSocket("127.0.0.1", 9000)
 
         // 异步执行命令
-        // ClientBridge.runShellAsync("ls -la")
-        // ClientBridge.runShellFinished.connect(function(out) { console.log(out) })
+        // clientBridge.runShellAsync("ls -la")
+        // clientBridge.runShellFinished.connect(function(out) { console.log(out) })
 
         // 异步下载
-        // ClientBridge.getFileAsync("/remote/path", "/local/save")
-        // ClientBridge.getFileFinished.connect(function(paths) { console.log(paths) })
+        // clientBridge.getFileAsync("/remote/path", "/local/save")
+        // clientBridge.getFileFinished.connect(function(paths) { console.log(paths) })
     """
 
     # 结果信号
