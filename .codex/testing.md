@@ -59,3 +59,17 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；证明新增工业风 UI 改动未影响现有串口逻辑。
 - Notes: 继续保留 GUI 冒烟测试的 PySide6 缺失风险，待依赖安装后再运行。
+
+## 2025-11-25T14:39:20+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；确认串口模块改动后仍稳定。
+- Notes: GUI 功能仍需在具备 PySide6 的环境中运行以验证 FOUP 采集流程。
+
+## 2025-11-25T15:24:32+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；确认 socket 模块修改未影响串口功能。
+- Notes: GUI 验证仍需 PySide6 环境配合。 

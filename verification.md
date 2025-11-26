@@ -47,3 +47,11 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures。UI 仅修改 QML/样式层，串口单测仍然通过，说明后端逻辑未受影响。
 - Risk Assessment: 中。GUI 冒烟测试仍因 PySide6 缺失而无法执行，需在具备依赖的目标站点重新运行以验证 QML。当前结果仅覆盖 Python 层。
+
+## Verification - 2025-11-25T14:39:20+08:00
+- Executor: Codex
+- Scope: FOUP 采集控制器 + Config UI
+- Command: `PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app` (未执行)
+- Result: ⚠️ Blocked
+- Details: 当前环境仍缺少 PySide6，无法启动 GUI 验证开始/停止按钮及折线图渲染；逻辑层面已通过单元测试和代码审查确认。待目标设备安装 PySide6 并提供本地 65432 采集服务后再运行，验证 chartListModel 是否收到实时数据。
+- Risk Assessment: 中。若采集服务器回传格式与假设不同，需要调整 foup_acquisition.py 的解析逻辑；建议上线前在目标网络环境实机测试一次。

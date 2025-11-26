@@ -42,7 +42,7 @@ Rectangle {
             backgroundRoundness: 0
             dropShadowEnabled: false
             animationOptions: ChartView.NoAnimation
-            antialiasing: true
+            antialiasing: false
             // animationOptions: ChartView.SeriesAnimations
             titleFont.pixelSize: Components.UiTheme.fontSize("body")
             margins.top: Components.UiTheme.spacing("sm")
@@ -83,7 +83,8 @@ Rectangle {
 
             VXYModelMapper {
                 id: mapper
-                series: chartCard.seriesModel ? lineSeries : null
+                // series: chartCard.seriesModel ? lineSeries : null
+                // 不在这里绑定 series，由 updateMapperBinding() 统一管理
             }
         }
     }
@@ -126,12 +127,17 @@ Rectangle {
         }
     }
 
-    Component.onCompleted: updateMapperBinding()
+    Component.onCompleted: {
+        updateMapperBinding();
+    }
 
     onSeriesModelChanged: {
         if (chartCard.seriesModel) {
             lineSeries.clear();
             updateAxesFromSeries();
+            if (typeof chartCard.seriesModel.force_rebuild === "function") {
+                chartCard.seriesModel.force_rebuild();
+            }
         } else {
             lineSeries.clear();
         }
@@ -180,7 +186,19 @@ Rectangle {
     Connections {
         target: chartCard.seriesModel
         enabled: chartCard.seriesModel
+
+        property int previousRowCount: 0
+
         function onBoundsChanged() {
+            var currentRowCount = chartCard.seriesModel.rowCount();
+
+            // 如果是第一次接收到数据（从 0 到 1），强制重新绑定 mapper
+            if (previousRowCount === 0 && currentRowCount > 0) {
+                chartCard.seriesModel.force_rebuild();
+                chartCard.updateMapperBinding();
+            }
+
+            previousRowCount = currentRowCount;
             chartCard.updateAxesFromSeries();
         }
     }

@@ -22,8 +22,7 @@ Rectangle {
 
     // FOUP 子页面实时曲线配置
     readonly property var foupCharts: [
-        { title: "电压", currentValue: "3.6 V", index: 2 },
-        { title: "温度", currentValue: "25 ℃", index: 3 }
+        { title: "电压", currentValue: "3.6 V", index: 2 }
     ]
 
     // 便捷函数，按索引读取曲线对象，缺省时返回占位配置
@@ -36,6 +35,7 @@ Rectangle {
         };
         if (typeof chartListModel === "undefined" || !chartListModel || typeof chartListModel.get !== "function")
             return fallback;
+        // 获取指定行的曲线配置
         const entry = chartListModel.get(rowIndex);
         if (!entry || Object.keys(entry).length === 0)
             return fallback;

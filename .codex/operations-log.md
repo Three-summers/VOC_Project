@@ -340,3 +340,34 @@
 | 2025-11-25T14:07:03+08:00#346 | shell | date -Iseconds | 记录 LoginDialog 引入 UiTheme import 的时间戳 |
 | 2025-11-25T14:07:20+08:00#347 | apply_patch | src/voc_app/gui/qml/components/LoginDialog.qml | 增加 `import "./" as Components` 解决引用错误 |
 | 2025-11-25T14:07:35+08:00#348 | shell | date -Iseconds | 记录修复完成时间 |
+| 2025-11-25T14:33:37+08:00#349 | sequential-thinking | 调用 | 评估 Config Foup 采集流程改造需求 |
+| 2025-11-25T14:33:37+08:00#350 | shell | date -Iseconds | 记录新任务开始时间 |
+| 2025-11-25T14:34:10+08:00#351 | shell | cat <<'EOF' > .codex/context-scan.json | 更新结构化扫描：Config FOUP 采集需求 |
+| 2025-11-25T14:34:30+08:00#352 | shell | cat <<'EOF' > .codex/context-question-18.json | 记录新需求的关键疑问 |
+| 2025-11-25T14:34:55+08:00#353 | shell | cat <<'EOF' > .codex/context-question-19.json | 记录 Q1 数据格式假设与处理策略 |
+| 2025-11-25T14:35:20+08:00#354 | shell | cat <<'EOF' > .codex/context-sufficiency.json | 记录本阶段充分性检查 |
+| 2025-11-25T14:36:10+08:00#355 | shell | cat <<'EOF' > src/voc_app/gui/foup_acquisition.py | 创建 FOUP 采集控制器模块 |
+| 2025-11-25T14:37:05+08:00#356 | apply_patch | src/voc_app/gui/app.py | 重构 chartListModel，新增 FOUP 控制器上下文并连接退出钩子 |
+| 2025-11-25T14:38:10+08:00#357 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | FOUP 状态绑定控制器并用 ChartCard 展示曲线 |
+| 2025-11-25T14:38:55+08:00#358 | apply_patch | src/voc_app/gui/qml/commands/Config_foupCommands.qml | 将控制采集拆分为开始/停止并绑定 foupAcquisition |
+| 2025-11-25T14:39:20+08:00#359 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 回归串口单测，保证后端未破坏 |
+| 2025-11-25T14:39:20+08:00#360 | shell | cat <<'EOF' >> .codex/testing.md | 记录测试通过结果 |
+| 2025-11-25T14:39:20+08:00#361 | shell | cat <<'EOF' >> verification.md | 更新验证报告，说明 GUI 仍受 PySide6 限制 |
+| 2025-11-25T15:20:43+08:00#362 | sequential-thinking | 调用 | 评估用户新要求：复用既有 socket 模块 + 单一 FOUP 图表 |
+| 2025-11-25T15:20:43+08:00#363 | shell | date -Iseconds | 记录改造开始时间 |
+| 2025-11-25T15:22:05+08:00#364 | apply_patch | src/voc_app/gui/foup_acquisition.py | 改为复用 SocketCommunicator，并按单值数据流解析 |
+| 2025-11-25T15:23:10+08:00#365 | apply_patch | src/voc_app/gui/app.py | FOUP 仅保留一个 SeriesModel，与新采集逻辑匹配 |
+| 2025-11-25T15:23:50+08:00#366 | apply_patch | src/voc_app/gui/qml/views/StatusView.qml | FOUP chart 配置改为单通道（索引 2） |
+| 2025-11-25T15:24:32+08:00#367 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 再次运行串口单测，确认变更未破坏 |
+| 2025-11-25T15:24:32+08:00#368 | shell | cat <<'EOF' >> .codex/testing.md | 记录测试结果 |
+| 2025-11-25T15:27:59+08:00#369 | shell | rm -f src/voc_app/gui/__pycache__/app.cpython-311.pyc src/voc_app/gui/__pycache__/foup_acquisition.cpython-311.pyc | 清理新生成的 pyc |
+| 2025-11-25T15:31:23+08:00#370 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | FOUP 子页面改为单图表并在未采集时显示提示文本 |
+| 2025-11-25T15:41:41+08:00#371 | apply_patch | src/voc_app/gui/foup_acquisition.py | start/stop 时发送 "power on/off" 指令并抽取 send helper |
+| 2025-11-25T16:01:54+08:00#372 | apply_patch | src/voc_app/gui/foup_acquisition.py | 修正 power 指令发送格式（4 字节长度+UTF-8 正文）以匹配服务端协议 |
+| 2025-11-25T16:28:37+08:00#373 | apply_patch | src/voc_app/gui/foup_acquisition.py | 采用 length-prefixed 接收逻辑，解析服务器 send_msg 发送的数据 |
+| 2025-11-25T16:49:25+08:00#374 | apply_patch | src/voc_app/gui/foup_acquisition.py | power on/off 命令在长度前缀后附带换行符，匹配服务端 wordexp 解析 |
+| 2025-11-25T17:19:54+08:00#375 | apply_patch | src/voc_app/gui/foup_acquisition.py | 为 start/stop、接收/解析流程增加详细调试日志，便于排查数据流 |
+| 2025-11-25T17:22:10+08:00#376 | apply_patch | src/voc_app/gui/foup_acquisition.py | 暴露 seriesModel/lastValue 属性，更新 lastValue 信号 |
+| 2025-11-25T17:24:46+08:00#377 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | ChartCard 绑定 foupAcquisition.seriesModel 并显示当前值 |
+| 2025-11-25T17:35:10+08:00#378 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | 恢复 ChartCard 直接使用 chartListModel 提供的系列，避免 QML 绑定失效 |
+| 2025-11-25T17:40:55+08:00#379 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | 参照 StatusView 使用 Repeater + chartEntry，确保曲线绑定一致 |

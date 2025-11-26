@@ -18,10 +18,31 @@ Rectangle {
         syncTime: Qt.formatDateTime(new Date(), "yyyy-MM-dd hh:mm:ss"),
         acquisitionStatus: "采集中"
     })
+    readonly property int foupChartIndex: 2
+
+    function chartEntry(rowIndex, fallbackTitle) {
+        const fallback = {
+            title: fallbackTitle || "",
+            seriesModel: null,
+            xColumn: 0,
+            yColumn: 1
+        };
+        if (typeof chartListModel === "undefined" || !chartListModel || typeof chartListModel.get !== "function")
+        return fallback;
+        const entry = chartListModel.get(rowIndex);
+        if (!entry || Object.keys(entry).length === 0)
+        return fallback;
+        return {
+            title: entry.title || fallback.title,
+            seriesModel: entry.seriesModel || null,
+            xColumn: typeof entry.xColumn === "number" ? entry.xColumn : 0,
+            yColumn: typeof entry.yColumn === "number" ? entry.yColumn : 1
+        };
+    }
 
     function displayValue(value) {
         if (value === null || typeof value === "undefined" || value === "")
-            return "--";
+        return "--";
         return value;
     }
 
@@ -195,11 +216,15 @@ Rectangle {
                                 width: Components.UiTheme.spacing("lg")
                                 height: Components.UiTheme.spacing("lg")
                                 radius: Components.UiTheme.radius("pill")
-                                color: configView.foupInfo.acquisitionStatus === "采集中" ? "#4caf50" : "#f44336"
+                                color: (typeof foupAcquisition !== "undefined" && foupAcquisition && foupAcquisition.running)
+                                ? "#4caf50"
+                                : "#f44336"
                             }
 
                             Text {
-                                text: configView.displayValue(configView.foupInfo.acquisitionStatus)
+                                text: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                ? foupAcquisition.statusMessage
+                                : configView.displayValue(configView.foupInfo.acquisitionStatus)
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
                                 font.bold: true
                                 color: "#2f3645"
@@ -207,17 +232,45 @@ Rectangle {
                         }
                     }
 
-                    Rectangle {
+                    ColumnLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: Components.UiTheme.radius(14)
-                        color: "#f6f8fc"
-                        border.color: "#e1e7f3"
+                        spacing: Components.UiTheme.spacing("md")
+
+                        Repeater {
+                            model: [{ title: "FOUP", index: configView.foupChartIndex }]
+                            delegate: Components.ChartCard {
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                Layout.preferredHeight: Components.UiTheme.controlHeight(220)
+                                radius: Components.UiTheme.radius(18)
+                                color: "#ffffff"
+                                border.color: "#dbe0ed"
+
+                                // 使用 readonly property 缓存配置，确保稳定的属性绑定
+                                readonly property var config: configView.chartEntry(modelData.index, modelData.title)
+                                seriesModel: config.seriesModel
+                                xColumn: config.xColumn
+                                yColumn: config.yColumn
+
+                                scaleFactor: configView.scaleFactor
+
+
+                                Text {
+                                    visible: !seriesModel
+                                    anchors.centerIn: parent
+                                    text: "点击开始采集后显示实时曲线"
+                                    color: "#9aa5be"
+                                    font.pixelSize: Components.UiTheme.fontSize("body")
+                                }
+                            }
+                        }
 
                         Text {
-                            anchors.centerIn: parent
-                            text: "采集通道示意(稍后接入)"
-                            color: "#9aa5be"
+                            text: (typeof foupAcquisition !== "undefined" && foupAcquisition && !isNaN(foupAcquisition.lastValue))
+                            ? "当前值：" + foupAcquisition.lastValue.toFixed(2)
+                            : "当前值：--"
+                            color: "#6c738a"
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
                     }

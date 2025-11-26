@@ -1,77 +1,56 @@
 {
-  "timestamp": "2025-11-25T11:13:58+08:00",
-  "taskScope": "调整 GUI 为工业风灰色调、添加标题栏 Alarms 弹框、增强数据日志列选择与文件树视觉",
+  "timestamp": "2025-11-25T14:33:37+08:00",
+  "taskScope": "Config -> FOUP 采集流程：命令按钮拆分、QML -> Python 信号、Socket 采集、折线图显示",
   "locations": {
-    "titlePanel": {
-      "file": "src/voc_app/gui/qml/TitlePanel.qml",
-      "role": "顶栏包含时钟/视图名称/消息条/Login-Quit 控件",
-      "currentStyle": "背景 #333333，消息栏 Rectangle 仅按内容宽度扩张，文本灰色 (#aaaaaa)，无报警对比色或弹框",
-      "changeTargets": ["扩大消息区域宽度并在报警时切换文字为红色","插入只读 Alarms 弹出面板并与导航栏状态同步","统一顶部配色为工业灰+高对比" ]
+    "configView": {
+      "file": "src/voc_app/gui/qml/views/ConfigView.qml",
+      "role": "Config 页主视图，loadport/foup 两个子视图，FOUP 区域包含采集状态与一个占位矩形",
+      "notes": "目前 foupInfo 为静态数据；采集面板仅展示文本 '采集通道示意(稍后接入)'"
     },
-    "navigationPanel": {
-      "file": "src/voc_app/gui/qml/NavigationPanel.qml",
-      "role": "底部导航，右侧按钮含 Alarms/Help，hasNewAlarms 属性控制 CustomButton status",
-      "currentState": "按钮颜色由 CustomButton status 控制，尚无与标题栏视觉/弹框联动",
-      "changeTargets": ["与 TitlePanel 弹出框共享 Alarm 状态","强化视觉对比" ]
+    "foupCommands": {
+      "file": "src/voc_app/gui/qml/commands/Config_foupCommands.qml",
+      "role": "命令面板按钮；现包含 '控制采集' 按钮直接调用 clientBridge.connectSocket 并 ls -al",
+      "notes": "需要拆为开始/停止按钮并调用主程序新接口"
     },
-    "customButton": {
-      "file": "src/voc_app/gui/qml/components/CustomButton.qml",
-      "role": "所有按钮的状态/颜色源",
-      "currentState": "默认背景 #c0c0c0，alarm 状态纯红/黄/绿/蓝色彩偏亮，非工业灰系",
-      "changeTargets": ["调低饱和度并引入多灰阶底色","增加对比度（边框/文本）" ]
+    "chartModels": {
+      "files": ["src/voc_app/gui/app.py", "src/voc_app/gui/csv_model.py"],
+      "role": "ChartDataListModel + SeriesTableModel + ChartDataGenerator 提供 StatusView 实时曲线",
+      "notes": "app.py 默认生成 4 条随机数据并暴露 chartListModel；FOUP/Loadport 通过索引访问"
     },
-    "uiTheme": {
-      "file": "src/voc_app/gui/qml/components/UiTheme.qml",
-      "role": "字体/控件/间距尺寸缩放",
-      "currentState": "仅定义尺寸，无配色/阴影抽象；配色需在各 QML 单独设置",
-      "changeTargets": ["必要时新增集中调色常量，便于工业风实现"]
+    "statusView": {
+      "file": "src/voc_app/gui/qml/views/StatusView.qml",
+      "role": "示例 ChartCard 使用 chartListModel，提供 chartEntry() 工具，可复用"
     },
-    "messageArea": {
-      "file": "src/voc_app/gui/qml/TitlePanel.qml#RowLayout",
-      "role": "系统消息文本",
-      "currentState": "RowLayout 中的 Rectangle 没有 Layout.fillWidth，导致宽度窄且缺少状态颜色",
-      "changeTargets": ["给予最小/首选宽度或 fillWidth","添加 alarm 状态颜色切换"]
-    },
-    "dataLogView": {
-      "file": "src/voc_app/gui/qml/views/DataLogView.qml",
-      "role": "数据日志主界面（列列表 + 文件树 + 图表）",
-      "currentState": "CheckBox 使用默认像素尺寸（与 80px 高度行不匹配）；列数多时显得过小；背景主色是浅灰 #f0f0f0",
-      "changeTargets": ["放大复选框指标并保持易触控","适度提高对比度"]
-    },
-    "fileTree": {
-      "file": "src/voc_app/gui/qml/components/FileTreeBrowserView.qml",
-      "role": "数据日志左侧目录树",
-      "currentState": "选中项背景色 #1a87cefa（蓝）且 Rectangle 填满整行，Row 内左边距造成文本在背景内偏左，视觉不居中",
-      "changeTargets": ["调整选中色为工业灰暗蓝并将文本容器居中/保持统一 padding"]
+    "clientBridge": {
+      "files": ["src/voc_app/gui/qml_socket_client_bridge.py", "src/voc_app/gui/socket_client.py"],
+      "role": "QML 调 socket 客户端的桥接类；可复用通信工具，但新需求更偏向在主程序管理连接"
     }
   },
   "techStack": {
-    "language": "Python 3 + PySide6 (QML)",
-    "ui": "QtQuick.Controls 2 + 自定义组件",
-    "theme": "当前以硬编码颜色为主，无集中调色",
-    "testing": "unittest 仅覆盖串口模块"
+    "python": "PySide6 QObject + threading + socket，用于采集控制",
+    "qml": "QtQuick.Controls + ChartView，ChartCard 利用 VXYModelMapper",
+    "dataFlow": "ChartDataListModel -> ChartCard，SeriesTableModel 提供 append_point(slot)"
   },
   "tests": {
     "unit": {
       "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
-      "status": "可运行，覆盖串口逻辑"
+      "status": "pass (2025-11-25)"
     },
     "gui": {
       "command": "PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app",
-      "status": "缺少 PySide6/RPi.GPIO，仍无法自动运行"
+      "status": "blocked (缺少 PySide6)"
     }
   },
   "observationReport": {
-    "anomalies": [
-      "主题颜色分散在多个 QML 文件且非工业灰，需要统一色板",
-      "无现成 AlarmStore（在 main.qml 中被注释），需确保导航栏 hasNewAlarms 仍可驱动标题弹框（可能使用占位属性）",
-      "DataLogView 缺少 CheckBox 样式自定义，必须自建 indicator" ],
-    "infoGaps": [
-      "暂无可用的 code-index 工具，所有检索通过 shell/rg 手工完成" ],
-    "recommendedFocus": [
-      "确定是否恢复 main.qml 中的 alarmStore 或提供 mock 以驱动状态",
-      "梳理 TitlePanel/NavPanel 之间共享属性的最佳位置（可能通过 main.qml property/Binding）",
-      "调研 Qt Quick Controls 2 中 CheckBox 自定义 indicator 的做法以确保触控尺寸 >= 44px"
+    "gaps": [
+      "Config FOUP 区没有实际采集图；命令按钮直接调用 clientBridge，缺乏 start/stop 状态",
+      "chartListModel 全部使用随机生成器，需为 FOUP channel 绑定真实数据",
+      "需要设计 Python 控制器负责连接 127.0.0.1:65432 并把数据推送到 SeriesTableModel"
+    ],
+    "nextSteps": [
+      "新增 FoupAcquisitionController (QObject) 并暴露给 QML",
+      "改造 ConfigView 的状态文案、采集通道 UI，使用 ChartCard",
+      "拆分 Config_foupCommands.qml 按钮逻辑"
     ]
   }
 }

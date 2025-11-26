@@ -26,6 +26,7 @@ from voc_app.gui.csv_model import (
 )
 from voc_app.gui.alarm_store import AlarmStore
 from voc_app.gui.file_tree_browser import FilePreviewController
+from voc_app.gui.foup_acquisition import FoupAcquisitionController
 
 
 # 验证用户密钥
@@ -131,17 +132,25 @@ if __name__ == "__main__":
     chart_list_model = ChartDataListModel()
 
     chart_generators_instances = []
-    for i in range(4):
-        # 每秒追加一次点，只保留最近 60 秒的数据窗口
+    loadport_series_labels = ["Loadport 通道 1", "Loadport 通道 2"]
+    for idx, label in enumerate(loadport_series_labels):
         series_model = SeriesTableModel(max_rows=60, parent=chart_list_model)
         generator = ChartDataGenerator(series_model)
-        chart_list_model.addSeries(f"Chart {i + 1}", series_model)
+        chart_list_model.addSeries(label, series_model)
         chart_generators_instances.append(generator)
-
         for _ in range(10):
             generator.generate_new_point()
 
+    foup_series_models = []
+    for label in ["FOUP 通道 1"]:
+        series_model = SeriesTableModel(max_rows=600, parent=chart_list_model)
+        chart_list_model.addSeries(label, series_model)
+        foup_series_models.append(series_model)
+
     engine.rootContext().setContextProperty("chartListModel", chart_list_model)
+
+    foup_acquisition = FoupAcquisitionController(foup_series_models)
+    engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
     alarm_store = AlarmStore()
     alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
@@ -180,5 +189,7 @@ if __name__ == "__main__":
     bridge.start()
     app.aboutToQuit.connect(bridge.shutdown)
     """
+
+    app.aboutToQuit.connect(foup_acquisition.stopAcquisition)
 
     sys.exit(app.exec())

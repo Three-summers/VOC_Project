@@ -7,6 +7,7 @@ from PySide6.QtCore import (
     QAbstractListModel,
     QAbstractTableModel,
     QModelIndex,
+    QPersistentModelIndex,
     Qt,
     Slot,
     QByteArray,
@@ -29,7 +30,7 @@ class ColumnData(QObject):
     def columnName(self):
         return self._column_name
 
-    @Property("QVariantList", notify=dataPointsChanged)
+    @Property("QVariantList", notify=dataPointsChanged)  # pyright: ignore
     def dataPoints(self):
         return self._data_points
 
@@ -50,7 +51,7 @@ class SeriesTableModel(QAbstractTableModel):
         self._has_data = False
 
     @Property(int)
-    def maxRows(self):
+    def maxRows(self):  # pyright: ignore[reportRedeclaration]
         return self._max_rows
 
     @maxRows.setter
@@ -67,13 +68,13 @@ class SeriesTableModel(QAbstractTableModel):
             if self._recalculate_bounds():
                 self.boundsChanged.emit()
 
-    def rowCount(self, parent=QModelIndex()):
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()):
         return 0 if parent.isValid() else len(self._rows)
 
-    def columnCount(self, parent=QModelIndex()):
+    def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()):
         return 0 if parent.isValid() else 2
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+    def data(self, index, role: int = Qt.ItemDataRole.DisplayRole):
         if role not in (Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.EditRole):
             return None
         if not index.isValid() or not (0 <= index.row() < len(self._rows)):
@@ -114,13 +115,20 @@ class SeriesTableModel(QAbstractTableModel):
             self.endRemoveRows()
             bounds_changed = self._recalculate_bounds()
 
-        self.beginInsertRows(QModelIndex(), len(self._rows), len(self._rows))
+        row_index = len(self._rows)
+        self.beginInsertRows(QModelIndex(), row_index, row_index)
         self._rows.append([x, y])
         self.endInsertRows()
         bounds_changed = self._update_bounds(x, y) or bounds_changed
 
         if bounds_changed:
             self.boundsChanged.emit()
+
+    @Slot()
+    def force_rebuild(self):
+        """强制 QML 视图完全重建模型，用于解决动态加载后无法显示存量数据的问题。"""
+        self.beginResetModel()
+        self.endResetModel()
 
     def _update_bounds(self, x, y):
         """增量更新坐标边界，减少不必要的遍历。"""
@@ -221,10 +229,10 @@ class ChartDataListModel(QAbstractListModel):
         super().__init__(parent)
         self._entries = []
 
-    def rowCount(self, parent=QModelIndex()):
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()):
         return 0 if parent.isValid() else len(self._entries)
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+    def data(self, index, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self._entries)):
             return None
 
@@ -260,7 +268,7 @@ class ChartDataListModel(QAbstractListModel):
         )
         self.endInsertRows()
 
-    @Slot(int, result="QVariantMap")
+    @Slot(int, result="QVariantMap") # pyright: ignore
     def get(self, row):
         """允许 QML 通过索引读取单条曲线的详细信息。"""
         if not (0 <= row < len(self._entries)):
@@ -284,7 +292,7 @@ class CsvDataModel(QAbstractListModel):
         self._data = []
         self._column_names = []
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+    def data(self, index, role: int = Qt.ItemDataRole.DisplayRole):
         if not index.isValid() or not (0 <= index.row() < len(self._data)):
             return None
 
@@ -295,7 +303,7 @@ class CsvDataModel(QAbstractListModel):
             return item.dataPoints
         return None
 
-    def rowCount(self, parent=QModelIndex()):
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()):
         return len(self._data)
 
     def roleNames(self):
@@ -304,7 +312,7 @@ class CsvDataModel(QAbstractListModel):
             self.DataPointsRole: QByteArray(b"dataPoints"),
         }
 
-    @Property("QStringList", notify=columnNamesChanged)
+    @Property("QStringList", notify=columnNamesChanged) # pyright: ignore
     def columnNames(self):
         return self._column_names
 
@@ -318,7 +326,7 @@ class CsvDataModel(QAbstractListModel):
             self._column_names = new_names
             self.columnNamesChanged.emit()
 
-    @Slot(int, result="QVariantMap")
+    @Slot(int, result="QVariantMap") # pyright: ignore
     def get(self, row):
         if not (0 <= row < len(self._data)):
             return {}

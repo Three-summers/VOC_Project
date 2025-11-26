@@ -1,15 +1,14 @@
 {
-  "timestamp": "2025-11-25T11:16:12+08:00",
+  "timestamp": "2025-11-25T14:35:20+08:00",
   "canDefineInterfaces": true,
-  "interfacesNotes": "主入口 app.py 暴露 alarmStore/csvFileManager/clientBridge 等 context 属性；导航栏已通过 hasNewAlarms 读取 alarmStore.hasActiveAlarm，因此只需在 TitlePanel 暴露 alarmStoreRef 与消息状态属性即可定义接口契约。DataLogView 的列选择 delegate 已知结构 (model.columnName/dataPoints)，复选框可通过 setColumnSelected(name, bool) 更新；文件树 Row 使用 node.filePath/node.depth，允许我们约束高亮与布局接口。",
+  "interfacesNotes": "Config_foupCommands -> (foupAcquisition.start/stop) 通过 context property；FoupComponent ChartCard -> chartListModel entries [2,3]；FoupAcquisitionController -> SeriesTableModel.append_point() 负责数据流。",
   "techChoiceUnderstood": true,
-  "techNotes": "UI 栈由 QtQuick.Controls 2 + QML 构成，PySide6 负责加载。颜色主题目前硬编码，可通过新增 palette JavaScript 对象或在 UiTheme Singleton 中扩展属性集中管理。CheckBox/Popup/Rectangle 等控件可自定义 indicator/background 实现工业灰风格。",
+  "techNotes": "使用 PySide6 QObject + threading + socket.create_connection 连接本地 65432，读取文本流。利用现有 ChartDataListModel/SeriesTableModel/VXYModelMapper 呈现折线图。QML 使用 CustomButton + ChartCard。",
   "risksIdentified": [
-    "未启用 alarmStoreRef 时，标题栏弹框可能拿不到状态，需在 main.qml 显式传递",
-    "CustomButton 全局配色调整可能影响其他按钮；需验证默认状态仍可读",
-    "复选框与文件树重绘需确保触控区域 >= 44px，且不破坏现有布局",
-    "无法在本机运行 PySide6 GUI，需通过代码审查与静态验证确保逻辑正确"
+    "Socket 收到的数据格式未知，需要健壮解析与错误提示",
+    "SeriesTableModel 必须在主线程更新，线程安全需通过 QMetaObject.invokeMethod 或 QTimer.singleShot",
+    "采集线程的启动/停止状态需要反映到 UI，防止重复启动"
   ],
-  "verificationPlan": "1) 运行 `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py` 作为回归基准；2) 若环境允许，执行 `PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app` 验证 QML 是否加载（若缺库则在 verification.md 记录原因）；3) 静态检查 QML 编译错误（qmlimportscanner/qmllint 不可用时，使用 `python3 -m voc_app.gui.app` dry-run）。",
+  "verificationPlan": "1) 单元测试维持 `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`；2) 手动检查 FoupAcquisitionController 追加数据的逻辑；3) GUI 无法运行（缺 PySide6），需在 verification.md 记录；4) 通过日志/console 输出验证 socket 连通性。",
   "missingInfo": []
 }

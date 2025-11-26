@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-11-25T14:34:30+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "text": "Socket 数据格式未定义——默认假设每行包含两个采集值（可用空格/逗号分隔），是否可接受？若服务端提供更多通道，是否需要扩展？",
+      "priority": "high"
+    },
+    {
+      "id": "Q2",
+      "text": "Config FOUP 面板需要显示几条曲线？现有 chartListModel 提供 4 条随机数据，是否保留前两条给 Loadport、后两条给 FOUP？",
+      "priority": "medium"
+    },
+    {
+      "id": "Q3",
+      "text": "采集状态/同步时间应如何更新？是依据控制器运行状态自动刷新，还是继续依赖 foupInfo 静态结构？",
+      "priority": "medium"
+    }
+  ]
+}

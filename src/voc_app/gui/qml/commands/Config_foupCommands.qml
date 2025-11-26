@@ -9,6 +9,8 @@ Column {
     anchors.margins: Components.UiTheme.spacing("md")
     spacing: Components.UiTheme.spacing("md")
 
+    readonly property var acquisitionController: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+
     Text {
         text: "FOUP 采集命令"
         font.bold: true
@@ -25,17 +27,38 @@ Column {
     }
 
     CustomButton {
-        text: "控制采集"
+        text: acquisitionController && acquisitionController.running ? "采集中" : "开始采集"
         width: parent.width
-        // onClicked: console.log("Config/FOUP: 控制采集")
+        enabled: acquisitionController && !acquisitionController.running
+        status: acquisitionController && acquisitionController.running ? "processing" : "normal"
         onClicked: {
-            if (clientBridge == null) {
-                console.log("clientBridge is null");
+            if (!acquisitionController) {
+                console.warn("foupAcquisition 未注入");
                 return;
             }
-            clientBridge.connectSocket("127.0.0.1", 65432);
-            clientBridge.runShellAsync("ls -al");
-            clientBridge.runShellFinished.connect((out) => console.log(out));
+            acquisitionController.startAcquisition();
         }
+    }
+
+    CustomButton {
+        text: "停止采集"
+        width: parent.width
+        enabled: acquisitionController && acquisitionController.running
+        onClicked: {
+            if (!acquisitionController) {
+                console.warn("foupAcquisition 未注入");
+                return;
+            }
+            acquisitionController.stopAcquisition();
+        }
+    }
+
+    Text {
+        text: acquisitionController ? acquisitionController.statusMessage : "采集控制器不可用"
+        color: "#555"
+        font.pixelSize: Components.UiTheme.fontSize("body")
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        width: parent.width
     }
 }
