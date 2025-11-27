@@ -20,7 +20,8 @@ Rectangle {
         ],
         "Config": [
             { key: "loadport", title: "Loadport" },
-            { key: "foup", title: "FOUP" }
+            { key: "foup", title: "FOUP" },
+            { key: "theme", title: "调色" }
         ]
     })
 

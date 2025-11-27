@@ -80,3 +80,10 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；确认 FOUP 采集清空/滑动窗口改动未影响串口模块。
 - Notes: GUI 仍需在具备 PySide6 的环境验证曲线展示效果。
+
+## 2025-11-27T16:00:17+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；确认调色子页改动未影响串口模块。
+- Notes: GUI 调色交互需在具备 PySide6 的环境中手动验证。

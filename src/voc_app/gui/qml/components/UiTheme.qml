@@ -39,6 +39,29 @@ QtObject {
         accentAlarm: "#ff1744"
     })
 
+    // 创建默认调色板对象（用于重置功能）
+    function createDefaultPalette() {
+        return {
+            background: "#050505",
+            surface: "#121212",
+            panel: "#1e1e1e",
+            panelAlt: "#2d2d2d",
+            outline: "#666666",
+            outlineStrong: "#999999",
+            buttonBase: "#333333",
+            buttonHover: "#444444",
+            buttonDown: "#555555",
+            textPrimary: "#ffffff",
+            textSecondary: "#e0e0e0",
+            textOnLight: "#000000",
+            textOnLightMuted: "#333333",
+            accentInfo: "#2979ff",
+            accentSuccess: "#00e676",
+            accentWarning: "#ffab00",
+            accentAlarm: "#ff1744"
+        }
+    }
+
     function updateScales() {
         const clamped = Math.min(maxScale, Math.max(minScale, baseScale));
         fontScale = Math.min(1.4, Math.max(0.9, 1 + (clamped - 1) * 0.7));

@@ -63,3 +63,11 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures。确认新增 clear/轴重置逻辑未影响串口回归；ChartCard 空数据处理依赖 PySide6/QML 运行环境暂未实机验证。
 - Risk Assessment: 中。GUI 冒烟仍受 PySide6 缺失阻塞；需在目标环境启动 Config/Status 页面观察二次采集时曲线是否按预期清空并保持固定窗口。
+
+## Verification - 2025-11-27T16:00:17+08:00
+- Executor: Codex
+- Scope: Config 调色子页与命令面板
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；确认 Python 层未受 QML 调色改动影响。GUI 调色/ColorDialog 交互需在具备 PySide6 的环境手动验证，当前机器仍未运行 GUI 冒烟。
+- Risk Assessment: 中。ColorDialog 依赖 QtQuick.Dialogs，需在目标设备确认模块可用；若 PySide6/显示缺失则功能无法直观验证，上线前应在实际 GUI 环境检查调色刷新与重置行为。

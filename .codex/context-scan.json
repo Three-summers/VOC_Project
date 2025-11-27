@@ -1,57 +1,57 @@
 {
-  "timestamp": "2025-11-26T15:03:30+08:00",
-  "taskScope": "Config 页 FOUP 实时曲线：采集重启后清除旧数据；图表保持固定窗口并丢弃最旧点",
+  "timestamp": "2025-11-27T15:51:44+08:00",
+  "taskScope": "在 Config 页新增调色子页，动态调整 UiTheme 调色板便于调试最终配色",
   "locations": {
-    "foupAcquisition": {
-      "file": "src/voc_app/gui/foup_acquisition.py",
-      "role": "负责 TCP 采集线程，start/stop 控制 power on/off，使用 dataPointReceived 信号向 SeriesTableModel 追加点",
-      "notes": "_sample_index 每次启动置 0；当前未重置 SeriesTableModel，导致二次启动复用旧点"
-    },
-    "seriesModel": {
-      "file": "src/voc_app/gui/csv_model.py",
-      "role": "SeriesTableModel append_point 支持固定 max_rows，满额时弹出首行；提供 bounds 给 ChartView",
-      "notes": "缺少清空/重置接口，max_rows 在 FOUP 初始化为 600"
-    },
-    "appBootstrap": {
-      "file": "src/voc_app/gui/app.py",
-      "role": "创建 chartListModel 与 SeriesTableModel；FOUP 通道用 max_rows=600，并注入 foupAcquisition/context",
-      "notes": "Config/Status 视图通过 chartEntry(index) 获取系列" 
-    },
-    "chartView": {
-      "file": "src/voc_app/gui/qml/components/ChartCard.qml",
-      "role": "ChartView + VXYModelMapper，使用 seriesModel bounds 更新坐标窗口，visibleWindow 取 maxRows",
-      "notes": "轴范围按 min/max 动态计算；需要在清空数据后重置 axis/bounds"
+    "uiTheme": {
+      "file": "src/voc_app/gui/qml/components/UiTheme.qml",
+      "role": "单例，集中管理 baseScale、字体/控件尺寸与 palette 调色板；color() 从 palette 返回颜色值",
+      "notes": "palette 为 property var JS 对象，需整体重新赋值才能触发绑定；提供 radius/spacing/fontSize 等工具函数"
     },
     "configView": {
       "file": "src/voc_app/gui/qml/views/ConfigView.qml",
-      "role": "FOUP 子页面展示 ChartCard，按钮在 commands/Config_foupCommands.qml 控制 start/stop",
-      "notes": "界面依赖 seriesModel.hasData 更新轴范围"
+      "role": "Config 视图，目前含 loadport/foup 两个子页面，通过 currentSubPage 切换展示",
+      "notes": "子页面由 InformationPanel.subNavigationConfig 注入；背景/文字颜色均调用 UiTheme.color"
+    },
+    "subNavigation": {
+      "file": "src/voc_app/gui/qml/InformationPanel.qml",
+      "role": "定义 subNavigationConfig，Config 视图当前仅 loadport/foup；Loader 通过 currentSubPage 传递给子视图",
+      "notes": "SubNavigationBar 按 items 数组生成 TabButton，依 key/title，需在此处加入新子页条目"
+    },
+    "commandPanel": {
+      "file": "src/voc_app/gui/qml/CommandPanel.qml",
+      "role": "根据 currentView/currentSubPage 加载 commands/<View>[_<key>]Commands.qml",
+      "notes": "Config 子页命令文件命名规则 Config_<subKey>Commands.qml，未命中则回退 ConfigCommands"
+    },
+    "paletteConsumers": {
+      "file": "src/voc_app/gui/qml/components/CustomButton.qml",
+      "role": "典型组件直接缓存 UiTheme.palette 后取颜色",
+      "notes": "仅当 UiTheme.palette 重新赋值时会触发刷新，避免直接修改对象属性无效"
     }
   },
   "techStack": {
-    "python": "PySide6 QObject + threading + socket；SeriesTableModel QAbstractTableModel with append_point",
-    "qml": "QtQuick + QtCharts ChartView，VXYModelMapper 绑定 seriesModel",
-    "dataFlow": "Socket -> FoupAcquisitionController -> SeriesTableModel.append_point -> ChartCard"
+    "ui": "QtQuick + QtQuick.Controls + QML 组件（自定义按钮、子导航、视图）",
+    "backend": "PySide6 应用入口 src/voc_app/gui/app.py 提供 context 属性（chartListModel、foupAcquisition 等）",
+    "theme": "UiTheme 单例集中定义调色板、尺寸与缩放，通过函数 color/spacing/fontSize 供 QML 引用"
   },
   "tests": {
     "unit": {
       "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
-      "status": "previously pass (2025-11-25); 当前未跑"
+      "status": "仅串口模块单测可用，GUI 未覆盖"
     },
     "gui": {
-      "status": "未跑；PySide6/显示依赖"
+      "status": "未运行；PySide6/图形依赖可能缺失需注意"
     }
   },
   "observationReport": {
     "gaps": [
-      "再次 start 后未清空 SeriesTableModel，旧点残留且 x 重新从 1，导致曲线重复叠加",
-      "滑动窗口行为依赖 max_rows 但缺少主动重置，轴在清空后可能不刷新",
-      "无测试覆盖 GUI 采集重启与窗口裁剪逻辑"
+      "Config 页面缺少调色子页；调色板目前为静态对象，需设计重新赋值以驱动组件刷新",
+      "需补充命令面板与子导航条目以接入新子页",
+      "缺乏 GUI 层测试覆盖，调色交互需手动验证"
     ],
     "nextSteps": [
-      "为 SeriesTableModel 提供 clear/reset，并在 start 时调用",
-      "确保 ChartCard 在清空后重置轴范围",
-      "验证 append_point 溢出时持续弹出左侧点，保持固定窗口"
+      "设计调色子页 UI，映射 UiTheme.palette 所有键值，并提供颜色选择/重置",
+      "修改 InformationPanel.subNavigationConfig 与 CommandPanel/commands 以支持新子页",
+      "确保更新 palette 时采用整体赋值策略，避免缓存对象不刷新"
     ]
   }
 }

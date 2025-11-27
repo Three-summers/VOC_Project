@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-11-27T15:51:44+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "如何在 QML 中更新 UiTheme.palette 以确保像 CustomButton 这类缓存 palette 的组件即时刷新？",
+      "priority": "high",
+      "status": "open",
+      "blockingReason": "若绑定不触发，调色页面修改不会反映到现有组件，失去调试意义"
+    },
+    {
+      "id": "Q2",
+      "question": "调色子页应提供哪些交互控件（ColorDialog/颜色输入/预览/重置）以便快速调整调色板？",
+      "priority": "high",
+      "status": "open",
+      "blockingReason": "控件选型决定布局与交互流程，影响实施方案"
+    },
+    {
+      "id": "Q3",
+      "question": "Config 子导航与命令面板如何接入新调色子页（key 命名、命令文件路径）以保持现有模式？",
+      "priority": "medium",
+      "status": "open",
+      "blockingReason": "若未正确配置 subNavigationConfig 或命令文件命名，子页无法加载"
+    },
+    {
+      "id": "Q4",
+      "question": "是否需要持久化/导入导出调色板，还是仅会话内临时调整？",
+      "priority": "medium",
+      "status": "open",
+      "blockingReason": "决定是否加入保存/恢复按钮或命令面板功能"
+    }
+  ]
+}

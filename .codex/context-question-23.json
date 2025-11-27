@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-11-27T15:51:44+08:00",
+  "sourceQuestion": "Q1",
+  "goal": "确认如何更新 UiTheme.palette 触发组件刷新",
+  "findings": {
+    "binding": "UiTheme.palette 是 property var；UiTheme.color 与 CustomButton.palette 直接绑定该对象用于取色",
+    "changePropagation": "QML 不追踪 JS 对象内部字段变更，单独写 palette.background 不会发出 paletteChanged，缓存的 palette 也不会刷新",
+    "refreshStrategy": "需创建新对象并整体赋值，如 Object.assign({}, UiTheme.palette, { background: newColor }) 或 var next = JSON.parse(JSON.stringify(UiTheme.palette)); next[key]=value; UiTheme.palette = next;"
+  },
+  "conclusion": "调色页应在每次修改后重新赋值 UiTheme.palette 为新对象，确保 paletteChanged 触发并让所有组件即刻刷新。"
+}
