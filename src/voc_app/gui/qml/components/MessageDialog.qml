@@ -41,6 +41,7 @@ BaseDialog {
                 text: getIcon()
                 font.pixelSize: Components.UiTheme.fontSize("display")
                 Layout.alignment: Qt.AlignVCenter
+                color: Components.UiTheme.color("textPrimary")
             }
             Text {
                 id: messageText
@@ -49,6 +50,7 @@ BaseDialog {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
                 font.pixelSize: Components.UiTheme.fontSize("body")
+                color: Components.UiTheme.color("textPrimary")
             }
         }
     }

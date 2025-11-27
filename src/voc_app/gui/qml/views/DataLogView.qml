@@ -273,8 +273,8 @@ Rectangle {
         Rectangle {
             Layout.preferredWidth: Components.UiTheme.controlWidth(260)
             Layout.fillHeight: true
-            color: "#f7f7f7"
-            border.color: "#d0d0d0"
+            color: Components.UiTheme.color("panelAlt")
+            border.color: Components.UiTheme.color("outline")
             border.width: 1
 
             // 文件树组件
@@ -295,8 +295,8 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#ffffff"
-            border.color: "#d0d0d0"
+            color: Components.UiTheme.color("panel")
+            border.color: Components.UiTheme.color("outline")
             border.width: 1
             radius: 4
 
@@ -309,12 +309,12 @@ Rectangle {
                     text: chartsVisible ? "绘图结果" : "列信息"
                     font.bold: true
                     font.pixelSize: Components.UiTheme.fontSize("title")
-                    color: Components.UiTheme.color("textOnLight")
+                    color: Components.UiTheme.color("textPrimary")
                 }
 
                 Text {
                     text: lastSettingsSummary
-                    color: Components.UiTheme.color("textOnLightMuted")
+                    color: Components.UiTheme.color("textSecondary")
                     wrapMode: Text.WordWrap
                     font.pixelSize: Components.UiTheme.fontSize("body")
                 }
@@ -443,7 +443,7 @@ Rectangle {
         id: zoomOverlay
         anchors.fill: parent
         radius: 0
-        color: "#0f111acc"
+        color: "#cc0f111a" // Slightly transparent dark
         visible: dataLogView.zoomActive
         // 确保覆盖在最顶层
         z: 99
@@ -474,7 +474,7 @@ Rectangle {
             }
             chartTitle: dataLogView.zoomColumnName ? dataLogView.zoomColumnName + "（放大）" : "放大图"
             dataPoints: dataLogView.zoomDataPoints || []
-            color: "#ffffff"
+            color: Components.UiTheme.color("panel")
             scaleFactor: dataLogView.scaleFactor
         }
     }
@@ -500,6 +500,17 @@ Rectangle {
         }
         onAccepted: updateSettingsSummary()
 
+        background: Rectangle {
+            color: Components.UiTheme.color("panel")
+            border.color: Components.UiTheme.color("outline")
+            radius: Components.UiTheme.radius("sm")
+        }
+
+        // Dialog doesn't automatically style its header/footer in standard controls easily without custom contentItem
+        // But the contentItem below handles the body. 
+        // Note: Standard Dialog Text color might be system default. 
+        // We might need to check if title color can be set.
+        
         contentItem: ScrollView {
             implicitWidth: Components.UiTheme.controlWidth(340)
             implicitHeight: Components.UiTheme.controlHeight(360)
@@ -539,7 +550,7 @@ Rectangle {
                                 }
                                 Text {
                                     text: model.columnName
-                                    color: Components.UiTheme.color("textOnLight")
+                                    color: Components.UiTheme.color("textPrimary")
                                     font.pixelSize: Components.UiTheme.fontSize("body")
                                 }
                             }
@@ -556,7 +567,7 @@ Rectangle {
                         spacing: Components.UiTheme.spacing("md")
                         Text {
                             text: "导出文件名："
-                            color: Components.UiTheme.color("textOnLight")
+                            color: Components.UiTheme.color("textPrimary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
                         TextField {
@@ -566,6 +577,11 @@ Rectangle {
                             Layout.preferredWidth: Components.UiTheme.controlWidth(320)
                             implicitHeight: Components.UiTheme.controlHeight("input")
                             font.pixelSize: Components.UiTheme.fontSize("body")
+                            color: Components.UiTheme.color("textPrimary")
+                            background: Rectangle {
+                                color: Components.UiTheme.color("surface")
+                                border.color: Components.UiTheme.color("outline")
+                            }
                             onEditingFinished: {
                                 if (text.length === 0)
                                 dataLogView.chartFileName = "datalog_chart.png";

@@ -7,7 +7,7 @@ import "." as Components
 
 Rectangle {
     id: root
-    color: "#f5f5f5"
+    color: Components.UiTheme.color("panelAlt")
 
     // 允许外部传入文件根路径和控制器，默认回落到全局上下文属性
     property string basePath: (typeof fileRootPath !== "undefined" && fileRootPath) ? fileRootPath : ""
@@ -102,7 +102,7 @@ Rectangle {
                     font.pixelSize: Components.UiTheme.fontSize("subtitle")
                     padding: 6 * root.scaleFactor
                     width: treeColumn.width
-                    color: Components.UiTheme.color("textOnLight")
+                    color: Components.UiTheme.color("textPrimary")
                 }
 
                 TextField {
@@ -113,8 +113,13 @@ Rectangle {
                     font.pixelSize: Components.UiTheme.fontSize("body")
                     padding: 8 * root.scaleFactor
                     text: root.filterText
-                    color: Components.UiTheme.color("textOnLight")
-                    placeholderTextColor: Components.UiTheme.color("textOnLightMuted")
+                    color: Components.UiTheme.color("textPrimary")
+                    placeholderTextColor: Components.UiTheme.color("textSecondary")
+                    background: Rectangle {
+                        color: Components.UiTheme.color("surface")
+                        border.color: Components.UiTheme.color("outline")
+                        radius: Components.UiTheme.radius("sm")
+                    }
                     onTextChanged: root.filterText = text
                 }
 
@@ -197,7 +202,7 @@ Rectangle {
                         text: expanded ? "▾" : "▸"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        color: Components.UiTheme.color("textOnLightMuted")
+                        color: Components.UiTheme.color("textSecondary")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -205,7 +210,7 @@ Rectangle {
                         id: nameLabel
                         text: depth === 0 ? root.relativePath(node.filePath) : node.fileName
                         elide: Text.ElideRight
-                        color: Components.UiTheme.color("textOnLight")
+                        color: Components.UiTheme.color("textPrimary")
                         verticalAlignment: Text.AlignVCenter
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
@@ -352,6 +357,12 @@ Rectangle {
                 wrapMode: TextArea.Wrap
                 placeholderText: "点击左侧文件即可在此预览内容"
                 font.pixelSize: Components.UiTheme.fontSize("body")
+                color: Components.UiTheme.color("textPrimary")
+                placeholderTextColor: Components.UiTheme.color("textSecondary")
+                background: Rectangle {
+                    color: Components.UiTheme.color("surface")
+                    border.color: Components.UiTheme.color("outline")
+                }
             }
 
             // 供外部通过 previewContentItem.text 赋值

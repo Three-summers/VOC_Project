@@ -4,7 +4,7 @@ import "./components" as Components
 
 Rectangle {
     id: navRectangle
-    color: "#333333"
+    color: Components.UiTheme.color("panel")
     implicitHeight: Components.UiTheme.controlHeight("nav")
 
     property string currentView: "Status"

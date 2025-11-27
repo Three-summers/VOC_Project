@@ -6,7 +6,7 @@ import "../components" as Components
 
 Rectangle {
     id: fileView
-    color: "#f0f0f0"
+    color: Components.UiTheme.color("background")
 
     property var csvFileManagerRef: null
     property real scaleFactor: Components.UiTheme.controlScale
@@ -29,8 +29,8 @@ Rectangle {
         Rectangle {
             Layout.preferredWidth: Components.UiTheme.controlWidth("commandPanel")
             Layout.fillHeight: true
-            color: "#eee"
-            border.color: "#ccc"
+            color: Components.UiTheme.color("panelAlt")
+            border.color: Components.UiTheme.color("outline")
             border.width: 1
 
             ListView {
@@ -42,14 +42,18 @@ Rectangle {
                 delegate: Rectangle {
                     width: fileListView.width
                     height: Components.UiTheme.controlHeight("input")
-                    color: fileView.csvFileManagerRef && fileView.csvFileManagerRef.activeFile === model.modelData ? "#a0a0a0" : "transparent"
+                    color: fileView.csvFileManagerRef && fileView.csvFileManagerRef.activeFile === model.modelData 
+                        ? Components.UiTheme.color("accentInfo") // Selection Color
+                        : "transparent"
 
                     Text {
                         text: model.modelData
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.leftMargin: Components.UiTheme.spacing("md")
-                        color: fileView.csvFileManagerRef && fileView.csvFileManagerRef.activeFile === model.modelData ? "white" : "black"
+                        color: fileView.csvFileManagerRef && fileView.csvFileManagerRef.activeFile === model.modelData 
+                            ? Components.UiTheme.color("textPrimary") 
+                            : Components.UiTheme.color("textSecondary")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -69,7 +73,7 @@ Rectangle {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: "#fff"
+            color: Components.UiTheme.color("background")
 
             GridLayout {
                 anchors.fill: parent

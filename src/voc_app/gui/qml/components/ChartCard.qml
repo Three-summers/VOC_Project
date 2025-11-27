@@ -10,8 +10,8 @@ Rectangle {
     Layout.fillWidth: true
     Layout.fillHeight: true
     Layout.preferredHeight: Components.UiTheme.controlHeight(220)
-    color: "white"
-    border.color: "#ccc"
+    color: Components.UiTheme.color("panel")
+    border.color: Components.UiTheme.color("outline")
     border.width: Math.max(1, Components.UiTheme.controlScale)
     radius: Components.UiTheme.radius("sm")
 
@@ -31,6 +31,7 @@ Rectangle {
             text: chartCard.chartTitle
             font.bold: true
             font.pixelSize: Components.UiTheme.fontSize("subtitle")
+            color: Components.UiTheme.color("textPrimary")
             Layout.alignment: Qt.AlignHCenter
         }
 
@@ -43,15 +44,20 @@ Rectangle {
             dropShadowEnabled: false
             animationOptions: ChartView.NoAnimation
             antialiasing: false
+            backgroundColor: "transparent"
             // animationOptions: ChartView.SeriesAnimations
             titleFont.pixelSize: Components.UiTheme.fontSize("body")
+            titleColor: Components.UiTheme.color("textPrimary")
             margins.top: Components.UiTheme.spacing("sm")
             margins.bottom: Components.UiTheme.spacing("sm")
             margins.left: Components.UiTheme.spacing("md")
             margins.right: Components.UiTheme.spacing("md")
-
-            title: chartCard.chartTitle
+            
+            // ChartView themes usually override colors. We set backgroundColor to transparent 
+            // so the parent Rectangle shows.
+            // Legend
             legend.visible: false
+            legend.labelColor: Components.UiTheme.color("textPrimary")
 
             ValueAxis {
                 id: xAxis
@@ -61,6 +67,8 @@ Rectangle {
                 tickCount: 5
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
+                labelsColor: Components.UiTheme.color("textSecondary")
+                gridLineColor: Components.UiTheme.color("outline")
             }
 
             ValueAxis {
@@ -71,13 +79,15 @@ Rectangle {
                 tickCount: 5
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
+                labelsColor: Components.UiTheme.color("textSecondary")
+                gridLineColor: Components.UiTheme.color("outline")
             }
 
             LineSeries {
                 id: lineSeries
                 axisX: xAxis
                 axisY: yAxis
-                color: "red" // 使用红色提升可视性
+                color: Components.UiTheme.color("accentInfo") // Use theme accent (Blue)
                 width: Math.max(2, 2.5 * Components.UiTheme.controlScale)
             }
 

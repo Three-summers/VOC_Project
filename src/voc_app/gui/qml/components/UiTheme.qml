@@ -18,25 +18,25 @@ QtObject {
     Component.onCompleted: updateScales()
     onBaseScaleChanged: updateScales()
 
-    // 工业风调色板，供所有 QML 复用，避免散落的硬编码色值
+    // 工业风调色板 - 高对比度版
     property var palette: ({
-        background: "#0f1113",
-        surface: "#171a1d",
-        panel: "#1f2327",
-        panelAlt: "#272c31",
-        outline: "#3c4247",
-        outlineStrong: "#5a6168",
-        buttonBase: "#30363c",
-        buttonHover: "#3b4249",
-        buttonDown: "#454d55",
-        textPrimary: "#f2f4f5",
-        textSecondary: "#a3a9af",
-        textOnLight: "#101417",
-        textOnLightMuted: "#4a5259",
-        accentInfo: "#4d91c9",
-        accentSuccess: "#5faa7b",
-        accentWarning: "#f4ba4f",
-        accentAlarm: "#e35d5d"
+        background: "#050505",
+        surface: "#121212",
+        panel: "#1e1e1e",
+        panelAlt: "#2d2d2d",
+        outline: "#666666",
+        outlineStrong: "#999999",
+        buttonBase: "#333333",
+        buttonHover: "#444444",
+        buttonDown: "#555555",
+        textPrimary: "#ffffff",
+        textSecondary: "#e0e0e0",
+        textOnLight: "#000000",
+        textOnLightMuted: "#333333",
+        accentInfo: "#2979ff",
+        accentSuccess: "#00e676",
+        accentWarning: "#ffab00",
+        accentAlarm: "#ff1744"
     })
 
     function updateScales() {

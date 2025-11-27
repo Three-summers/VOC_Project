@@ -6,7 +6,7 @@ import "../components" as Components
 
 Rectangle {
     id: configView
-    color: "#f5f5f5"
+    color: Components.UiTheme.color("background")
 
     property string currentSubPage: "loadport"
     property real scaleFactor: Components.UiTheme.controlScale
@@ -55,13 +55,13 @@ Rectangle {
             text: "配置页面"
             font.bold: true
             font.pixelSize: Components.UiTheme.fontSize("title")
-            color: "#333333"
+            color: Components.UiTheme.color("textPrimary")
         }
 
         Text {
             text: "通过子页面查看并设置 Loadport 与 FOUP 的基础运行参数。"
             wrapMode: Text.Wrap
-            color: "#555555"
+            color: Components.UiTheme.color("textSecondary")
             font.pixelSize: Components.UiTheme.fontSize("body")
         }
 
@@ -82,8 +82,8 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 radius: Components.UiTheme.radius(18)
-                color: "#ffffff"
-                border.color: "#dbe0ed"
+                color: Components.UiTheme.color("panel")
+                border.color: Components.UiTheme.color("outline")
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -94,12 +94,12 @@ Rectangle {
                         text: "Loadport 配置"
                         font.pixelSize: Components.UiTheme.fontSize("title")
                         font.bold: true
-                        color: "#2f3645"
+                        color: Components.UiTheme.color("textPrimary")
                     }
 
                     Text {
                         text: "当前通信参数"
-                        color: "#6c738a"
+                        color: Components.UiTheme.color("textSecondary")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -111,7 +111,7 @@ Rectangle {
 
                         Text {
                             text: "IP 地址"
-                            color: "#6c738a"
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
 
@@ -119,12 +119,12 @@ Rectangle {
                             text: configView.displayValue(configView.loadportInfo.ipAddress)
                             font.pixelSize: Components.UiTheme.fontSize("subtitle")
                             font.bold: true
-                            color: "#2f3645"
+                            color: Components.UiTheme.color("textPrimary")
                         }
 
                         Text {
                             text: "设备时间"
-                            color: "#6c738a"
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
 
@@ -132,7 +132,7 @@ Rectangle {
                             text: configView.displayValue(configView.loadportInfo.deviceTime)
                             font.pixelSize: Components.UiTheme.fontSize("subtitle")
                             font.bold: true
-                            color: "#2f3645"
+                            color: Components.UiTheme.color("textPrimary")
                         }
                     }
 
@@ -140,13 +140,13 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: Components.UiTheme.radius(14)
-                        color: "#f6f8fc"
-                        border.color: "#e1e7f3"
+                        color: Components.UiTheme.color("surface")
+                        border.color: Components.UiTheme.color("outlineStrong")
 
                         Text {
                             anchors.centerIn: parent
                             text: "待接入实时 loadport 数据"
-                            color: "#9aa5be"
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
                     }
@@ -164,8 +164,8 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 radius: Components.UiTheme.radius(18)
-                color: "#ffffff"
-                border.color: "#dbe0ed"
+                color: Components.UiTheme.color("panel")
+                border.color: Components.UiTheme.color("outline")
                 ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: Components.UiTheme.spacing("xl")
@@ -175,12 +175,12 @@ Rectangle {
                         text: "FOUP 配置"
                         font.pixelSize: Components.UiTheme.fontSize("title")
                         font.bold: true
-                        color: "#2f3645"
+                        color: Components.UiTheme.color("textPrimary")
                     }
 
                     Text {
                         text: "当前时间及采集通道状态"
-                        color: "#6c738a"
+                        color: Components.UiTheme.color("textSecondary")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -192,7 +192,7 @@ Rectangle {
 
                         Text {
                             text: "同步时间"
-                            color: "#6c738a"
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
 
@@ -200,12 +200,12 @@ Rectangle {
                             text: configView.displayValue(configView.foupInfo.syncTime)
                             font.pixelSize: Components.UiTheme.fontSize("subtitle")
                             font.bold: true
-                            color: "#2f3645"
+                            color: Components.UiTheme.color("textPrimary")
                         }
 
                         Text {
                             text: "采集状态"
-                            color: "#6c738a"
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
 
@@ -217,8 +217,8 @@ Rectangle {
                                 height: Components.UiTheme.spacing("lg")
                                 radius: Components.UiTheme.radius("pill")
                                 color: (typeof foupAcquisition !== "undefined" && foupAcquisition && foupAcquisition.running)
-                                ? "#4caf50"
-                                : "#f44336"
+                                ? Components.UiTheme.color("accentSuccess")
+                                : Components.UiTheme.color("accentAlarm")
                             }
 
                             Text {
@@ -227,7 +227,7 @@ Rectangle {
                                 : configView.displayValue(configView.foupInfo.acquisitionStatus)
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
                                 font.bold: true
-                                color: "#2f3645"
+                                color: Components.UiTheme.color("textPrimary")
                             }
                         }
                     }
@@ -244,8 +244,8 @@ Rectangle {
                                 Layout.fillHeight: true
                                 Layout.preferredHeight: Components.UiTheme.controlHeight(220)
                                 radius: Components.UiTheme.radius(18)
-                                color: "#ffffff"
-                                border.color: "#dbe0ed"
+                                color: Components.UiTheme.color("panel")
+                                border.color: Components.UiTheme.color("outline")
 
                                 // 使用 readonly property 缓存配置，确保稳定的属性绑定
                                 readonly property var config: configView.chartEntry(modelData.index, modelData.title)
@@ -260,7 +260,7 @@ Rectangle {
                                     visible: !seriesModel
                                     anchors.centerIn: parent
                                     text: "点击开始采集后显示实时曲线"
-                                    color: "#9aa5be"
+                                    color: Components.UiTheme.color("textSecondary")
                                     font.pixelSize: Components.UiTheme.fontSize("body")
                                 }
                             }
@@ -270,7 +270,7 @@ Rectangle {
                             text: (typeof foupAcquisition !== "undefined" && foupAcquisition && !isNaN(foupAcquisition.lastValue))
                             ? "当前值：" + foupAcquisition.lastValue.toFixed(2)
                             : "当前值：--"
-                            color: "#6c738a"
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
                     }

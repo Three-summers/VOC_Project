@@ -13,7 +13,7 @@ Column {
         text: "FOUP 控制"
         font.bold: true
         font.pixelSize: Components.UiTheme.fontSize("subtitle")
-        color: "#222"
+        color: Components.UiTheme.color("textPrimary")
         horizontalAlignment: Text.AlignHCenter
         width: parent.width
     }

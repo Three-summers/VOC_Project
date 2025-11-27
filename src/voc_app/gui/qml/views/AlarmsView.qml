@@ -6,8 +6,9 @@ import "../components" as Components
 
 Rectangle {
     id: alarmsView
-    color: alarmStore && alarmStore.hasActiveAlarm ? "#ffe5e5" : "#f5f5f5"
-    border.color: alarmStore && alarmStore.hasActiveAlarm ? "#ff4d4d" : "#d0d0d0"
+    // Custom dark red background for alarm state to fit dark theme
+    color: alarmStore && alarmStore.hasActiveAlarm ? "#3a0000" : Components.UiTheme.color("background")
+    border.color: alarmStore && alarmStore.hasActiveAlarm ? Components.UiTheme.color("accentAlarm") : Components.UiTheme.color("outline")
     border.width: Math.max(1, Components.UiTheme.controlScale)
     radius: Components.UiTheme.radius("sm")
 
@@ -38,14 +39,14 @@ Rectangle {
             text: alarmStore && alarmStore.hasActiveAlarm ? "当前有未确认报警" : "报警记录"
             font.bold: true
             font.pixelSize: Components.UiTheme.fontSize("title")
-            color: alarmStore && alarmStore.hasActiveAlarm ? "#cc0000" : "#333333"
+            color: alarmStore && alarmStore.hasActiveAlarm ? Components.UiTheme.color("accentAlarm") : Components.UiTheme.color("textPrimary")
         }
 
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            border.color: "#d0d0d0"
-            color: "white"
+            border.color: Components.UiTheme.color("outline")
+            color: Components.UiTheme.color("panel")
             radius: Components.UiTheme.radius("sm")
 
             Flickable {
@@ -68,26 +69,28 @@ Rectangle {
                         Rectangle {
                             width: parent.width * 0.32
                             height: parent.height
-                            color: "#e6e6e6"
-                            border.color: "#cccccc"
+                            color: Components.UiTheme.color("panelAlt")
+                            border.color: Components.UiTheme.color("outline")
                             Text {
                                 anchors.centerIn: parent
                                 text: "时间"
                                 font.bold: true
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                                color: Components.UiTheme.color("textPrimary")
                             }
                         }
 
                         Rectangle {
                             width: parent.width * 0.68
                             height: parent.height
-                            color: "#e6e6e6"
-                            border.color: "#cccccc"
+                            color: Components.UiTheme.color("panelAlt")
+                            border.color: Components.UiTheme.color("outline")
                             Text {
                                 anchors.centerIn: parent
                                 text: "报警信息"
                                 font.bold: true
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                                color: Components.UiTheme.color("textPrimary")
                             }
                         }
                     }
@@ -103,20 +106,21 @@ Rectangle {
                             Rectangle {
                                 width: parent.width * 0.32
                                 height: parent.height
-                                color: index % 2 === 0 ? "#fafafa" : "#ffffff"
-                                border.color: "#e0e0e0"
+                                color: index % 2 === 0 ? Components.UiTheme.color("surface") : Components.UiTheme.color("panel")
+                                border.color: Components.UiTheme.color("outline")
                                 Text {
                                     anchors.centerIn: parent
                                     text: model.timestamp
                                     font.pixelSize: Components.UiTheme.fontSize("body")
+                                    color: Components.UiTheme.color("textPrimary")
                                 }
                             }
 
                             Rectangle {
                                 width: parent.width * 0.68
                                 height: parent.height
-                                color: index % 2 === 0 ? "#fafafa" : "#ffffff"
-                                border.color: "#e0e0e0"
+                                color: index % 2 === 0 ? Components.UiTheme.color("surface") : Components.UiTheme.color("panel")
+                                border.color: Components.UiTheme.color("outline")
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
                                     anchors.left: parent.left
@@ -125,6 +129,7 @@ Rectangle {
                                     text: model.message
                                     wrapMode: Text.WordWrap
                                     font.pixelSize: Components.UiTheme.fontSize("body")
+                                    color: Components.UiTheme.color("textPrimary")
                                 }
                             }
                         }

@@ -6,7 +6,7 @@ import "../components" as Components
 
 Rectangle {
     id: statusRoot
-    color: "#e8ebf2"
+    color: Components.UiTheme.color("background")
 
     // 外部写入当前子页面标识（Loadport / FOUP）
     property string currentSubPage: "loadport"
@@ -66,8 +66,8 @@ Rectangle {
                 Layout.minimumWidth: Components.UiTheme.controlWidth(260)
                 Layout.fillHeight: true
                 radius: Components.UiTheme.radius(20)
-                color: "#ffffff"
-                border.color: "#dae0ec"
+                color: Components.UiTheme.color("panel")
+                border.color: Components.UiTheme.color("outline")
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -78,12 +78,12 @@ Rectangle {
                         text: "Loadport 模块"
                         font.pixelSize: Components.UiTheme.fontSize(24)
                         font.bold: true
-                        color: "#2f3645"
+                        color: Components.UiTheme.color("textPrimary")
                     }
 
                     Text {
                         text: "状态：TODO"
-                        color: "#6c738a"
+                        color: Components.UiTheme.color("textSecondary")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -91,8 +91,8 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: Components.UiTheme.radius(18)
-                        color: "#f6f8fc"
-                        border.color: "#e1e7f3"
+                        color: Components.UiTheme.color("surface")
+                        border.color: Components.UiTheme.color("outlineStrong")
 
                         Item {
                             anchors.fill: parent
@@ -132,8 +132,8 @@ Rectangle {
                         Layout.fillHeight: true
                         Layout.preferredHeight: Components.UiTheme.controlHeight(220)
                         radius: Components.UiTheme.radius(18)
-                        color: "#ffffff"
-                        border.color: "#dbe0ed"
+                        color: Components.UiTheme.color("panel")
+                        border.color: Components.UiTheme.color("outline")
                         chartTitle: ""
                         readonly property var config: statusRoot.chartEntry(modelData.index, modelData.title)
                         seriesModel: config.seriesModel
@@ -152,13 +152,13 @@ Rectangle {
                                 text: modelData.title + "实时曲线"
                                 font.pixelSize: Components.UiTheme.fontSize("title")
                                 font.bold: true
-                                color: "#2f3645"
+                                color: Components.UiTheme.color("textPrimary")
                             }
 
                             Text {
                                 text: "当前值：" + modelData.currentValue
                                 font.pixelSize: Components.UiTheme.fontSize("body")
-                                color: "#66708e"
+                                color: Components.UiTheme.color("textSecondary")
                             }
                         }
                     }
@@ -181,8 +181,8 @@ Rectangle {
                 Layout.minimumWidth: Components.UiTheme.controlWidth(260)
                 Layout.fillHeight: true
                 radius: Components.UiTheme.radius(20)
-                color: "#ffffff"
-                border.color: "#dae0ec"
+                color: Components.UiTheme.color("panel")
+                border.color: Components.UiTheme.color("outline")
 
                 ColumnLayout {
                     anchors.fill: parent
@@ -193,12 +193,12 @@ Rectangle {
                         text: "FOUP 模块"
                         font.pixelSize: Components.UiTheme.fontSize(24)
                         font.bold: true
-                        color: "#2f3645"
+                        color: Components.UiTheme.color("textPrimary")
                     }
 
                     Text {
                         text: "状态：TODO"
-                        color: "#6c738a"
+                        color: Components.UiTheme.color("textSecondary")
                         font.pixelSize: Components.UiTheme.fontSize("body")
                     }
 
@@ -206,8 +206,8 @@ Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         radius: Components.UiTheme.radius(18)
-                        color: "#f6f8fc"
-                        border.color: "#e1e7f3"
+                        color: Components.UiTheme.color("surface")
+                        border.color: Components.UiTheme.color("outlineStrong")
 
                         Item {
                             anchors.fill: parent
@@ -243,8 +243,8 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: Components.UiTheme.controlHeight(120)
                     radius: Components.UiTheme.radius(18)
-                    color: "#ffffff"
-                    border.color: "#dbe0ed"
+                    color: Components.UiTheme.color("panel")
+                    border.color: Components.UiTheme.color("outline")
 
                     RowLayout {
                         anchors.fill: parent
@@ -258,21 +258,21 @@ Rectangle {
                             Text {
                                 text: "功能模式"
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
-                                color: "#6c738a"
+                                color: Components.UiTheme.color("textSecondary")
                             }
 
                             Text {
                                 text: "TODO"
                                 font.pixelSize: Components.UiTheme.fontSize(24)
                                 font.bold: true
-                                color: "#2f3645"
+                                color: Components.UiTheme.color("textPrimary")
                             }
                         }
 
                         Rectangle {
                             width: 1
                             Layout.fillHeight: true
-                            color: "#eef1f7"
+                            color: Components.UiTheme.color("outline")
                         }
 
                         ColumnLayout {
@@ -282,14 +282,14 @@ Rectangle {
                             Text {
                                 text: "电量"
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
-                                color: "#6c738a"
+                                color: Components.UiTheme.color("textSecondary")
                             }
 
                             Text {
                                 text: "64 %"
                                 font.pixelSize: Components.UiTheme.fontSize("display")
                                 font.bold: true
-                                color: "#2f3645"
+                                color: Components.UiTheme.color("textPrimary")
                             }
                         }
                     }
@@ -303,8 +303,8 @@ Rectangle {
                         Layout.fillHeight: true
                         Layout.preferredHeight: Components.UiTheme.controlHeight(220)
                         radius: Components.UiTheme.radius(18)
-                        color: "#ffffff"
-                        border.color: "#dbe0ed"
+                        color: Components.UiTheme.color("panel")
+                        border.color: Components.UiTheme.color("outline")
                         chartTitle: ""
                         readonly property var config: statusRoot.chartEntry(modelData.index, modelData.title)
                         seriesModel: config.seriesModel
@@ -323,13 +323,13 @@ Rectangle {
                                 text: modelData.title + "实时曲线"
                                 font.pixelSize: Components.UiTheme.fontSize("title")
                                 font.bold: true
-                                color: "#2f3645"
+                                color: Components.UiTheme.color("textPrimary")
                             }
 
                             Text {
                                 text: "当前值：" + modelData.currentValue
                                 font.pixelSize: Components.UiTheme.fontSize("body")
-                                color: "#66708e"
+                                color: Components.UiTheme.color("textSecondary")
                             }
                         }
                     }

@@ -1,6 +1,8 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "."
+import "." as Components
 
 Popup {
     id: popup
@@ -25,10 +27,10 @@ Popup {
         : 0
 
     background: Rectangle {
-        color: "#ffffff"
-        border.color: "#cccccc"
+        color: Components.UiTheme.color("panel")
+        border.color: Components.UiTheme.color("outline")
         border.width: 1
-        radius: 5
+        radius: Components.UiTheme.radius("sm")
     }
 
     property alias title: titleText.text
@@ -43,13 +45,15 @@ Popup {
         // 1. 标题栏
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 40
-            color: "#f0f0f0"
+            Layout.preferredHeight: 40 * Components.UiTheme.controlScale
+            color: Components.UiTheme.color("surface")
 
             Text {
                 id: titleText
                 anchors.centerIn: parent
                 font.bold: true
+                font.pixelSize: Components.UiTheme.fontSize("title")
+                color: Components.UiTheme.color("textPrimary")
                 text: "Dialog Title"
             }
 
@@ -58,8 +62,10 @@ Popup {
                 text: "X"
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: 15
+                anchors.rightMargin: Components.UiTheme.spacing("lg")
                 font.bold: true
+                font.pixelSize: Components.UiTheme.fontSize("title")
+                color: Components.UiTheme.color("textSecondary")
                 MouseArea {
                     anchors.fill: parent
                     onClicked: popup.close()
@@ -71,7 +77,7 @@ Popup {
         Loader {
             id: contentLoader
             Layout.fillWidth: true
-            Layout.margins: 20
+            Layout.margins: Components.UiTheme.spacing("xl")
             Layout.preferredHeight: (item && item.implicitHeight ? item.implicitHeight : 160) + Layout.margins * 2
         }
 
@@ -81,10 +87,10 @@ Popup {
             Layout.fillWidth: true
             implicitHeight: Math.max(
                 (footerLoader.implicitHeight > 0 ? footerLoader.implicitHeight : 0) + popup.footerPadding * 2,
-                60
+                60 * Components.UiTheme.controlScale
             )
             Layout.preferredHeight: implicitHeight
-            color: "#f0f0f0"
+            color: Components.UiTheme.color("surface")
             Loader {
                 id: footerLoader
                 anchors.fill: parent

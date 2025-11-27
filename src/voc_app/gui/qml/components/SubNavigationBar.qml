@@ -7,8 +7,8 @@ import "." as Components
 Rectangle {
     id: subNav
     implicitHeight: Components.UiTheme.controlHeight("panelHeader")
-    color: "#f6f6f6"
-    border.color: "#d5d5d5"
+    color: Components.UiTheme.color("panel")
+    border.color: Components.UiTheme.color("outline")
     border.width: Math.max(1, Components.UiTheme.controlScale)
     radius: Components.UiTheme.radius("sm")
 

@@ -1,12 +1,11 @@
 import sys
-from datetime import datetime
+# from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 
-# ---- 路径与包导入 -------------------------------------------------------
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parents[2]

@@ -16,6 +16,7 @@ BaseDialog {
             Text {
                 id: messageText
                 text: dialog.message // Bind to the dialog's message property
+                color: Components.UiTheme.color("textPrimary")
                 wrapMode: Text.WordWrap
                 anchors.centerIn: parent
             }

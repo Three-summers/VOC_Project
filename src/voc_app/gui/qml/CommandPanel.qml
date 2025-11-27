@@ -5,7 +5,7 @@ import "./components" as Components
 
 Rectangle {
     id: commandPanel
-    color: "#ddd"
+    color: Components.UiTheme.color("panelAlt")
 
     property string currentView: "Jobs" // 由 main.qml 绑定
     property var informationPanelRef: null

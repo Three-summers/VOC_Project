@@ -5,7 +5,7 @@ import "../components"
 import "../components" as Components
 
 Rectangle {
-    color: "#f6f8fb"
+    color: Components.UiTheme.color("background")
 
     ScrollView {
         id: scrollView
@@ -21,7 +21,7 @@ Rectangle {
                 text: "使用指南"
                 font.pixelSize: Components.UiTheme.fontSize("title")
                 font.bold: true
-                color: Components.UiTheme.color("textOnLight")
+                color: Components.UiTheme.color("textPrimary")
                 Layout.fillWidth: true // 确保标题区域占满宽度
             }
 
@@ -58,9 +58,9 @@ Rectangle {
                     Layout.fillWidth: true 
                     
                     readonly property real padding: Components.UiTheme.spacing("lg")
-                    color: "#ffffff"
+                    color: Components.UiTheme.color("panel")
                     radius: Components.UiTheme.radius("md")
-                    border.color: "#dbe0ed"
+                    border.color: Components.UiTheme.color("outline")
                     border.width: 1
                     
                     // 自动适应内容高度
@@ -86,14 +86,14 @@ Rectangle {
                                 text: modelData.title
                                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
                                 font.bold: true
-                                color: Components.UiTheme.color("textOnLight")
+                                color: Components.UiTheme.color("textPrimary")
                                 Layout.fillWidth: true
                             }
                         }
 
                         Text {
                             text: modelData.body
-                            color: Components.UiTheme.color("textOnLightMuted")
+                            color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                             wrapMode: Text.WordWrap // 自动换行
                             

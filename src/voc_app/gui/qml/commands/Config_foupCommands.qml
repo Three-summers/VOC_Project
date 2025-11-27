@@ -15,7 +15,7 @@ Column {
         text: "FOUP 采集命令"
         font.bold: true
         font.pixelSize: Components.UiTheme.fontSize("subtitle")
-        color: "#222"
+        color: Components.UiTheme.color("textPrimary")
         horizontalAlignment: Text.AlignHCenter
         width: parent.width
     }
@@ -55,7 +55,7 @@ Column {
 
     Text {
         text: acquisitionController ? acquisitionController.statusMessage : "采集控制器不可用"
-        color: "#555"
+        color: Components.UiTheme.color("textSecondary")
         font.pixelSize: Components.UiTheme.fontSize("body")
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap

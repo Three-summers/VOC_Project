@@ -22,28 +22,51 @@ DataInputDialog {
             anchors.margins: 20
             spacing: 10
 
-            Label { text: "Username:" }
+            Text { 
+                text: "Username:" 
+                color: Components.UiTheme.color("textPrimary")
+                font.pixelSize: Components.UiTheme.fontSize("body")
+            }
             TextField {
                 id: usernameInput
                 Layout.fillWidth: true
                 placeholderText: "Enter username"
                 onTextChanged: loginDialog.showError = false
+                color: Components.UiTheme.color("textPrimary")
+                background: Rectangle {
+                    color: Components.UiTheme.color("surface")
+                    border.color: Components.UiTheme.color("outline")
+                    radius: Components.UiTheme.radius("sm")
+                }
+                placeholderTextColor: Components.UiTheme.color("textSecondary")
             }
 
-            Label { text: "Password:" }
+            Text { 
+                text: "Password:" 
+                color: Components.UiTheme.color("textPrimary")
+                font.pixelSize: Components.UiTheme.fontSize("body")
+            }
             TextField {
                 id: passwordInput
                 Layout.fillWidth: true
                 echoMode: TextInput.Password
                 placeholderText: "Enter password"
                 onTextChanged: loginDialog.showError = false
+                color: Components.UiTheme.color("textPrimary")
+                background: Rectangle {
+                    color: Components.UiTheme.color("surface")
+                    border.color: Components.UiTheme.color("outline")
+                    radius: Components.UiTheme.radius("sm")
+                }
+                placeholderTextColor: Components.UiTheme.color("textSecondary")
             }
 
             Text {
                 text: "Invalid username or password."
-                color: "red"
+                color: Components.UiTheme.color("accentAlarm")
                 visible: loginDialog.showError // Bind to root property
                 Layout.alignment: Qt.AlignHCenter
+                font.pixelSize: Components.UiTheme.fontSize("body")
             }
         }
     }

@@ -1,16 +1,17 @@
 import QtQuick
 import QtQuick.Layouts
 import Qt5Compat.GraphicalEffects
+import "." as Components
 
 Item {
     id: root
 
     default property alias contentData: contentArea.data
-    property int padding: 16
-    property color backgroundColor: "#ffffff"
-    property color borderColor: "#e0e0e0"
+    property int padding: Components.UiTheme.spacing("lg")
+    property color backgroundColor: Components.UiTheme.color("panel")
+    property color borderColor: Components.UiTheme.color("outline")
     property int borderWidth: 1
-    property int radius: 8
+    property int radius: Components.UiTheme.radius("md")
     property bool showShadow: true
 
     property Component header
@@ -46,7 +47,7 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             anchors.margins: root.padding
-            spacing: 12
+            spacing: Components.UiTheme.spacing("md")
 
             Loader {
                 id: headerLoader
@@ -76,4 +77,3 @@ Item {
         onClicked: root.clicked() // 当点击时，发出 clicked 信号
     }
 }
-

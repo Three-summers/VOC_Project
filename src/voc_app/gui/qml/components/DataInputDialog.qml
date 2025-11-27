@@ -15,6 +15,7 @@ BaseDialog {
     contentData: Component {
         Text {
             text: "Data input area..."
+            color: Components.UiTheme.color("textPrimary")
             anchors.centerIn: parent
         }
     }

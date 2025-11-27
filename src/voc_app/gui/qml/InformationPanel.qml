@@ -5,7 +5,7 @@ import "./components" as Components
 
 Rectangle {
     id: informationPanel
-    color: "#f0f0f0"
+    color: Components.UiTheme.color("background")
 
     property string currentView: "Status"
     property var csvFileManagerRef: null

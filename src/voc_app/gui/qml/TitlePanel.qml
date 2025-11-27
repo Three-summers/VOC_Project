@@ -34,7 +34,7 @@ Rectangle {
             // 主机通信状态 (条件性) - 占位符
             Text {
                 text: "[HOST: REMOTE • CONNECTED]" // Placeholder
-                color: "#aaaaaa"
+                color: Components.UiTheme.color("textSecondary")
                 font.pixelSize: Components.UiTheme.fontSize("caption")
                 Layout.leftMargin: Components.UiTheme.spacing("md")
                 Layout.alignment: Qt.AlignVCenter
