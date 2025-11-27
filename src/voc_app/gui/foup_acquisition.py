@@ -25,7 +25,8 @@ class FoupAcquisitionController(QObject):
     def __init__(
         self,
         series_models: Iterable[QObject],
-        host: str = "127.0.0.1",
+        host: str = "192.168.1.8",
+        # host: str = "127.0.0.1",
         port: int = 65432,
         parent: QObject | None = None,
     ) -> None:
@@ -72,9 +73,16 @@ class FoupAcquisitionController(QObject):
         if not self._series_models:
             self._set_status("无可用曲线")
             return
+        for model in self._series_models:
+            try:
+                clear_fn = getattr(model, "clear", None)
+                if callable(clear_fn):
+                    clear_fn()
+            except Exception as exc:
+                print(f"[WARN] foup_acquisition: clear series failed: {exc!r}")
+        self._sample_index = 0
         self._stop_event.clear()
         self._set_status("正在连接...")
-        print("FOUP: startAcquisition triggered")
         self._worker = threading.Thread(target=self._run_loop, daemon=True)
         self._worker.start()
 
@@ -82,27 +90,23 @@ class FoupAcquisitionController(QObject):
     def stopAcquisition(self) -> None:
         self._stop_event.set()
         self._set_status("正在停止...")
-        print("FOUP: stopAcquisition requested")
-        self._send_command("power off")
+        # self._send_command("power off")
+        self._send_command("voc_data_coll_ctrl_stop")
         self._close_socket()
 
     # ---- 内部实现 ----
 
     def _run_loop(self) -> None:
         try:
-            print(f"FOUP: connecting to {self._host}:{self._port}")
             self._communicator = SocketCommunicator(self._host, self._port)
-            self._sample_index = 0
             self._set_running(True)
             self._set_status("采集中")
-            self._send_command("power on")
-            print("FOUP: power on sent, waiting for data")
+            # self._send_command("power on")
+            self._send_command("voc_data_coll_ctrl_start")
             while not self._stop_event.is_set():
                 message = self._recv_message()
                 if message is None:
-                    print("FOUP: recv_message returned None")
                     break
-                print(f"FOUP: received message -> {message!r}")
                 self._handle_line(message)
         except Exception as exc:  # noqa: BLE001
             self.errorOccurred.emit(f"FOUP 采集异常: {exc}")
@@ -163,20 +167,16 @@ class FoupAcquisitionController(QObject):
             return None
         header = self._recv_exact(4)
         if not header:
-            print("FOUP: failed to read header")
             return None
         (length,) = struct.unpack(">I", header)
         if length == 0:
-            print("FOUP: received empty message header")
             return ""
         payload = self._recv_exact(length)
         if payload is None:
-            print(f"FOUP: failed to read payload of length {length}")
             return None
         try:
             return payload.decode("utf-8")
         except UnicodeDecodeError:
-            print("FOUP: payload decode error")
             return None
 
     def _recv_exact(self, size: int) -> bytes | None:
@@ -187,7 +187,6 @@ class FoupAcquisitionController(QObject):
         while remaining > 0:
             chunk = self._communicator.recv(remaining)
             if not chunk:
-                print(f"FOUP: recv_exact early eof, remaining {remaining}")
                 return None
             chunks.append(chunk)
             remaining -= len(chunk)
@@ -198,12 +197,11 @@ class FoupAcquisitionController(QObject):
 
     def _send_command(self, text: str) -> None:
         if not self._communicator:
-            print("FOUP: communicator not ready, skip send_command")
             return
         try:
             payload = text.encode("utf-8")
-            header = struct.pack(">I", len(payload) + 1)
-            self._communicator.send(header + payload + b"\n")
-            print(f"FOUP: send_command -> {text}")
+            header = struct.pack(">I", len(payload))
+            # self._communicator.send(header + payload + b"\n")
+            self._communicator.send(header + payload)
         except Exception as exc:
             print(f"FOUP: send_command error {exc}")

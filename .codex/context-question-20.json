@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-11-26T15:03:45+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "text": "何时清空 SeriesTableModel：start 前还是 stop 后，如何避免线程竞态？",
+      "priority": "high",
+      "notes": "start 前清空可确保新采集干净；需线程安全（主线程调用）"
+    },
+    {
+      "id": "Q2",
+      "text": "清空后 QML 轴与 mapper 是否需要强制重建以刷新显示？",
+      "priority": "high",
+      "notes": "ChartCard 目前只在 boundsChanged/seriesModelChanged 时更新"
+    },
+    {
+      "id": "Q3",
+      "text": "固定横坐标数量是否沿用现有 max_rows=600，还是应暴露配置/缩小窗口？",
+      "priority": "medium",
+      "notes": "需求描述偏向滑动窗口，现值较大可能仍出现压缩感"
+    }
+  ]
+}

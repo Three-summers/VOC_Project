@@ -1,14 +1,19 @@
 {
-  "timestamp": "2025-11-25T14:35:20+08:00",
-  "canDefineInterfaces": true,
-  "interfacesNotes": "Config_foupCommands -> (foupAcquisition.start/stop) 通过 context property；FoupComponent ChartCard -> chartListModel entries [2,3]；FoupAcquisitionController -> SeriesTableModel.append_point() 负责数据流。",
-  "techChoiceUnderstood": true,
-  "techNotes": "使用 PySide6 QObject + threading + socket.create_connection 连接本地 65432，读取文本流。利用现有 ChartDataListModel/SeriesTableModel/VXYModelMapper 呈现折线图。QML 使用 CustomButton + ChartCard。",
-  "risksIdentified": [
-    "Socket 收到的数据格式未知，需要健壮解析与错误提示",
-    "SeriesTableModel 必须在主线程更新，线程安全需通过 QMetaObject.invokeMethod 或 QTimer.singleShot",
-    "采集线程的启动/停止状态需要反映到 UI，防止重复启动"
-  ],
-  "verificationPlan": "1) 单元测试维持 `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`；2) 手动检查 FoupAcquisitionController 追加数据的逻辑；3) GUI 无法运行（缺 PySide6），需在 verification.md 记录；4) 通过日志/console 输出验证 socket 连通性。",
-  "missingInfo": []
+  "timestamp": "2025-11-26T15:04:30+08:00",
+  "checks": {
+    "interfaceDefined": true,
+    "techChoicesUnderstood": true,
+    "risksIdentified": true,
+    "verificationKnown": true
+  },
+  "notes": {
+    "interfaces": "FoupAcquisitionController.start/stop，SeriesTableModel.append_point，计划新增 clear()；ChartCard 通过 boundsChanged 调整轴。",
+    "tech": "沿用 PySide6 + QtCharts，复用现有 SeriesTableModel/VXYModelMapper，无新增依赖。",
+    "risks": [
+      "清空模型需避免线程已运行时的数据竞争（在 start 前执行可规避）",
+      "Chart 轴在无数据时需主动重置，否则残留旧范围",
+      "缺少 GUI 自动化测试，需手动或逻辑自检"
+    ],
+    "verification": "计划运行现有 unittest (tests/test_serial_device.py)；图表逻辑通过代码审查与必要的最小逻辑测试/手动检查，记录到 testing.md/verification.md。"
+  }
 }

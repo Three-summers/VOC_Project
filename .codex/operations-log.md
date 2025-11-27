@@ -371,3 +371,21 @@
 | 2025-11-25T17:24:46+08:00#377 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | ChartCard 绑定 foupAcquisition.seriesModel 并显示当前值 |
 | 2025-11-25T17:35:10+08:00#378 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | 恢复 ChartCard 直接使用 chartListModel 提供的系列，避免 QML 绑定失效 |
 | 2025-11-25T17:40:55+08:00#379 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | 参照 StatusView 使用 Repeater + chartEntry，确保曲线绑定一致 |
+| 2025-11-26T15:03:06+08:00#380 | sequential-thinking | 调用 | 评估 FOUP 采集重启清空与滑动窗口需求 |
+| 2025-11-26T15:03:06+08:00#381 | shell | ls | 扫描项目根目录结构 |
+| 2025-11-26T15:03:06+08:00#382 | shell | rg -n "Foup" | 搜索 FOUP 相关实现入口 |
+| 2025-11-26T15:03:06+08:00#383 | shell | sed -n '1,200p' src/voc_app/gui/foup_acquisition.py | 阅读 FOUP 采集控制器代码 |
+| 2025-11-26T15:03:06+08:00#384 | shell | sed -n '1,240p' src/voc_app/gui/csv_model.py | 查看 SeriesTableModel 行为 |
+| 2025-11-26T15:03:06+08:00#385 | shell | sed -n '1,240p' src/voc_app/gui/app.py | 检查 FOUP 曲线模型初始化与参数 |
+| 2025-11-26T15:03:06+08:00#386 | shell | sed -n '150,320p' src/voc_app/gui/qml/views/ConfigView.qml | 查看 Config 视图中 FOUP 图表绑定 |
+| 2025-11-26T15:03:06+08:00#387 | shell | sed -n '1,260p' src/voc_app/gui/qml/components/ChartCard.qml | 分析图表视图与滑动窗口逻辑 |
+| 2025-11-26T15:03:30+08:00#388 | shell | cat <<'EOF' > .codex/context-scan.json | 更新结构化扫描（FOUP 采集重启与窗口需求） |
+| 2025-11-26T15:03:45+08:00#389 | shell | cat <<'EOF' > .codex/context-question-20.json | 记录关键疑问列表（清空时机、刷新、窗口大小） |
+| 2025-11-26T15:04:10+08:00#390 | shell | cat <<'EOF' > .codex/context-question-21.json | 深挖 Q1/Q2：确认清空时机与轴刷新需求 |
+| 2025-11-26T15:04:30+08:00#391 | shell | cat <<'EOF' > .codex/context-sufficiency.json | 完成充分性检查记录 |
+| 2025-11-26T15:05:00+08:00#392 | apply_patch | src/voc_app/gui/csv_model.py | 为 SeriesTableModel 新增 clear() 槽，重置数据与边界 |
+| 2025-11-26T15:05:40+08:00#393 | apply_patch | src/voc_app/gui/qml/components/ChartCard.qml | 无数据时重置轴范围并清空线条，防止旧坐标残留 |
+| 2025-11-26T15:06:05+08:00#394 | apply_patch | src/voc_app/gui/foup_acquisition.py | start 前清空系列并重置样本索引，避免二次采集叠加旧点 |
+| 2025-11-26T15:06:25+08:00#395 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 运行现有单测验证变更未破坏串口逻辑 |
+| 2025-11-26T15:06:40+08:00#396 | shell | cat <<'EOF' >> .codex/testing.md | 追加单测记录，确认变更未破坏串口逻辑 |
+| 2025-11-26T15:06:55+08:00#397 | shell | cat <<'EOF' >> verification.md | 更新验证报告，记录最新单测与 GUI 阻塞风险 |

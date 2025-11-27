@@ -73,3 +73,10 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；确认 socket 模块修改未影响串口功能。
 - Notes: GUI 验证仍需 PySide6 环境配合。 
+
+## 2025-11-26T15:06:25+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；确认 FOUP 采集清空/滑动窗口改动未影响串口模块。
+- Notes: GUI 仍需在具备 PySide6 的环境验证曲线展示效果。

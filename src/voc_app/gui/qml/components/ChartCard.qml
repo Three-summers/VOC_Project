@@ -90,8 +90,10 @@ Rectangle {
     }
 
     function updateAxesFromSeries() {
-        if (!chartCard.seriesModel || !chartCard.seriesModel.hasData)
-        return;
+        if (!chartCard.seriesModel || !chartCard.seriesModel.hasData) {
+            resetAxesToDefault();
+            return;
+        }
         var minX = chartCard.seriesModel.minX;
         var maxX = chartCard.seriesModel.maxX;
         var minY = chartCard.seriesModel.minY;
@@ -113,6 +115,13 @@ Rectangle {
         xAxis.max = maxX + paddingX;
         yAxis.min = minY - paddingY;
         yAxis.max = maxY + paddingY;
+    }
+
+    function resetAxesToDefault() {
+        xAxis.min = 0;
+        xAxis.max = 10;
+        yAxis.min = 0;
+        yAxis.max = 100;
     }
 
     function updateMapperBinding() {
@@ -140,6 +149,7 @@ Rectangle {
             }
         } else {
             lineSeries.clear();
+            resetAxesToDefault();
         }
         updateMapperBinding();
     }
@@ -190,7 +200,14 @@ Rectangle {
         property int previousRowCount: 0
 
         function onBoundsChanged() {
-            var currentRowCount = chartCard.seriesModel.rowCount();
+            var currentRowCount = chartCard.seriesModel ? chartCard.seriesModel.rowCount() : 0;
+
+            if (!chartCard.seriesModel || !chartCard.seriesModel.hasData) {
+                lineSeries.clear();
+                chartCard.resetAxesToDefault();
+                previousRowCount = currentRowCount;
+                return;
+            }
 
             // 如果是第一次接收到数据（从 0 到 1），强制重新绑定 mapper
             if (previousRowCount === 0 && currentRowCount > 0) {

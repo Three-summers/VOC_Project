@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-11-26T15:04:10+08:00",
+  "sourceQuestion": "Q1/Q2",
+  "goal": "确定清空 SeriesTableModel 的时机与刷新方式",
+  "findings": {
+    "startFlow": "startAcquisition (QML Slot) 在主线程，若 _running/_worker 未活跃则创建线程并立即返回；可在开启线程前调用模型清空，线程尚未启动不会与 UI 冲突。",
+    "stopFlow": "stopAcquisition 仅置 stop_event、发送 power off、关闭 socket，未触及模型；若在 stop 后清空，可能 miss 状态文本更新（_set_status 已在 finally 设置）。",
+    "chartBinding": "ChartCard.Connections onBoundsChanged -> updateAxesFromSeries(); 但 updateAxesFromSeries 遇到 hasData=false 时直接 return，导致清空后轴不重置，需额外逻辑重置 xAxis/yAxis。",
+    "maxRows": "visibleWindow = max(maxRows,10); FOUP 设置 max_rows=600，append_point 已在满额时 pop(0)+recalculate_bounds 后再 append 新点，满足滑动窗口要求。"
+  },
+  "conclusion": "清空应在 startAcquisition 入口执行并仅在主线程调用；为配合轴刷新，需要 clear() 时额外发出 boundsChanged 并让 ChartCard 在无数据时重置轴范围。"
+}

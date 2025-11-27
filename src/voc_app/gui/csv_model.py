@@ -125,6 +125,24 @@ class SeriesTableModel(QAbstractTableModel):
             self.boundsChanged.emit()
 
     @Slot()
+    def clear(self):
+        """清空全部数据并重置坐标范围。"""
+        if (
+            not self._rows
+            and self._min_x == self._max_x == self._min_y == self._max_y == 0.0
+            and not self._has_data
+        ):
+            return
+
+        self.beginResetModel()
+        self._rows.clear()
+        self._min_x = self._max_x = 0.0
+        self._min_y = self._max_y = 0.0
+        self._has_data = False
+        self.endResetModel()
+        self.boundsChanged.emit()
+
+    @Slot()
     def force_rebuild(self):
         """强制 QML 视图完全重建模型，用于解决动态加载后无法显示存量数据的问题。"""
         self.beginResetModel()

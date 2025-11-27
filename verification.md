@@ -55,3 +55,11 @@
 - Result: ⚠️ Blocked
 - Details: 当前环境仍缺少 PySide6，无法启动 GUI 验证开始/停止按钮及折线图渲染；逻辑层面已通过单元测试和代码审查确认。待目标设备安装 PySide6 并提供本地 65432 采集服务后再运行，验证 chartListModel 是否收到实时数据。
 - Risk Assessment: 中。若采集服务器回传格式与假设不同，需要调整 foup_acquisition.py 的解析逻辑；建议上线前在目标网络环境实机测试一次。
+
+## Verification - 2025-11-26T15:06:25+08:00
+- Executor: Codex
+- Scope: FOUP 采集清空与滑动窗口改动回归
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures。确认新增 clear/轴重置逻辑未影响串口回归；ChartCard 空数据处理依赖 PySide6/QML 运行环境暂未实机验证。
+- Risk Assessment: 中。GUI 冒烟仍受 PySide6 缺失阻塞；需在目标环境启动 Config/Status 页面观察二次采集时曲线是否按预期清空并保持固定窗口。

@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     foup_series_models = []
     for label in ["FOUP 通道 1"]:
-        series_model = SeriesTableModel(max_rows=600, parent=chart_list_model)
+        series_model = SeriesTableModel(max_rows=60, parent=chart_list_model)
         chart_list_model.addSeries(label, series_model)
         foup_series_models.append(series_model)
 
