@@ -25,8 +25,8 @@ class FoupAcquisitionController(QObject):
     def __init__(
         self,
         series_models: Iterable[QObject],
-        host: str = "192.168.1.8",
-        # host: str = "127.0.0.1",
+        # host: str = "192.168.1.8",
+        host: str = "127.0.0.1",
         port: int = 65432,
         parent: QObject | None = None,
     ) -> None:

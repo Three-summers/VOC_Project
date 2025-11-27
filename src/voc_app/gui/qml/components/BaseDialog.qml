@@ -5,14 +5,24 @@ import QtQuick.Layouts
 Popup {
     id: popup
 
-    width: 500
-    height: 300
+    property var popupAnchorItem: null
+    property int anchorMargin: 24
+    property int footerPadding: 12
+
+    implicitWidth: popupAnchorItem && parent ? Math.min(parent.width * 0.8, 500) : 500
+    width: implicitWidth
+    implicitHeight: contentColumn.implicitHeight
+    height: Math.max(implicitHeight, 240)
     modal: true
     focus: true
     closePolicy: Popup.NoAutoClose
 
-    x: (parent.width - width) / 2
-    y: (parent.height - height) / 2
+    parent: popupAnchorItem ? popupAnchorItem : parent
+
+    x: parent ? Math.max(anchorMargin, (parent.width - width) / 2) : 0
+    y: parent
+        ? (popupAnchorItem ? anchorMargin : (parent.height - height) / 2)
+        : 0
 
     background: Rectangle {
         color: "#ffffff"
@@ -27,6 +37,7 @@ Popup {
     property alias internalContentLoader: contentLoader
 
     contentItem: ColumnLayout {
+        id: contentColumn
         spacing: 0
 
         // 1. 标题栏
@@ -60,18 +71,24 @@ Popup {
         Loader {
             id: contentLoader
             Layout.fillWidth: true
-            Layout.fillHeight: true
             Layout.margins: 20
+            Layout.preferredHeight: (item && item.implicitHeight ? item.implicitHeight : 160) + Layout.margins * 2
         }
 
         // 3. 底部按钮区
         Rectangle {
+            id: footerSection
             Layout.fillWidth: true
-            Layout.preferredHeight: 50
+            implicitHeight: Math.max(
+                (footerLoader.implicitHeight > 0 ? footerLoader.implicitHeight : 0) + popup.footerPadding * 2,
+                60
+            )
+            Layout.preferredHeight: implicitHeight
             color: "#f0f0f0"
             Loader {
                 id: footerLoader
                 anchors.fill: parent
+                anchors.margins: popup.footerPadding
             }
         }
     }

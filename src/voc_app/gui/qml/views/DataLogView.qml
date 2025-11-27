@@ -486,6 +486,9 @@ Rectangle {
         standardButtons: Dialog.Ok | Dialog.Cancel
         implicitWidth: 440 * dataLogView.scaleFactor
         implicitHeight: 480 * dataLogView.scaleFactor
+        x: Math.max(Components.UiTheme.spacing("lg"), (dataLogView.width - width) / 2)
+        y: Components.UiTheme.spacing("lg")
+        parent: dataLogView
         property var backupSelection: ({})
 
         onOpened: {
@@ -559,6 +562,9 @@ Rectangle {
                         TextField {
                             text: dataLogView.chartFileName
                             placeholderText: "例如 datalog_chart.png"
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: Components.UiTheme.controlWidth(320)
+                            implicitHeight: Components.UiTheme.controlHeight("input")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                             onEditingFinished: {
                                 if (text.length === 0)

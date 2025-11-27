@@ -389,3 +389,19 @@
 | 2025-11-26T15:06:25+08:00#395 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 运行现有单测验证变更未破坏串口逻辑 |
 | 2025-11-26T15:06:40+08:00#396 | shell | cat <<'EOF' >> .codex/testing.md | 追加单测记录，确认变更未破坏串口逻辑 |
 | 2025-11-26T15:06:55+08:00#397 | shell | cat <<'EOF' >> verification.md | 更新验证报告，记录最新单测与 GUI 阻塞风险 |
+| 2025-11-27T10:24:12+08:00#398 | sequential-thinking | 调用 | 评估报警弹窗位置改到状态页面顶部的需求 |
+| 2025-11-27T10:24:12+08:00#399 | shell | rg -n "alarm|警告|warning" src/voc_app/gui/qml | 定位报警按钮和弹窗实现 |
+| 2025-11-27T10:24:12+08:00#400 | shell | sed -n '60,260p' src/voc_app/gui/qml/TitlePanel.qml | 查看弹窗布局和定位方式 |
+| 2025-11-27T10:24:35+08:00#401 | apply_patch | src/voc_app/gui/qml/TitlePanel.qml | 为报警弹窗增加 anchor 可绑定信息面板居中显示，避免遮挡右侧/底部 |
+| 2025-11-27T10:24:35+08:00#402 | apply_patch | src/voc_app/gui/qml/main.qml | 将报警弹窗锚定到信息面板（状态页区域）顶部居中 |
+| 2025-11-27T10:25:05+08:00#403 | apply_patch | src/voc_app/gui/qml/components/BaseDialog.qml | 支持可选锚点，将弹窗居中到 anchor 顶部并自适应宽度 |
+| 2025-11-27T10:25:05+08:00#404 | apply_patch | src/voc_app/gui/qml/TitlePanel.qml | 登录对话框复用 alarmPopupAnchorItem 作为弹窗锚点 |
+| 2025-11-27T10:36:56+08:00#405 | apply_patch | src/voc_app/gui/qml/components/BaseDialog.qml | 调整对话框高度/宽度自适应并增加 footer 内边距，防止按钮溢出背景 |
+| 2025-11-27T10:38:05+08:00#406 | apply_patch | src/voc_app/gui/qml/components/BaseDialog.qml | 移除对 Loader.implicitHeight 的写入，使用 preferredHeight 计算避免 QML 报错 |
+| 2025-11-27T10:45:05+08:00#407 | apply_patch | src/voc_app/gui/qml/views/DataLogView.qml | 调整绘图设置对话框定位到信息面板顶部居中，避免遮挡命令/导航区域 |
+| 2025-11-27T10:47:10+08:00#408 | apply_patch | src/voc_app/gui/qml/views/DataLogView.qml | 绘图设置对话框中文件名输入框改为填满行并使用标准输入高度 |
+| 2025-11-27T10:54:10+08:00#409 | sequential-thinking | 调用 | 规划 Help 页面填充具体内容 |
+| 2025-11-27T10:55:25+08:00#410 | apply_patch | src/voc_app/gui/qml/views/HelpView.qml | 填充 Help 页面，增加导航/状态/Config/数据日志/报警/登录/操作提示说明 |
+| 2025-11-27T10:57:05+08:00#411 | apply_patch | src/voc_app/gui/qml/views/HelpView.qml | 重做 Help 页面为浅色卡片样式，统一与其他页面视觉风格 |
+| 2025-11-27T10:58:30+08:00#412 | apply_patch | src/voc_app/gui/qml/views/HelpView.qml | 移除布局项上的 anchors，使用 Layout.alignment 消除 QML 警告 |
+| 2025-11-27T11:00:25+08:00#413 | apply_patch | src/voc_app/gui/qml/views/HelpView.qml | 为 Help 卡片增加 implicitHeight/padding，修复布局重叠警告与文本覆盖 |

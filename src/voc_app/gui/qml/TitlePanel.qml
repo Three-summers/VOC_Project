@@ -16,6 +16,7 @@ Rectangle {
     property string loggedInUser: ""
     property real scaleFactor: Components.UiTheme.controlScale
     property var alarmStoreRef: null
+    property var alarmPopupAnchorItem: null
     readonly property bool hasActiveAlarm: alarmStoreRef && alarmStoreRef.hasActiveAlarm
     readonly property int alarmItemCount: (alarmStoreRef && alarmStoreRef.alarmModel && alarmStoreRef.alarmModel.count !== undefined)
         ? alarmStoreRef.alarmModel.count
@@ -172,12 +173,16 @@ Rectangle {
 
     Popup {
         id: alarmPopup
-        parent: titlePanel
+        parent: titlePanel.alarmPopupAnchorItem ? titlePanel.alarmPopupAnchorItem : titlePanel
         modal: false
         focus: true
-        y: titlePanel.height - Components.UiTheme.spacing("sm")
-        x: titlePanel.width - width - Components.UiTheme.spacing("lg")
-        implicitWidth: Math.min(titlePanel.width * 0.45, 420 * Components.UiTheme.controlScale)
+        y: titlePanel.alarmPopupAnchorItem ? Components.UiTheme.spacing("lg") : titlePanel.height - Components.UiTheme.spacing("sm")
+        x: titlePanel.alarmPopupAnchorItem
+            ? Math.max(Components.UiTheme.spacing("lg"), (parent.width - width) / 2)
+            : titlePanel.width - width - Components.UiTheme.spacing("lg")
+        implicitWidth: titlePanel.alarmPopupAnchorItem
+            ? Math.min(parent.width * 0.9, 420 * Components.UiTheme.controlScale)
+            : Math.min(titlePanel.width * 0.45, 420 * Components.UiTheme.controlScale)
         padding: Components.UiTheme.spacing("md")
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         background: Rectangle {
@@ -249,6 +254,7 @@ Rectangle {
 
     LoginDialog {
         id: loginDialog
+        popupAnchorItem: titlePanel.alarmPopupAnchorItem ? titlePanel.alarmPopupAnchorItem : null
         onLoggedIn: (username) => {
             titlePanel.isLoggedIn = true;
             titlePanel.loggedInUser = username;
