@@ -237,17 +237,41 @@ Rectangle {
                         }
                     }
 
-                    ColumnLayout {
+                    // 动态图表容器（固定两列布局）
+                    GridLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        spacing: Components.UiTheme.spacing("md")
+                        columns: 2
+                        rowSpacing: Components.UiTheme.spacing("md")
+                        columnSpacing: Components.UiTheme.spacing("md")
 
+                        // 动态生成图表
                         Repeater {
-                            model: [{ title: "FOUP", index: configView.foupChartIndex }]
+                            id: chartRepeater
+                            model: {
+                                // 根据foupAcquisition.channelCount动态生成图表列表
+                                if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
+                                    return [{ title: "FOUP 通道 1", index: configView.foupChartIndex }]
+                                }
+                                const count = foupAcquisition.channelCount
+                                const charts = []
+                                for (let i = 0; i < count; i++) {
+                                    charts.push({
+                                        title: "FOUP 通道 " + (i + 1),
+                                        index: configView.foupChartIndex + i,
+                                        channelIndex: i
+                                    })
+                                }
+                                return charts
+                            }
+
                             delegate: Components.ChartCard {
+                                // 单通道时占满两列，多通道时每个占一列
+                                Layout.columnSpan: (chartRepeater.count === 1) ? 2 : 1
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 Layout.preferredHeight: Components.UiTheme.controlHeight(220)
+                                Layout.minimumHeight: 180
                                 radius: Components.UiTheme.radius(18)
                                 color: Components.UiTheme.color("panel")
                                 border.color: Components.UiTheme.color("outline")
@@ -260,7 +284,6 @@ Rectangle {
 
                                 scaleFactor: configView.scaleFactor
 
-
                                 Text {
                                     visible: !seriesModel
                                     anchors.centerIn: parent
@@ -271,10 +294,12 @@ Rectangle {
                             }
                         }
 
+                        // 状态信息（跨两列显示）
                         Text {
+                            Layout.columnSpan: 2
                             text: (typeof foupAcquisition !== "undefined" && foupAcquisition && !isNaN(foupAcquisition.lastValue))
-                            ? "当前值：" + foupAcquisition.lastValue.toFixed(2)
-                            : "当前值：--"
+                            ? "通道数量: " + foupAcquisition.channelCount + " | 当前值: " + foupAcquisition.lastValue.toFixed(2)
+                            : "通道数量: " + ((typeof foupAcquisition !== "undefined" && foupAcquisition) ? foupAcquisition.channelCount : 1) + " | 当前值: --"
                             color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }

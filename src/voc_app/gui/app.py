@@ -140,8 +140,11 @@ if __name__ == "__main__":
         for _ in range(10):
             generator.generate_new_point()
 
+    # 预创建最多8个FOUP通道的series models（支持动态多通道数据）
     foup_series_models = []
-    for label in ["FOUP 通道 1"]:
+    max_foup_channels = 8
+    for i in range(max_foup_channels):
+        label = f"FOUP 通道 {i + 1}"
         series_model = SeriesTableModel(max_rows=60, parent=chart_list_model)
         chart_list_model.addSeries(label, series_model)
         foup_series_models.append(series_model)

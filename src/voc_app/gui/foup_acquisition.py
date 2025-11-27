@@ -19,14 +19,15 @@ class FoupAcquisitionController(QObject):
     statusMessageChanged = Signal()
     lastValueChanged = Signal()
     errorOccurred = Signal(str)
-    # 新增信号：用于跨线程传递数据点到主线程
-    dataPointReceived = Signal(float, float)  # x, y
+    channelCountChanged = Signal()
+    # 新增信号：用于跨线程传递数据点到主线程（支持多通道）
+    dataPointReceived = Signal(float, list)  # x, [y1, y2, y3, ...]
 
     def __init__(
         self,
         series_models: Iterable[QObject],
-        host: str = "192.168.1.8",
-        # host: str = "127.0.0.1",
+        # host: str = "192.168.1.8",
+        host: str = "127.0.0.1",
         port: int = 65432,
         parent: QObject | None = None,
     ) -> None:
@@ -42,6 +43,7 @@ class FoupAcquisitionController(QObject):
         self._stop_event = threading.Event()
         self._communicator: SocketCommunicator | None = None
         self._sample_index = 0
+        self._channel_count = 1  # 默认单通道，动态检测后更新
 
         # 连接信号到槽，确保跨线程调用安全
         self.dataPointReceived.connect(self._append_point_to_model)
@@ -63,6 +65,10 @@ class FoupAcquisitionController(QObject):
     @Property(float, notify=lastValueChanged)
     def lastValue(self) -> float:
         return float(self._last_value) if self._last_value is not None else float("nan")
+
+    @Property(int, notify=channelCountChanged)
+    def channelCount(self) -> int:
+        return self._channel_count
 
     # ---- 槽函数 ----
 
@@ -119,26 +125,57 @@ class FoupAcquisitionController(QObject):
             self._stop_event.clear()
 
     def _handle_line(self, text: str) -> None:
-        cleaned = text.strip().replace(",", " ")
+        cleaned = text.strip()
         if not cleaned:
             return
-        token = cleaned.split()[0]
-        try:
-            value = float(token)
-        except ValueError:
+
+        # 解析逗号分隔的数据
+        values = []
+        if "," in cleaned:
+            # 多通道数据：12.1,123.4,65.1,75.2
+            tokens = cleaned.split(",")
+            for token in tokens:
+                try:
+                    value = float(token.strip())
+                    values.append(value)
+                except ValueError:
+                    continue
+        else:
+            # 单通道数据：1.23（向后兼容）
+            try:
+                value = float(cleaned)
+                values.append(value)
+            except ValueError:
+                return
+
+        if not values:
             return
-        self._last_value = value
+
+        # 更新通道数量（首次检测到数据时）
+        detected_count = len(values)
+        if self._channel_count != detected_count:
+            self._channel_count = detected_count
+            self.channelCountChanged.emit()
+
+        # 更新最后一个值（用于显示）
+        self._last_value = values[0]
         self.lastValueChanged.emit()
+
         self._sample_index += 1
         x_value = float(self._sample_index)
 
-        # 使用信号机制安全地跨线程传递数据
-        self.dataPointReceived.emit(x_value, value)
+        # 使用信号机制安全地跨线程传递数据（传递所有通道的值）
+        self.dataPointReceived.emit(x_value, values)
 
-    def _append_point_to_model(self, x: float, y: float) -> None:
+    def _append_point_to_model(self, x: float, y_values: list) -> None:
+        """将多通道数据添加到对应的series models中"""
         try:
-            model = self._series_models[0]
-            model.append_point(x, y)
+            # 遍历所有接收到的值，添加到对应的series model
+            for channel_idx, y_value in enumerate(y_values):
+                if channel_idx < len(self._series_models):
+                    model = self._series_models[channel_idx]
+                    if model is not None:
+                        model.append_point(x, y_value)
         except Exception as exc:
             print(f"[ERROR] foup_acquisition: Exception in _append_point_to_model(): {exc!r}")
 
