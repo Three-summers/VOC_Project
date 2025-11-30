@@ -43,6 +43,7 @@ Rectangle {
 
             // 基础信息 - 日期/时间显示
             Frame {
+                id: dateFrame
                 background: Rectangle {
                     color: Components.UiTheme.color("panel")
                     radius: Components.UiTheme.radius("md")
@@ -125,14 +126,15 @@ Rectangle {
         // 基础信息 - 消息显示区
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: parent.height * 0.5
+            Layout.preferredHeight: parent.height * 0.7   // 工业面板放大消息条高度
             spacing: 0
 
             Rectangle {
                 id: messageArea
                 Layout.fillHeight: true
                 Layout.fillWidth: true
-                Layout.minimumWidth: 360 * Components.UiTheme.controlScale
+                Layout.minimumWidth: dateFrame.implicitWidth
+                Layout.preferredWidth: Math.max(dateFrame.implicitWidth, 480 * Components.UiTheme.controlScale)
                 color: titlePanel.hasActiveAlarm ? Components.UiTheme.color("panelAlt") : Components.UiTheme.color("panel")
                 border.color: titlePanel.hasActiveAlarm ? Components.UiTheme.color("accentAlarm") : Components.UiTheme.color("outline")
                 border.width: 1
@@ -146,7 +148,8 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     anchors.left: parent.left
                     anchors.leftMargin: Components.UiTheme.spacing("lg")
-                    font.pixelSize: Components.UiTheme.fontSize("body")
+                    font.pixelSize: Components.UiTheme.fontSize("subtitle")  // 提升字号便于工业场景查看
+                    font.bold: true
                     elide: Text.ElideRight
                     wrapMode: Text.NoWrap
                     width: parent.width - Components.UiTheme.spacing("xl")

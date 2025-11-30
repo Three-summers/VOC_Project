@@ -268,6 +268,12 @@
 | 2025-11-30T20:15:00+08:00#274 | apply_patch | src/voc_app/gui/qml/commands/Config_foupCommands.qml | 弹窗锚定 informationPanelRef（回退窗口）以对齐登录位置 |
 | 2025-11-30T20:15:00+08:00#275 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 单测通过，确认锚点调整无回归 |
 | 2025-11-30T20:15:00+08:00#276 | apply_patch | .codex/testing.md | 记录最新单测结果与居中验证提醒 |
+| 2025-11-30T20:22:00+08:00#277 | apply_patch | src/voc_app/gui/qml/TitlePanel.qml | 绑定消息区域最小/首选宽度为 dateFrame，保证与时间区域等宽 |
+| 2025-11-30T20:22:00+08:00#278 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 单测通过，确认标题栏宽度调整无回归 |
+| 2025-11-30T20:22:00+08:00#279 | apply_patch | .codex/testing.md | 记录标题栏调整后的单测结果 |
+| 2025-11-30T20:28:00+08:00#280 | apply_patch | src/voc_app/gui/qml/TitlePanel.qml | 增加消息行高度、消息区域最小宽度和字号加粗，满足工业面板可读性 |
+| 2025-11-30T20:28:00+08:00#281 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 单测通过，确认可读性调整无回归 |
+| 2025-11-30T20:28:00+08:00#282 | apply_patch | .codex/testing.md | 记录最新单测结果与视觉验证提醒 |
 | 2025-11-24T10:55:00+08:00#207 | shell | git status -sb | 檢查當前工作樹變化，確認僅調整 .codex/verification 等文件 |
 | 2025-11-25T10:46:05+08:00#208 | sequential-thinking | 初次调用 | 重新梳理“注释非 GUI loadport 代码”需求，确认目标是规避 RPi.GPIO 依赖阻塞 GUI 启动 |
 | 2025-11-25T10:46:05+08:00#209 | shell | ls | 查看项目根目录（docs/examples/src/tests/verification.md） |

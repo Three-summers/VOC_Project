@@ -155,11 +155,11 @@ Rectangle {
                                 color: Components.UiTheme.color("textPrimary")
                             }
 
-                            Text {
-                                text: "当前值：" + modelData.currentValue
-                                font.pixelSize: Components.UiTheme.fontSize("body")
-                                color: Components.UiTheme.color("textSecondary")
-                            }
+                            // Text {
+                            //     text: "当前值：" + modelData.currentValue
+                            //     font.pixelSize: Components.UiTheme.fontSize("body")
+                            //     color: Components.UiTheme.color("textSecondary")
+                            // }
                         }
                     }
                 }
@@ -326,11 +326,11 @@ Rectangle {
                                 color: Components.UiTheme.color("textPrimary")
                             }
 
-                            Text {
-                                text: "当前值：" + modelData.currentValue
-                                font.pixelSize: Components.UiTheme.fontSize("body")
-                                color: Components.UiTheme.color("textSecondary")
-                            }
+                            // Text {
+                            //     text: "当前值：" + modelData.currentValue
+                            //     font.pixelSize: Components.UiTheme.fontSize("body")
+                            //     color: Components.UiTheme.color("textSecondary")
+                            // }
                         }
                     }
                 }

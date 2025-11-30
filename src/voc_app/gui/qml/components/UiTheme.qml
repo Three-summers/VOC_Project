@@ -93,7 +93,7 @@ QtObject {
     function controlHeight(role) {
         switch (role) {
         case "titleBar":
-            return 72 * controlScale;
+            return 120 * controlScale;
         case "panelHeader":
             return 64 * controlScale;
         case "nav":

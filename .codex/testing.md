@@ -136,3 +136,17 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；对话框锚定信息面板（无则回退窗口）后回归正常。
 - Notes: 请在 PySide6 环境核对弹窗位置是否与登录弹窗一致；依赖信息面板尺寸居中。 
+
+## 2025-11-30T20:22:00+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；标题消息区域与时间区域等宽（绑定 dateFrame）后回归正常。
+- Notes: GUI 顶栏视觉需在 PySide6 环境确认。 
+
+## 2025-11-30T20:28:00+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；增高消息行、加宽消息区域并放大加粗字号后回归正常。
+- Notes: 请在 PySide6 环境确认标题消息区高度与字号是否满足工业面板需求。 
