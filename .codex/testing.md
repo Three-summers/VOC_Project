@@ -87,3 +87,52 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；确认调色子页改动未影响串口模块。
 - Notes: GUI 调色交互需在具备 PySide6 的环境中手动验证。
+
+## 2025-11-30T19:29:14+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；本次 FOUP IP 可配置改动未影响串口模块。
+- Notes: GUI 验证仍需具备 PySide6/显示环境，命令面板新 TextField 需在目标设备上手动检查。
+
+## 2025-11-30T19:40:54+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；将 IP 输入改为对话框后，串口单测仍通过。
+- Notes: GUI 对话框交互需在具备 PySide6/显示的设备上手动验证。
+
+## 2025-11-30T19:49:53+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；补充 QtQuick.Layouts 导入后回归依旧通过。
+- Notes: QML 模块加载需在目标环境验证，PySide6 仍缺。 
+
+## 2025-11-30T19:57:00+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；移除当前 IP 文本并调整弹窗居中计算后回归正常。
+- Notes: GUI 弹窗居中效果需在 PySide6 环境确认。 
+
+## 2025-11-30T20:03:00+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；改为使用 Qt.application.activeWindow 居中对话框后回归无变化。
+- Notes: 需在 PySide6 环境确认弹窗位置与告警/登录对齐效果。 
+
+## 2025-11-30T20:10:00+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；在 onOpened 强制以 window 尺寸计算 x/y 居中后回归正常。
+- Notes: 请在 PySide6 环境再次查看弹窗位置，应与登录弹窗居中一致。 
+
+## 2025-11-30T20:15:00+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；对话框锚定信息面板（无则回退窗口）后回归正常。
+- Notes: 请在 PySide6 环境核对弹窗位置是否与登录弹窗一致；依赖信息面板尺寸居中。 

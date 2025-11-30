@@ -1,4 +1,6 @@
 import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
 import "../components"
 import "../components" as Components
 
@@ -9,7 +11,18 @@ Column {
     anchors.margins: Components.UiTheme.spacing("md")
     spacing: Components.UiTheme.spacing("md")
 
+    // 由 CommandPanel 注入，用于对话框定位
+    property var commandPanelRef: null
+    property var informationPanelRef: null
     readonly property var acquisitionController: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+    property string ipText: (acquisitionController && acquisitionController.host) ? acquisitionController.host : ""
+
+    Connections {
+        target: acquisitionController
+        function onHostChanged() {
+            ipText = acquisitionController.host
+        }
+    }
 
     Text {
         text: "FOUP 采集命令"
@@ -18,6 +31,28 @@ Column {
         color: Components.UiTheme.color("textPrimary")
         horizontalAlignment: Text.AlignHCenter
         width: parent.width
+    }
+
+    CustomButton {
+        text: "配置采集 IP"
+        width: parent.width
+        onClicked: {
+            if (!acquisitionController) {
+                console.warn("foupAcquisition 未注入");
+                return;
+            }
+            ipDialog.tempIp = acquisitionController.host || "";
+            ipDialog.open();
+        }
+    }
+
+    Text {
+        visible: acquisitionController && acquisitionController.running
+        text: "采集中，修改 IP 前请先停止采集"
+        color: Components.UiTheme.color("accentWarning")
+        font.pixelSize: Components.UiTheme.fontSize("caption")
+        width: parent.width
+        wrapMode: Text.WordWrap
     }
 
     CustomButton {
@@ -60,5 +95,87 @@ Column {
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
         width: parent.width
+    }
+
+    // 弹窗设置 IP，带确定/取消
+    Components.DataInputDialog {
+        id: ipDialog
+        title: "设置 FOUP 采集 IP"
+        // 与登录弹窗一致，优先锚定信息面板，否则退回主窗口居中
+        popupAnchorItem: informationPanelRef ? informationPanelRef : Qt.application.activeWindow
+        property string tempIp: ""
+        property bool canEdit: acquisitionController && !acquisitionController.running
+
+        contentData: Component {
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: Components.UiTheme.spacing("md")
+                spacing: Components.UiTheme.spacing("md")
+
+                Text {
+                    text: "请输入采集服务器 IP 地址"
+                    color: Components.UiTheme.color("textPrimary")
+                    font.pixelSize: Components.UiTheme.fontSize("body")
+                    wrapMode: Text.WordWrap
+                }
+
+                TextField {
+                    id: ipField
+                    Layout.fillWidth: true
+                    text: ipDialog.tempIp
+                    placeholderText: "例如 192.168.1.8"
+                    color: Components.UiTheme.color("textPrimary")
+                    placeholderTextColor: Components.UiTheme.color("textSecondary")
+                    background: Rectangle {
+                        color: Components.UiTheme.color("surface")
+                        border.color: Components.UiTheme.color("outline")
+                        radius: Components.UiTheme.radius("sm")
+                    }
+                    onTextChanged: ipDialog.tempIp = text
+                }
+
+                Text {
+                    visible: acquisitionController && acquisitionController.running
+                    text: "采集中无法保存新 IP，请先停止采集再修改。"
+                    color: Components.UiTheme.color("accentWarning")
+                    font.pixelSize: Components.UiTheme.fontSize("caption")
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
+        footerData: Component {
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: Components.UiTheme.spacing("md")
+                spacing: Components.UiTheme.spacing("md")
+                Item { Layout.fillWidth: true }
+                Components.CustomButton {
+                    text: "取消"
+                    Layout.preferredWidth: Components.UiTheme.controlWidth("button")
+                    Layout.preferredHeight: Components.UiTheme.controlHeight("button")
+                    onClicked: ipDialog.close()
+                }
+                Components.CustomButton {
+                    text: "确定"
+                    Layout.preferredWidth: Components.UiTheme.controlWidth("button")
+                    Layout.preferredHeight: Components.UiTheme.controlHeight("button")
+                    enabled: ipDialog.canEdit && ipDialog.tempIp.trim().length > 0
+                    onClicked: {
+                        if (!acquisitionController)
+                            return;
+                        const next = ipDialog.tempIp.trim();
+                        if (next.length === 0)
+                            return;
+                        acquisitionController.host = next;
+                        ipText = acquisitionController.host;
+                        ipDialog.close();
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+        }
+
+        onOpened: tempIp = (acquisitionController && acquisitionController.host) ? acquisitionController.host : "";
     }
 }

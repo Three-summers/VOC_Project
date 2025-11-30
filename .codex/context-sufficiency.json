@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-27T15:51:44+08:00",
+  "timestamp": "2025-11-30T19:29:14+08:00",
   "checks": {
     "interfaceDefined": true,
     "techChoicesUnderstood": true,
@@ -7,13 +7,13 @@
     "verificationKnown": true
   },
   "notes": {
-    "interfaces": "Config 视图通过 InformationPanel.subNavigationConfig 提供子页 key；CommandPanel 按 commands/Config_<key>Commands.qml 载入命令；UiTheme.palette 包含 background/surface/panel/panelAlt/outline/outlineStrong/buttonBase/buttonHover/buttonDown/textPrimary/textSecondary/textOnLight/textOnLightMuted/accentInfo/accentSuccess/accentWarning/accentAlarm 等键，需逐项可调并在 QML 内重新赋值触发刷新。",
-    "tech": "沿用现有 QtQuick/Controls 组件，不新增依赖；调色更新通过创建新对象再赋值 UiTheme.palette；可能使用 ColorDialog + TextField 组合以便输入 HEX。",
+    "interfaces": "需为 FoupAcquisitionController 暴露 host Property（默认 192.168.1.8，支持读写，阻止空值），port 保持内部常量；QML 命令面板通过 foupAcquisition.host 绑定 TextField 文本，按钮继续调用 startAcquisition/stopAcquisition。",
+    "tech": "UI 采用现有 QtQuick.Controls TextField 风格（参考 components/LoginDialog.qml），放置在 commands/Config_foupCommands.qml 旁边的操作区；不新增依赖，保持 PySide6 + QML。",
     "risks": [
-      "ColorDialog/颜色输入若未校验格式，可能导致 QML 解析错误或显示异常",
-      "Palette 更新需整体赋值，否则 CustomButton 等缓存对象不刷新",
-      "缺少 GUI 自动化测试，调色功能需手动/目测验证"
+      "运行中修改 host 不会影响已建立连接，需提示或防止在 running 状态编辑/应用",
+      "未做 IP 格式校验可能导致连接异常日志；若校验过严可能阻断合法地址（如主机名）",
+      "环境可能缺 PySide6/显示，GUI 验证受限；修改需要谨慎评估"
     ],
-    "verification": "优先手动在 GUI 中调整颜色，确认所有组件实时刷新；若环境缺 PySide6/显示，至少运行现有单元测试 (PYTHONPATH=src python3 -m unittest tests/test_serial_device.py) 确认无回归，并在 verification.md/testing.md 记录现状。"
+    "verification": "若环境可运行 GUI，使用 TextField 修改 IP 后启动采集，确认 statusMessage/连接日志无异常；环境受限时至少运行现有单测命令 PYTHONPATH=src python3 -m unittest tests/test_serial_device.py 并在 verification.md/testing.md 记录无法运行 GUI 的风险。"
   }
 }

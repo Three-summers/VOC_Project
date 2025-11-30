@@ -39,11 +39,10 @@ Rectangle {
             id: chartView
             Layout.fillWidth: true
             Layout.fillHeight: true
-            // antialiasing: false // 禁用抗锯齿，避免触发 FBO
+            antialiasing: true
             backgroundRoundness: 0
             dropShadowEnabled: false
             animationOptions: ChartView.NoAnimation
-            antialiasing: false
             backgroundColor: "transparent"
             // animationOptions: ChartView.SeriesAnimations
             titleFont.pixelSize: Components.UiTheme.fontSize("body")
@@ -52,10 +51,7 @@ Rectangle {
             margins.bottom: Components.UiTheme.spacing("sm")
             margins.left: Components.UiTheme.spacing("md")
             margins.right: Components.UiTheme.spacing("md")
-            
-            // ChartView themes usually override colors. We set backgroundColor to transparent 
-            // so the parent Rectangle shows.
-            // Legend
+
             legend.visible: false
             legend.labelColor: Components.UiTheme.color("textPrimary")
 
@@ -63,8 +59,8 @@ Rectangle {
                 id: xAxis
                 min: 0
                 max: 10
-                labelFormat: "%d"
-                tickCount: 5
+                labelFormat: "%.0f"
+                tickCount: 6
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
                 labelsColor: Components.UiTheme.color("textSecondary")
@@ -75,7 +71,7 @@ Rectangle {
                 id: yAxis
                 min: 0
                 max: 100
-                labelFormat: "%d"
+                labelFormat: "%.0f"
                 tickCount: 5
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
@@ -89,6 +85,8 @@ Rectangle {
                 axisY: yAxis
                 color: Components.UiTheme.color("accentInfo") // Use theme accent (Blue)
                 width: Math.max(2, 2.5 * Components.UiTheme.controlScale)
+
+                useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 
             VXYModelMapper {

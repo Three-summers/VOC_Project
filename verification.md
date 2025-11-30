@@ -71,3 +71,19 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures；确认 Python 层未受 QML 调色改动影响。GUI 调色/ColorDialog 交互需在具备 PySide6 的环境手动验证，当前机器仍未运行 GUI 冒烟。
 - Risk Assessment: 中。ColorDialog 依赖 QtQuick.Dialogs，需在目标设备确认模块可用；若 PySide6/显示缺失则功能无法直观验证，上线前应在实际 GUI 环境检查调色刷新与重置行为。
+
+## Verification - 2025-11-30T19:29:14+08:00
+- Executor: Codex
+- Scope: FOUP IP 可配置 + 命令面板输入框
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；新增 host Property 和 QML TextField 未影响串口模块。GUI 冒烟仍因缺少 PySide6 无法执行，未验证 TextField 默认值与运行中禁用提示。
+- Risk Assessment: 中。需在具备 PySide6/显示的目标设备手动检查：默认显示 192.168.1.8、运行中禁用编辑提示、修改 IP 后重新开始采集能否连接到新地址。若仍缺依赖则保持风险标注。 
+
+## Verification - 2025-11-30T19:40:54+08:00
+- Executor: Codex
+- Scope: FOUP IP 配置对话框
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；将命令面板 IP 输入改为对话框后，后端串口回归依旧通过。GUI 冒烟仍受 PySide6 缺失阻塞，未验证对话框弹出与确认流程。
+- Risk Assessment: 中。待目标环境安装 PySide6/显示后手动确认：按钮可弹出对话框、默认值显示当前 IP、运行中禁用确定、修改后停止再启动可连接新 IP。继续保留环境依赖风险提示。

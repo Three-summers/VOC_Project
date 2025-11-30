@@ -20,21 +20,23 @@ class FoupAcquisitionController(QObject):
     lastValueChanged = Signal()
     errorOccurred = Signal(str)
     channelCountChanged = Signal()
+    hostChanged = Signal()
     # 新增信号：用于跨线程传递数据点到主线程（支持多通道）
     dataPointReceived = Signal(float, list)  # x, [y1, y2, y3, ...]
 
     def __init__(
         self,
         series_models: Iterable[QObject],
-        # host: str = "192.168.1.8",
-        host: str = "127.0.0.1",
+        host: str = "192.168.1.8",
+        # host: str = "127.0.0.1",
         port: int = 65432,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._series_models = [model for model in series_models if model is not None]
         self._primary_series = self._series_models[0] if self._series_models else None
-        self._host = host
+        # 默认 IP，防止传入空值
+        self._host = host.strip() if host else "192.168.1.8"
         self._port = int(port)
         self._running = False
         self._status = "未启动"
@@ -70,6 +72,25 @@ class FoupAcquisitionController(QObject):
     def channelCount(self) -> int:
         return self._channel_count
 
+    @Property(str, notify=hostChanged)
+    def host(self) -> str:
+        return self._host
+
+    @host.setter
+    def host(self, value: str) -> None:
+        """允许 QML 动态调整采集 IP，运行中禁止修改。"""
+        new_host = value.strip() if value else ""
+        if not new_host:
+            self.errorOccurred.emit("无效的 IP 地址")
+            return
+        if self._running:
+            self._set_status("采集中，停止后可修改 IP")
+            return
+        if new_host == self._host:
+            return
+        self._host = new_host
+        self.hostChanged.emit()
+
     # ---- 槽函数 ----
 
     @Slot()
@@ -78,6 +99,9 @@ class FoupAcquisitionController(QObject):
             return
         if not self._series_models:
             self._set_status("无可用曲线")
+            return
+        if not self._host:
+            self._set_status("请先配置采集 IP")
             return
         for model in self._series_models:
             try:

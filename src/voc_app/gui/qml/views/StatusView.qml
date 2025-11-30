@@ -22,7 +22,7 @@ Rectangle {
 
     // FOUP 子页面实时曲线配置
     readonly property var foupCharts: [
-        { title: "电压", currentValue: "3.6 V", index: 2 }
+        { title: "数据", currentValue: "3.6 V", index: 2 }
     ]
 
     // 便捷函数，按索引读取曲线对象，缺省时返回占位配置

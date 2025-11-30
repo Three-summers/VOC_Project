@@ -1,57 +1,57 @@
 {
-  "timestamp": "2025-11-27T15:51:44+08:00",
-  "taskScope": "在 Config 页新增调色子页，动态调整 UiTheme 调色板便于调试最终配色",
+  "timestamp": "2025-11-30T19:29:14+08:00",
+  "taskScope": "为 FOUP 数据采集添加可配置 IP（带默认值）并在界面提供文本输入框实时调整",
   "locations": {
-    "uiTheme": {
-      "file": "src/voc_app/gui/qml/components/UiTheme.qml",
-      "role": "单例，集中管理 baseScale、字体/控件尺寸与 palette 调色板；color() 从 palette 返回颜色值",
-      "notes": "palette 为 property var JS 对象，需整体重新赋值才能触发绑定；提供 radius/spacing/fontSize 等工具函数"
+    "foupAcquisitionController": {
+      "file": "src/voc_app/gui/foup_acquisition.py",
+      "role": "管理 FOUP 采集 TCP 连接，默认 host=192.168.1.8、port=65432，控制 start/stop 与数据分发",
+      "notes": "host 仅作为构造参数存入 _host，未暴露 Property/Setter；SocketCommunicator 连接时使用 _host/_port"
     },
-    "configView": {
+    "guiAppEntry": {
+      "file": "src/voc_app/gui/app.py",
+      "role": "PySide6 入口，创建 FoupAcquisitionController 并通过 setContextProperty 暴露为 foupAcquisition 给 QML",
+      "notes": "FOUP 曲线预建 8 路 SeriesTableModel 并注入 chartListModel，当前未传入可变 host 参数"
+    },
+    "configViewFoup": {
       "file": "src/voc_app/gui/qml/views/ConfigView.qml",
-      "role": "Config 视图，目前含 loadport/foup 两个子页面，通过 currentSubPage 切换展示",
-      "notes": "子页面由 InformationPanel.subNavigationConfig 注入；背景/文字颜色均调用 UiTheme.color"
+      "role": "Config 子页面 foupComponent 展示采集状态、通道数量与实时曲线，无通信参数输入控件",
+      "notes": "状态文案绑定 foupAcquisition.statusMessage/channelCount/lastValue；仅显示，不可编辑 IP"
     },
-    "subNavigation": {
-      "file": "src/voc_app/gui/qml/InformationPanel.qml",
-      "role": "定义 subNavigationConfig，Config 视图当前仅 loadport/foup；Loader 通过 currentSubPage 传递给子视图",
-      "notes": "SubNavigationBar 按 items 数组生成 TabButton，依 key/title，需在此处加入新子页条目"
+    "configFoupCommands": {
+      "file": "src/voc_app/gui/qml/commands/Config_foupCommands.qml",
+      "role": "FOUP 采集命令面板，含开始采集/停止采集按钮与状态文本",
+      "notes": "未提供 host 输入或保存逻辑；按钮直接调用 foupAcquisition.startAcquisition/stopAcquisition"
     },
-    "commandPanel": {
-      "file": "src/voc_app/gui/qml/CommandPanel.qml",
-      "role": "根据 currentView/currentSubPage 加载 commands/<View>[_<key>]Commands.qml",
-      "notes": "Config 子页命令文件命名规则 Config_<subKey>Commands.qml，未命中则回退 ConfigCommands"
-    },
-    "paletteConsumers": {
-      "file": "src/voc_app/gui/qml/components/CustomButton.qml",
-      "role": "典型组件直接缓存 UiTheme.palette 后取颜色",
-      "notes": "仅当 UiTheme.palette 重新赋值时会触发刷新，避免直接修改对象属性无效"
+    "textFieldPatterns": {
+      "file": "src/voc_app/gui/qml/components/LoginDialog.qml",
+      "role": "示例 TextField 样式（表面色、边框、占位符颜色），可复用到配置输入",
+      "notes": "采用 UiTheme.color/spacing，便于保持风格一致"
     }
   },
   "techStack": {
-    "ui": "QtQuick + QtQuick.Controls + QML 组件（自定义按钮、子导航、视图）",
-    "backend": "PySide6 应用入口 src/voc_app/gui/app.py 提供 context 属性（chartListModel、foupAcquisition 等）",
-    "theme": "UiTheme 单例集中定义调色板、尺寸与缩放，通过函数 color/spacing/fontSize 供 QML 引用"
+    "ui": "QtQuick/QtQuick.Controls QML 前端，CommandPanel+InformationPanel 分离命令与视图，组件库自带 CustomButton/ChartCard/SubNavigationBar",
+    "backend": "PySide6 QQmlApplicationEngine 注入 context 对象，FoupAcquisitionController 使用 threading+SocketCommunicator 拉取 TCP 数据",
+    "dataFlow": "ChartDataListModel/SeriesTableModel 提供曲线模型，foupAcquisition 通过信号 dataPointReceived.append_point 更新多通道曲线"
   },
   "tests": {
     "unit": {
       "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
-      "status": "仅串口模块单测可用，GUI 未覆盖"
+      "status": "仅串口模块单测，未覆盖 GUI/Foup 采集"
     },
     "gui": {
-      "status": "未运行；PySide6/图形依赖可能缺失需注意"
+      "status": "未运行；历史记录表明 PySide6 可能缺失，需注意无法冒烟测试"
     }
   },
   "observationReport": {
     "gaps": [
-      "Config 页面缺少调色子页；调色板目前为静态对象，需设计重新赋值以驱动组件刷新",
-      "需补充命令面板与子导航条目以接入新子页",
-      "缺乏 GUI 层测试覆盖，调色交互需手动验证"
+      "FOUP 采集 IP 硬编码，QML 无法查看或修改；更换目标设备需改代码",
+      "FoupAcquisition 未暴露 host Property/Setter，UI 无法绑定默认值或保存输入",
+      "GUI 层无测试覆盖，网络交互缺少可配置性与验证步骤"
     ],
     "nextSteps": [
-      "设计调色子页 UI，映射 UiTheme.palette 所有键值，并提供颜色选择/重置",
-      "修改 InformationPanel.subNavigationConfig 与 CommandPanel/commands 以支持新子页",
-      "确保更新 palette 时采用整体赋值策略，避免缓存对象不刷新"
+      "在 FoupAcquisitionController 暴露 host Property 和 setter（含默认值），确保 QML 可读写",
+      "在 Config FOUP 面板增加 TextField 或输入区域显示默认 IP 并允许修改，变更后用于后续连接",
+      "补充文档/日志记录如何验证，若测试受 PySide6 限制需在 verification.md 标注风险"
     ]
   }
 }

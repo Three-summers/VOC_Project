@@ -1,4 +1,5 @@
 import sys
+import os
 # from datetime import datetime
 from pathlib import Path
 
@@ -106,6 +107,7 @@ class LoadportBridge(QObject):
         self._set_title_message(f"E84 状态: {state}")
 '''
 
+os.environ["QSG_RHI_BACKEND"] = "opengl"
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -155,11 +157,11 @@ if __name__ == "__main__":
     engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
     alarm_store = AlarmStore()
-    alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
-    alarm_store.addAlarm("2025-11-10 18:25:30", "Pressure sensor offline")
-    alarm_store.addAlarm("2025-11-10 18:25:31", "Pressure sensor offline.")
-    alarm_store.addAlarm("2025-11-10 18:25:32", "Pressure sensor offline..")
-    alarm_store.addAlarm("2025-11-10 18:25:33", "Pressure sensor offline...")
+    # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
+    # alarm_store.addAlarm("2025-11-10 18:25:30", "Pressure sensor offline")
+    # alarm_store.addAlarm("2025-11-10 18:25:31", "Pressure sensor offline.")
+    # alarm_store.addAlarm("2025-11-10 18:25:32", "Pressure sensor offline..")
+    # alarm_store.addAlarm("2025-11-10 18:25:33", "Pressure sensor offline...")
     engine.rootContext().setContextProperty("alarmStore", alarm_store)
 
     data_update_timer = QTimer()
@@ -176,10 +178,10 @@ if __name__ == "__main__":
         sys.exit(-1)
 
     # 暴露出消息框属性
-    root_obj = engine.rootObjects()[0]
-    main_item = root_obj.findChild(QObject, "title_message")
-    if main_item != None:
-        main_item.setProperty("systemMessage", "Hello World")
+    # root_obj = engine.rootObjects()[0]
+    # main_item = root_obj.findChild(QObject, "title_message")
+    # if main_item != None:
+    #     main_item.setProperty("systemMessage", "Hello World")
 
     # 启动后如存在 CSV 日志，预先解析一份，便于 DataLog/FileView 直接展示
     # if csv_file_manager.csvFiles:

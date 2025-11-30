@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-11-30T19:29:14+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "foupAcquisition 需要暴露哪些属性供 UI 绑定？是否只支持 host 还是也要暴露 port？",
+      "priority": "high",
+      "status": "open",
+      "blockingReason": "未暴露 Property 无法读取默认值或写回修改，UI 需求无法落地"
+    },
+    {
+      "id": "Q2",
+      "question": "IP 输入框应该放在 Config 页的哪个区域（foupComponent 主卡片还是命令面板）以便与开始/停止按钮协同？",
+      "priority": "high",
+      "status": "open",
+      "blockingReason": "布局决定交互流程，影响绑定与提示文本"
+    },
+    {
+      "id": "Q3",
+      "question": "运行中修改 host 的行为：是否需要强制先停止采集，还是允许直接更新等待下次连接生效？",
+      "priority": "medium",
+      "status": "open",
+      "blockingReason": "影响 setter 实现与用户提示，避免连接状态混乱"
+    },
+    {
+      "id": "Q4",
+      "question": "IP 文本是否需要格式/长度校验（IPv4 限制、非法字符过滤），还是接受任意字符串交由后台连接失败提示？",
+      "priority": "medium",
+      "status": "open",
+      "blockingReason": "决定 TextField 限制与错误提示策略"
+    },
+    {
+      "id": "Q5",
+      "question": "是否需要持久化用户输入的 IP（本地存储/配置文件），还是仅在本次会话内有效？",
+      "priority": "low",
+      "status": "open",
+      "blockingReason": "影响实现范围和工作量，需求未明确"
+    }
+  ]
+}
