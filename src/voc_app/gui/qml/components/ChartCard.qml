@@ -139,7 +139,7 @@ Rectangle {
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.mainColor // 图片要求：紫色 RGB(128,0,128)
                 style: Qt.SolidLine
-                width: Math.max(2, 2.5 * Components.UiTheme.controlScale)
+                width: Math.max(1, 1.25 * Components.UiTheme.controlScale)
                 // useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 
@@ -149,8 +149,7 @@ Rectangle {
                 axisX: xAxis
                 axisY: yAxis
                 color: "green"
-                markerSize: 16
-                // borderColor: "transparent"
+                markerSize: 12
             }
 
             VXYModelMapper {

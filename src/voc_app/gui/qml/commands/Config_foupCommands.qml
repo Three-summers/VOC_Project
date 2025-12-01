@@ -118,7 +118,7 @@ Column {
                 spacing: Components.UiTheme.spacing("md")
 
                 Text {
-                    text: "设置 FOUP 采集通道的控制/规格界限（OOC/OOS）。"
+                    text: "设置 FOUP 采集通道的控制/规格界限。"
                     color: Components.UiTheme.color("textPrimary")
                     font.pixelSize: Components.UiTheme.fontSize("body")
                     wrapMode: Text.WordWrap
