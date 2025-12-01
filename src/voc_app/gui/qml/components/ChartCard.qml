@@ -16,9 +16,9 @@ Rectangle {
     radius: Components.UiTheme.radius("sm")
 
     property string chartTitle: "Humidity/Temperature" // 示例标题
-    
+
     // 规格界限 (OOS) 和 控制界限 (OOC) 的值
-    property real oosLimitValue: 90.0  
+    property real oosLimitValue: 90.0
     property real oocLimitValue: 80.0
     property bool showLimits: false
 
@@ -61,12 +61,13 @@ Rectangle {
             dropShadowEnabled: false
             animationOptions: ChartView.NoAnimation
             backgroundColor: "transparent"
-            
+
             // 图例设置
-            legend.visible: true 
-            legend.alignment: Qt.AlignBottom
+            legend.visible: true
+            legend.alignment: Qt.AlignTop
             legend.labelColor: Components.UiTheme.color("textPrimary")
-            
+            legend.font.pixelSize: Components.UiTheme.fontSize("body")
+
             margins.top: Components.UiTheme.spacing("sm")
             margins.bottom: Components.UiTheme.spacing("sm")
             margins.left: Components.UiTheme.spacing("md")
@@ -133,17 +134,31 @@ Rectangle {
             LineSeries {
                 id: lineSeries
                 name: "Measured"
+                // pointsVisible: true
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.mainColor // 图片要求：紫色 RGB(128,0,128)
                 style: Qt.SolidLine
                 width: Math.max(2, 2.5 * Components.UiTheme.controlScale)
-                useOpenGL: chartView.width > 0 && chartView.height > 0
+                // useOpenGL: chartView.width > 0 && chartView.height > 0
+            }
+
+            ScatterSeries {
+                id: pointSeries
+                name: "Point"
+                axisX: xAxis
+                axisY: yAxis
+                color: "green"
+                markerSize: 16
+                // borderColor: "transparent"
             }
 
             VXYModelMapper {
-                id: mapper
+                id: lineMapper
                 // 绑定将在 updateMapperBinding 中处理
+            }
+            VXYModelMapper {
+                id: pointMapper
             }
         }
     }
@@ -151,14 +166,14 @@ Rectangle {
     // 优化后的绘制函数：绘制一条极其长的线，利用 Viewport 裁剪，避免滚动时重绘
     function updateLimitLines() {
         if (!showLimits) return;
-        
+
         oosSeries.clear();
         oocSeries.clear();
 
         // 定义一个足够大的范围，覆盖所有可能的 X 轴数据（例如时间戳）
         // 假设是普通数值或 Unix 时间戳，这个范围足够大
-        var hugeMin = -2000000000; 
-        var hugeMax =  4000000000; 
+        var hugeMin = -2000000000;
+        var hugeMax =  4000000000;
 
         // 绘制 OOS 线
         oosSeries.append(hugeMin, oosLimitValue);
@@ -178,7 +193,7 @@ Rectangle {
         var maxX = chartCard.seriesModel.maxX;
         var minY = chartCard.seriesModel.minY;
         var maxY = chartCard.seriesModel.maxY;
-        
+
         // 关键逻辑：确保 Y 轴范围包含 OOS 和 OOC 线，否则界限线可能跑到屏幕外
         if (showLimits) {
             // 获取所有关键值的最小值和最大值
@@ -188,7 +203,7 @@ Rectangle {
         }
 
         var visibleWindow = chartCard.seriesModel.maxRows ? Math.max(10, chartCard.seriesModel.maxRows) : 60;
-        
+
         // X 轴逻辑保持不变
         if (minX === maxX) {
             minX = minX - 1;
@@ -202,10 +217,10 @@ Rectangle {
             minY = minY - 1;
             maxY = maxY + 1;
         }
-        
+
         var paddingX = Math.max(0.5, Math.abs(maxX - minX) * 0.05);
         var paddingY = Math.max(0.5, Math.abs(maxY - minY) * 0.1);
-        
+
         xAxis.min = minX - paddingX;
         xAxis.max = maxX + paddingX;
         yAxis.min = minY - paddingY;
@@ -221,13 +236,22 @@ Rectangle {
 
     function updateMapperBinding() {
         if (chartCard.seriesModel) {
-            mapper.xColumn = chartCard.xColumn;
-            mapper.yColumn = chartCard.yColumn;
-            mapper.model = chartCard.seriesModel;
-            mapper.series = lineSeries;
+            lineMapper.xColumn = chartCard.xColumn;
+            lineMapper.yColumn = chartCard.yColumn;
+            lineMapper.model = chartCard.seriesModel;
+            lineMapper.series = lineSeries;
+
+            pointMapper.xColumn = chartCard.xColumn;
+            pointMapper.yColumn = chartCard.yColumn;
+            pointMapper.model = chartCard.seriesModel;
+            pointMapper.series = pointSeries;
+
         } else {
-            mapper.series = null;
-            mapper.model = null;
+            lineMapper.series = null;
+            lineMapper.model = null;
+
+            pointMapper.series = null;
+            pointMapper.model = null;
         }
     }
 
@@ -245,12 +269,14 @@ Rectangle {
     onSeriesModelChanged: {
         if (chartCard.seriesModel) {
             lineSeries.clear();
+            pointSeries.clear();
             updateAxesFromSeries();
             if (typeof chartCard.seriesModel.force_rebuild === "function") {
                 chartCard.seriesModel.force_rebuild();
             }
         } else {
             lineSeries.clear();
+            pointSeries.clear();
             resetAxesToDefault();
         }
         updateMapperBinding();
@@ -258,12 +284,13 @@ Rectangle {
 
     onXColumnChanged: updateMapperBinding()
     onYColumnChanged: updateMapperBinding()
-    
+
     // 如果不使用 Model 而是直接传入 dataPoints 数组
     onDataPointsChanged: {
         if (chartCard.seriesModel) return;
-        
+
         lineSeries.clear();
+        pointSeries.clear();
         var minX = 0, maxX = 0, minY = 0, maxY = 0;
         if (dataPoints.length > 0) {
             minX = dataPoints[0].x;
@@ -275,12 +302,13 @@ Rectangle {
         for (var i = 0; i < dataPoints.length; i++) {
             var point = dataPoints[i];
             lineSeries.append(point.x, point.y);
+            pointSeries.append(point.x, point.y);
             if (point.x < minX) minX = point.x;
             if (point.x > maxX) maxX = point.x;
             if (point.y < minY) minY = point.y;
             if (point.y > maxY) maxY = point.y;
         }
-        
+
         if (dataPoints.length === 0) {
             xAxis.min = 0; xAxis.max = 10;
             yAxis.min = 0; yAxis.max = 100;
