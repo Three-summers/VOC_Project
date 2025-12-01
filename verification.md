@@ -95,3 +95,11 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures；后端时间戳改为毫秒、前端改用 DateTimeAxis 未影响现有串口单测。GUI 时间标签/滚动/放大/导出需在具备 PySide6 的环境手动确认。
 - Risk Assessment: 中。若某处仍输出秒级或序号，DateTimeAxis 标签可能偏移；需在目标设备加载 CSV、实时采集和放大模式检查 X 轴时间显示与界限线范围。 
+
+## Verification - 2025-12-01T11:54:22+08:00
+- Executor: Codex
+- Scope: 浅色主题切换（UiTheme palette/defaultPalette）
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；仅颜色常量更新，Python 层无回归。GUI 需在 PySide6 环境确认浅色背景/按钮/文字对比度以及调色子页重置是否应用新默认值。
+- Risk Assessment: 中。若某些视图存在硬编码深色叠层，可能与浅色不协调；需实机检查主界面、对话框、放大遮罩。 

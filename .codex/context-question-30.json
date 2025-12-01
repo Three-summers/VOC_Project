@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-12-01T11:50:14+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "仅调整 UiTheme.palette 是否足以完成浅色化，是否存在硬编码的深色背景或图片需要同步？",
+      "priority": "high",
+      "status": "open",
+      "blockingReason": "若有硬编码深色，调色板变浅会产生视觉冲突"}
+  ]
+}

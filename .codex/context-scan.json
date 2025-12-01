@@ -1,62 +1,36 @@
 {
-  "timestamp": "2025-12-01T11:18:55+08:00",
-  "taskScope": "将所有图表的 X 轴改为时间轴（前端显示、后端数据源均用时间戳）",
+  "timestamp": "2025-12-01T11:50:14+08:00",
+  "taskScope": "将 GUI 主题切换为浅色风格",
   "locations": {
-    "chartCard": {
-      "file": "src/voc_app/gui/qml/components/ChartCard.qml",
-      "role": "通用曲线卡片，使用 ChartView+ValueAxis，包含 OOS/OOC 线与 VXYModelMapper 绑定",
-      "notes": "当前 X 轴为 ValueAxis 数值型，updateAxesFromSeries 以 maxRows 视窗截断，未做时间格式化"
-    },
-    "dataLogView": {
-      "file": "src/voc_app/gui/qml/views/DataLogView.qml",
-      "role": "CSV 日志浏览/绘图，ChartCard 以 dataPoints 数组绘制，点的 x 为 CSV 第一列",
-      "notes": "切换 chartVisible/zoom 时直接传递 dataPoints，未做时间轴转换"
-    },
-    "csvFileManager": {
-      "file": "src/voc_app/gui/csv_model.py",
-      "role": "解析 Log/*.csv：首列 time，后续列为各曲线点；生成 ColumnData.dataPoints[x,y]",
-      "notes": "time 直接转 float 作为 X，无时间戳单位判断"
-    },
-    "seriesTableModel": {
-      "file": "src/voc_app/gui/csv_model.py",
-      "role": "Chart 动态数据表格，append_point(x,y) 维护 min/max/hasData；ChartDataGenerator 用样本序号填充",
-      "notes": "X 为纯数字序号，visibleWindow 基于 maxRows=60"
-    },
-    "foupAcquisition": {
-      "file": "src/voc_app/gui/foup_acquisition.py",
-      "role": "TCP 采集控制器，读取逗号分隔数据并以 _sample_index 递增作为 X 追加至 SeriesTableModel",
-      "notes": "当前 x 使用样本序号而非真实时间"
-    },
-    "appEntry": {
-      "file": "src/voc_app/gui/app.py",
-      "role": "PySide6 入口，创建 chartListModel/SeriesTableModel、CsvFileManager、foupAcquisition 并注入 QML",
-      "notes": "ChartDataGenerator 预热曲线，同样用样本序号作为 X"
-    }
+    "uiTheme": {
+      "file": "src/voc_app/gui/qml/components/UiTheme.qml",
+      "role": "全局调色板与尺寸定义，palette/defaultPalette 当前为深色背景",
+      "notes": "重置功能依赖 createDefaultPalette，需同步改为浅色"},
+    "configThemeSubView": {
+      "file": "src/voc_app/gui/qml/views/subviews/ConfigThemeSubView.qml",
+      "role": "调色子页显示与编辑 palette，使用 UiTheme.palette 的键列表",
+      "notes": "重置按钮调用 UiTheme.createDefaultPalette()"},
+    "configThemeCommands": {
+      "file": "src/voc_app/gui/qml/commands/Config_themeCommands.qml",
+      "role": "调色命令面板，支持重置/导出当前 palette",
+      "notes": "默认 palette 来自 UiTheme 单例"}
   },
   "techStack": {
-    "ui": "QtQuick/QtCharts QML，ChartView + LineSeries/ScatterSeries/VXYModelMapper，组件化 ChartCard/CustomButton 等",
-    "backend": "PySide6 QAbstractTableModel/ListModel 提供 SeriesTableModel/CsvDataModel，通过 contextProperty 供 QML 使用",
-    "dataFlow": "CSV: CsvFileManager -> ColumnData(dataPoints x/y) -> DataLogView.ChartCard；实时: ChartDataGenerator/FoupAcquisition -> SeriesTableModel -> Status/Config ChartCard"
-  },
+    "ui": "QtQuick/QtQuick.Controls，UiTheme 单例提供 palette/尺寸，组件通过 UiTheme.color/spacing 获取样式",
+    "backend": "PySide6 注入 context，主题在 QML 侧控制"},
   "tests": {
     "unit": {
       "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
-      "status": "仅串口通信单测，未覆盖 GUI/图表"
-    },
+      "status": "仅串口单测，与主题无直接覆盖"},
     "gui": {
-      "status": "未覆盖；PySide6 环境下需手工/实机验证"
-    }
+      "status": "无自动 GUI 测试，需手工观察浅色主题效果"}
   },
   "observationReport": {
     "gaps": [
-      "ChartCard 使用数值型 ValueAxis，无法直接格式化时间，滚动窗口以点数衡量，对毫秒时间轴不适配",
-      "CSV/Foup/生成器的 X 均为样本序号或裸浮点，未转换为时间戳，无法在前端显示真实时间",
-      "GUI 测试缺失，时间轴变更需要额外验证保存/缩放/导出功能"
-    ],
+      "palette/defaultPalette 均为深色，需要整体替换为浅色方案",
+      "可能存在零星硬编码颜色需确认与浅色兼容"],
     "nextSteps": [
-      "将 ChartCard 改用 DateTimeAxis 并调整轴范围/limit 线计算，确保时间刻度格式化",
-      "后端所有数据源（CSV 解析、Foup 采集、示例生成器）改为产出毫秒时间戳",
-      "补充验证记录：单测 + 说明 GUI 需实机检查"
-    ]
+      "定义浅色调色板（背景/面板/文字/按钮/边框/强调色）并更新 palette 与 createDefaultPalette",
+      "回顾是否有硬编码深色背景，必要时调整"]
   }
 }

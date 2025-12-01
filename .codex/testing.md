@@ -157,3 +157,10 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；时间轴改造涉及 QML/时间戳，当前单测仅覆盖串口逻辑。
 - Notes: ChartView 时间标签需在可运行 PySide6 环境手工验证（CSV/实时/放大/导出）。 
+
+## 2025-12-01T11:54:22+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；调色板切换为浅色后无 Python 层回归问题。
+- Notes: GUI 浅色主题需在 PySide6 环境手工检查整体对比度与可读性。 

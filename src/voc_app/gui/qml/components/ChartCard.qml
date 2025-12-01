@@ -110,7 +110,7 @@ Rectangle {
                 style: Qt.SolidLine // 图片要求：实线
                 width: 1.5 * Components.UiTheme.controlScale
                 visible: chartCard.showLimits
-                useOpenGL: chartView.width > 0 && chartView.height > 0 // 开启 OpenGL 加速渲染
+                // useOpenGL: chartView.width > 0 && chartView.height > 0 // 开启 OpenGL 加速渲染
             }
 
             // -----------------------------------------------------------------
@@ -125,7 +125,7 @@ Rectangle {
                 style: Qt.DashLine // 图片要求：虚线
                 width: 1.5 * Components.UiTheme.controlScale
                 visible: chartCard.showLimits
-                useOpenGL: chartView.width > 0 && chartView.height > 0
+                // useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 
             // -----------------------------------------------------------------

@@ -18,47 +18,47 @@ QtObject {
     Component.onCompleted: updateScales()
     onBaseScaleChanged: updateScales()
 
-    // 工业风调色板 - 高对比度版
+    // 工业风调色板 - 浅色高对比版
     property var palette: ({
-        background: "#050505",
-        surface: "#121212",
-        panel: "#1e1e1e",
-        panelAlt: "#2d2d2d",
-        outline: "#666666",
-        outlineStrong: "#999999",
-        buttonBase: "#333333",
-        buttonHover: "#444444",
-        buttonDown: "#555555",
-        textPrimary: "#ffffff",
-        textSecondary: "#e0e0e0",
-        textOnLight: "#000000",
-        textOnLightMuted: "#333333",
-        accentInfo: "#2979ff",
-        accentSuccess: "#00e676",
-        accentWarning: "#ffab00",
-        accentAlarm: "#ff1744"
+        background: "#f6f8fb",
+        surface: "#ffffff",
+        panel: "#f1f4f8",
+        panelAlt: "#e6ebf2",
+        outline: "#cdd4de",
+        outlineStrong: "#9aa5b5",
+        buttonBase: "#e4ebf7",
+        buttonHover: "#d6e3f5",
+        buttonDown: "#c7d7ef",
+        textPrimary: "#1f2933",
+        textSecondary: "#4b5563",
+        textOnLight: "#1f2933",
+        textOnLightMuted: "#52606d",
+        accentInfo: "#2563eb",
+        accentSuccess: "#16a34a",
+        accentWarning: "#f59e0b",
+        accentAlarm: "#e11d48"
     })
 
     // 创建默认调色板对象（用于重置功能）
     function createDefaultPalette() {
         return {
-            background: "#050505",
-            surface: "#121212",
-            panel: "#1e1e1e",
-            panelAlt: "#2d2d2d",
-            outline: "#666666",
-            outlineStrong: "#999999",
-            buttonBase: "#333333",
-            buttonHover: "#444444",
-            buttonDown: "#555555",
-            textPrimary: "#ffffff",
-            textSecondary: "#e0e0e0",
-            textOnLight: "#000000",
-            textOnLightMuted: "#333333",
-            accentInfo: "#2979ff",
-            accentSuccess: "#00e676",
-            accentWarning: "#ffab00",
-            accentAlarm: "#ff1744"
+            background: "#f6f8fb",
+            surface: "#ffffff",
+            panel: "#f1f4f8",
+            panelAlt: "#e6ebf2",
+            outline: "#cdd4de",
+            outlineStrong: "#9aa5b5",
+            buttonBase: "#e4ebf7",
+            buttonHover: "#d6e3f5",
+            buttonDown: "#c7d7ef",
+            textPrimary: "#1f2933",
+            textSecondary: "#4b5563",
+            textOnLight: "#1f2933",
+            textOnLightMuted: "#52606d",
+            accentInfo: "#2563eb",
+            accentSuccess: "#16a34a",
+            accentWarning: "#f59e0b",
+            accentAlarm: "#e11d48"
         }
     }
 

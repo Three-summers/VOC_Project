@@ -157,11 +157,11 @@ if __name__ == "__main__":
     engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
     alarm_store = AlarmStore()
-    # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
-    # alarm_store.addAlarm("2025-11-10 18:25:30", "Pressure sensor offline")
-    # alarm_store.addAlarm("2025-11-10 18:25:31", "Pressure sensor offline.")
-    # alarm_store.addAlarm("2025-11-10 18:25:32", "Pressure sensor offline..")
-    # alarm_store.addAlarm("2025-11-10 18:25:33", "Pressure sensor offline...")
+    alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
+    alarm_store.addAlarm("2025-11-10 18:25:30", "Pressure sensor offline")
+    alarm_store.addAlarm("2025-11-10 18:25:31", "Pressure sensor offline.")
+    alarm_store.addAlarm("2025-11-10 18:25:32", "Pressure sensor offline..")
+    alarm_store.addAlarm("2025-11-10 18:25:33", "Pressure sensor offline...")
     engine.rootContext().setContextProperty("alarmStore", alarm_store)
 
     data_update_timer = QTimer()
