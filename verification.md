@@ -87,3 +87,11 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures；将命令面板 IP 输入改为对话框后，后端串口回归依旧通过。GUI 冒烟仍受 PySide6 缺失阻塞，未验证对话框弹出与确认流程。
 - Risk Assessment: 中。待目标环境安装 PySide6/显示后手动确认：按钮可弹出对话框、默认值显示当前 IP、运行中禁用确定、修改后停止再启动可连接新 IP。继续保留环境依赖风险提示。
+
+## Verification - 2025-12-01T11:30:52+08:00
+- Executor: Codex
+- Scope: 时间轴改造（ChartCard DateTimeAxis、CSV/Foup/生成器时间戳统一）
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；后端时间戳改为毫秒、前端改用 DateTimeAxis 未影响现有串口单测。GUI 时间标签/滚动/放大/导出需在具备 PySide6 的环境手动确认。
+- Risk Assessment: 中。若某处仍输出秒级或序号，DateTimeAxis 标签可能偏移；需在目标设备加载 CSV、实时采集和放大模式检查 X 轴时间显示与界限线范围。 

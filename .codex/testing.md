@@ -150,3 +150,10 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；增高消息行、加宽消息区域并放大加粗字号后回归正常。
 - Notes: 请在 PySide6 环境确认标题消息区高度与字号是否满足工业面板需求。 
+
+## 2025-12-01T11:30:52+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；时间轴改造涉及 QML/时间戳，当前单测仅覆盖串口逻辑。
+- Notes: ChartView 时间标签需在可运行 PySide6 环境手工验证（CSV/实时/放大/导出）。 

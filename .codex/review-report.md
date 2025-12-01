@@ -39,3 +39,16 @@
   1. `src/voc_app/gui/app.py` 现已禁用硬件线程，命令阻塞从 RPi.GPIO 转为 PySide6 缺失，说明目标达成。
   2. verification/testing 文档同步更新，但注释代码后需提醒未来恢复步骤。
 - Risks: 仍无法真正运行 GUI；须安装 PySide6 后才可进行冒烟测试。
+
+## Review - 2025-12-01T11:30:52+08:00
+- Task: 图表 X 轴改为时间轴（前后端时间戳统一）
+- Scores:
+  - Technical Quality: 82/100 — DateTimeAxis 与毫秒时间戳统一，窗口/界限线随数据范围更新，现有接口保持。
+  - Strategic Alignment: 78/100 — 与日志/实时曲线按时间展示的需求一致，但仍依赖 GUI 实机验证。
+  - Composite: 80/100
+  - Recommendation: 需改进（等待 PySide6 环境完成 GUI 冒烟）
+- Findings:
+  1. ChartCard 已改为 DateTimeAxis，窗口按 maxRows*1000ms 计算，默认时间窗围绕当前时间，限界线随数据范围绘制。
+  2. CsvFileManager/FoupAcquisition/ChartDataGenerator 输出毫秒时间戳并保证单调递增，避免 DateTimeAxis 标签错乱。
+  3. 单测仍只有串口用例，未覆盖 GUI 绘图；时间列为相对秒时标签将显示 00:00 起的相对时间。 
+- Risks: GUI 渲染未在 PySide6 环境验证；若仍有秒级数据输入则时间标签可能偏移，需要实机检查 DataLog/Status/Config/放大/导出流程。

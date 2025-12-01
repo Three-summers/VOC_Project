@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-30T19:29:14+08:00",
+  "timestamp": "2025-12-01T11:18:55+08:00",
   "checks": {
     "interfaceDefined": true,
     "techChoicesUnderstood": true,
@@ -7,13 +7,13 @@
     "verificationKnown": true
   },
   "notes": {
-    "interfaces": "需为 FoupAcquisitionController 暴露 host Property（默认 192.168.1.8，支持读写，阻止空值），port 保持内部常量；QML 命令面板通过 foupAcquisition.host 绑定 TextField 文本，按钮继续调用 startAcquisition/stopAcquisition。",
-    "tech": "UI 采用现有 QtQuick.Controls TextField 风格（参考 components/LoginDialog.qml），放置在 commands/Config_foupCommands.qml 旁边的操作区；不新增依赖，保持 PySide6 + QML。",
+    "interfaces": "ChartCard 改为 DateTimeAxis，要求 x 为毫秒时间戳；SeriesTableModel.append_point/ColumnData.dataPoints 需提供 ms 值；CsvFileManager 在解析时统一转换时间列，FoupAcquisition/ChartDataGenerator 输出 ms 时间戳；现有 ChartCard 属性/SeriesModel 接口保持不变，仅调整 x 语义。",
+    "tech": "沿用 QtCharts DateTimeAxis，格式 HH:mm:ss；视窗按 maxRows*1000ms 计算，padding 依据时间跨度；不新增依赖，保持 PySide6/QML 原栈。",
     "risks": [
-      "运行中修改 host 不会影响已建立连接，需提示或防止在 running 状态编辑/应用",
-      "未做 IP 格式校验可能导致连接异常日志；若校验过严可能阻断合法地址（如主机名）",
-      "环境可能缺 PySide6/显示，GUI 验证受限；修改需要谨慎评估"
+      "时间列为纯序号时会显示 00:00 起的时间标签，需在文档/备注说明为相对时间",
+      "DateTimeAxis 需要 Date 对象/毫秒值，若某处仍传入秒会导致标签偏差",
+      "GUI 环境可能缺失，无法自动验证渲染；需在 verification 标注风险"
     ],
-    "verification": "若环境可运行 GUI，使用 TextField 修改 IP 后启动采集，确认 statusMessage/连接日志无异常；环境受限时至少运行现有单测命令 PYTHONPATH=src python3 -m unittest tests/test_serial_device.py 并在 verification.md/testing.md 记录无法运行 GUI 的风险。"
+    "verification": "运行现有单测命令 PYTHONPATH=src python3 -m unittest tests/test_serial_device.py；GUI 手工/实机验证：CSV 绘图、实时采集曲线、放大/保存时 X 轴显示时间标签并正确滚动。环境受限时在 verification.md 记录无法执行 GUI 验证。"
   }
 }

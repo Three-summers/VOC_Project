@@ -535,3 +535,61 @@
 | 2025-11-27T16:00:17+08:00#465 | shell | git diff --stat | 查看变更统计 |
 | 2025-11-27T16:10:00+08:00#466 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | 移除 ColorDialog.modal 属性以兼容 QtQuick.Dialogs，修复子页加载错误 |
 | 2025-11-27T16:12:40+08:00#467 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | 将调色表单改为 Flow 布局、设置卡片宽度与边框，避免挤在一起叠加 |
+| 2025-12-01T11:18:55+08:00#468 | sequential-thinking | 调用 | 初始任务理解：需将图表 X 轴改为时间轴 |
+| 2025-12-01T11:18:55+08:00#469 | sequential-thinking | 调用 | 规划信息收集与扫描步骤 |
+| 2025-12-01T11:18:55+08:00#470 | sequential-thinking | 调用 | 约束检查（sandbox/工具优先级）与上下文需求 |
+| 2025-12-01T11:18:55+08:00#471 | shell | ls | 列出项目根目录 |
+| 2025-12-01T11:18:55+08:00#472 | shell | ls src | 查看源代码目录 |
+| 2025-12-01T11:18:55+08:00#473 | shell | ls src/voc_app | 浏览 voc_app 包结构 |
+| 2025-12-01T11:18:55+08:00#474 | shell | ls src/voc_app/gui | 浏览 GUI 目录 |
+| 2025-12-01T11:18:55+08:00#475 | shell | ls src/voc_app/gui/qml | 查看 QML 入口与组件目录 |
+| 2025-12-01T11:18:55+08:00#476 | shell | ls src/voc_app/gui/qml/views | 查看视图列表（DataLogView 等） |
+| 2025-12-01T11:18:55+08:00#477 | shell | sed -n '1,200p' src/voc_app/gui/qml/views/DataLogView.qml | 阅读 DataLogView 头部逻辑 |
+| 2025-12-01T11:18:55+08:00#478 | shell | rg "chart" -n src/voc_app/gui/qml/views/DataLogView.qml | 查找图表相关片段 |
+| 2025-12-01T11:18:55+08:00#479 | shell | rg "Chart" src/voc_app/gui/qml/components src/voc_app/gui/qml/views | 搜索 Chart 组件使用位置 |
+| 2025-12-01T11:18:55+08:00#480 | shell | sed -n '1,260p' src/voc_app/gui/qml/components/ChartCard.qml | 阅读 ChartCard 轴与曲线配置（上半部） |
+| 2025-12-01T11:18:55+08:00#481 | shell | sed -n '260,520p' src/voc_app/gui/qml/components/ChartCard.qml | 阅读 ChartCard 轴更新逻辑（下半部） |
+| 2025-12-01T11:18:55+08:00#482 | shell | sed -n '360,520p' src/voc_app/gui/qml/views/DataLogView.qml | 查看数据图表网格与放大视图 |
+| 2025-12-01T11:18:55+08:00#483 | shell | rg "SeriesModel" src | 定位 SeriesModel 定义与使用 |
+| 2025-12-01T11:18:55+08:00#484 | shell | sed -n '1,260p' src/voc_app/gui/csv_model.py | 阅读 CSV 数据模型与 SeriesTableModel 定义 |
+| 2025-12-01T11:18:55+08:00#485 | shell | sed -n '260,520p' src/voc_app/gui/csv_model.py | 阅读 ChartDataListModel 与 CsvFileManager 解析 |
+| 2025-12-01T11:18:55+08:00#486 | shell | rg "append_point" -n src | 查找数据追加调用 |
+| 2025-12-01T11:18:55+08:00#487 | shell | sed -n '1,260p' src/voc_app/gui/foup_acquisition.py | 查看采集控制器数据追加逻辑 |
+| 2025-12-01T11:18:55+08:00#488 | shell | head -n 5 src/voc_app/gui/Log/data1.csv | 检查示例 CSV 时间列格式 |
+| 2025-12-01T11:18:55+08:00#489 | shell | ls tests | 查看测试目录 |
+| 2025-12-01T11:18:55+08:00#490 | shell | sed -n '1,200p' tests/test_serial_device.py | 阅读现有单测 |
+| 2025-12-01T11:18:55+08:00#491 | shell | sed -n '1,200p' src/voc_app/gui/app.py | 确认上下文属性注入与图表模型初始化 |
+| 2025-12-01T11:18:55+08:00#492 | shell | ls .codex | 查看上下文/日志文件 |
+| 2025-12-01T11:18:55+08:00#493 | shell | sed -n '1,200p' .codex/context-scan.json | 查看旧的上下文扫描内容 |
+| 2025-12-01T11:18:55+08:00#494 | shell | tail -n 40 .codex/operations-log.md | 回顾操作日志格式与编号 |
+| 2025-12-01T11:18:55+08:00#495 | shell | date -Iseconds | 获取当前时间戳 |
+| 2025-12-01T11:18:55+08:00#496 | shell | cat <<'EOF' > .codex/context-scan.json | 更新上下文扫描（时间轴需求） |
+| 2025-12-01T11:18:55+08:00#497 | sequential-thinking | 调用 | 识别时间轴改造的已知点与风险 |
+| 2025-12-01T11:18:55+08:00#498 | sequential-thinking | 调用 | 列出关键疑问：时间戳单位/窗口策略/验证方式 |
+| 2025-12-01T11:18:55+08:00#499 | shell | cat <<'EOF' > .codex/context-question-27.json | 记录关键疑问列表（时间轴单位/窗口/验证） |
+| 2025-12-01T11:18:55+08:00#500 | shell | cat <<'EOF' > .codex/context-question-28.json | 深挖 Q1：统一时间单位为毫秒时间戳 |
+| 2025-12-01T11:18:55+08:00#501 | shell | cat <<'EOF' > .codex/context-question-29.json | 深挖 Q2：时间轴窗口与界限线范围策略 |
+| 2025-12-01T11:18:55+08:00#502 | shell | cat <<'EOF' > .codex/context-sufficiency.json | 完成充分性检查（时间轴方案） |
+| 2025-12-01T11:18:55+08:00#503 | shrimp-plan_task | plan_task | 规划时间轴改造任务，获取后续分析指令 |
+| 2025-12-01T11:18:55+08:00#504 | shrimp-analyze_task | analyze_task | 记录时间轴方案初步设计与验证思路 |
+| 2025-12-01T11:18:55+08:00#505 | shrimp-reflect_task | reflect_task | 反思时间轴方案覆盖性与风险 |
+| 2025-12-01T11:18:55+08:00#506 | shrimp-split_tasks | split_tasks | 拆分 3 个子任务：ChartCard 时间轴、数据源时间戳、测试记录 |
+| 2025-12-01T11:18:55+08:00#507 | plan_update | update_plan | 建立三步执行计划（数据源->前端轴->测试记录） |
+| 2025-12-01T11:18:55+08:00#508 | apply_patch | src/voc_app/gui/csv_model.py | 统一生成器与 CSV 时间为毫秒时间戳、确保时间戳递增 |
+| 2025-12-01T11:18:55+08:00#509 | apply_patch | src/voc_app/gui/foup_acquisition.py | 采集 x 改为毫秒时间戳并保证单调递增，重置时间戳状态 |
+| 2025-12-01T11:18:55+08:00#510 | apply_patch | src/voc_app/gui/foup_acquisition.py | 更新采集控制器文档说明改用毫秒时间戳 |
+| 2025-12-01T11:18:55+08:00#511 | plan_update | update_plan | 标记后端时间戳统一完成，准备处理前端轴逻辑 |
+| 2025-12-01T11:18:55+08:00#512 | apply_patch | src/voc_app/gui/qml/components/ChartCard.qml | 将 X 轴替换为 DateTimeAxis 并设置时间格式 |
+| 2025-12-01T11:18:55+08:00#513 | apply_patch | src/voc_app/gui/qml/components/ChartCard.qml | 调整 OOS/OOC 线根据当前数据范围绘制、支持毫秒时间戳 |
+| 2025-12-01T11:18:55+08:00#514 | apply_patch | src/voc_app/gui/qml/components/ChartCard.qml | updateAxesFromSeries 适配毫秒时间戳窗口并设置 DateTimeAxis 范围 |
+| 2025-12-01T11:18:55+08:00#515 | apply_patch | src/voc_app/gui/qml/components/ChartCard.qml | 重设默认时间窗口并在 dataPoints 模式应用时间轴与限界线更新 |
+| 2025-12-01T11:18:55+08:00#516 | shell | sed -n '1,240p' src/voc_app/gui/qml/components/ChartCard.qml | 检查 ChartCard 时间轴修改上半部分 |
+| 2025-12-01T11:18:55+08:00#517 | shell | sed -n '240,520p' src/voc_app/gui/qml/components/ChartCard.qml | 检查 ChartCard 时间轴修改下半部分 |
+| 2025-12-01T11:18:55+08:00#518 | shell | rg "ValueAxis" src/voc_app/gui/qml | 确认仅 ChartCard 使用 ValueAxis |
+| 2025-12-01T11:18:55+08:00#519 | plan_update | update_plan | 标记 ChartCard 时间轴调整完成，剩余测试记录步骤 |
+| 2025-12-01T11:18:55+08:00#520 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 运行现有单测，结果通过 |
+| 2025-12-01T11:18:55+08:00#521 | shell | date -Iseconds | 获取测试记录时间戳 |
+| 2025-12-01T11:18:55+08:00#522 | shell | cat <<'EOF' >> .codex/testing.md | 追加时间轴改造的单测记录与手工验证说明 |
+| 2025-12-01T11:18:55+08:00#523 | shell | cat <<'EOF' >> verification.md | 追加时间轴改造的验证记录与风险说明 |
+| 2025-12-01T11:18:55+08:00#524 | plan_update | update_plan | 标记测试与验证记录完成，计划全部完成 |
+| 2025-12-01T11:18:55+08:00#525 | shell | cat <<'EOF' >> .codex/review-report.md | 记录时间轴改造的审查结论与风险 |

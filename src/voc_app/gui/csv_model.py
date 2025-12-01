@@ -1,5 +1,6 @@
 from pprint import pprint
 from pathlib import Path
+import time
 from PySide6.QtCore import (
     QObject,
     Property,
@@ -221,7 +222,7 @@ class ChartDataGenerator(QObject):
     def __init__(self, series_model, parent=None):
         super().__init__(parent)
         self._series_model = series_model
-        self._current_x = 0
+        self._last_timestamp_ms = 0.0
 
     @Property(QObject, constant=True)
     def seriesModel(self):
@@ -229,9 +230,13 @@ class ChartDataGenerator(QObject):
 
     @Slot()
     def generate_new_point(self):
-        self._current_x += 1
+        raw_ts = time.time() * 1000.0
+        # 确保时间戳单调递增，避免瞬时多次调用时出现相同值
+        if raw_ts <= self._last_timestamp_ms:
+            raw_ts = self._last_timestamp_ms + 1.0
+        self._last_timestamp_ms = raw_ts
         new_y = random.uniform(0, 100)
-        self._series_model.append_point(self._current_x, new_y)
+        self._series_model.append_point(raw_ts, new_y)
 
 
 # QML 的 model.x 实际上是通过暴露 roleNames 的返回值来查到对应的角色值，再调用 data 方法获取数据
@@ -399,6 +404,14 @@ class CsvFileManager(QObject):
             self._data_model.resetModelData([])
             return
 
+        def to_milliseconds(value: float) -> float:
+            """将时间值归一化为毫秒时间戳，支持秒/毫秒或相对秒。"""
+            if value > 1e12:
+                return value  # 已是毫秒
+            if value > 1e9:
+                return value * 1000.0  # 秒级时间戳
+            return value * 1000.0  # 相对秒
+
         with open(file_path, "r", newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             # 读取第一行作为列名
@@ -413,7 +426,7 @@ class CsvFileManager(QObject):
 
             for row in reader:
                 try:
-                    time_val = float(row[0])
+                    time_val = to_milliseconds(float(row[0]))
                     for i in range(1, len(row)):
                         parsed_data[i - 1].append({"x": time_val, "y": float(row[i])})
                 except (ValueError, IndexError):

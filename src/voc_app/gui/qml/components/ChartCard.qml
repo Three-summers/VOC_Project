@@ -20,7 +20,7 @@ Rectangle {
     // 规格界限 (OOS) 和 控制界限 (OOC) 的值
     property real oosLimitValue: 90.0
     property real oocLimitValue: 80.0
-    property bool showLimits: false
+    property bool showLimits: true
 
     property var chartStyle: {
         "v1": {
@@ -73,11 +73,11 @@ Rectangle {
             margins.left: Components.UiTheme.spacing("md")
             margins.right: Components.UiTheme.spacing("md")
 
-            ValueAxis {
+            DateTimeAxis {
                 id: xAxis
-                min: 0
-                max: 10
-                labelFormat: "%.0f"
+                min: new Date(Date.now() - 30000)
+                max: new Date(Date.now() + 30000)
+                format: "HH:mm:ss"
                 tickCount: 6
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
@@ -165,23 +165,48 @@ Rectangle {
 
     // 优化后的绘制函数：绘制一条极其长的线，利用 Viewport 裁剪，避免滚动时重绘
     function updateLimitLines() {
-        if (!showLimits) return;
-
         oosSeries.clear();
         oocSeries.clear();
 
-        // 定义一个足够大的范围，覆盖所有可能的 X 轴数据（例如时间戳）
-        // 假设是普通数值或 Unix 时间戳，这个范围足够大
-        var hugeMin = -2000000000;
-        var hugeMax =  4000000000;
+        if (!showLimits) return;
+
+        var minX = null;
+        var maxX = null;
+
+        if (chartCard.seriesModel && chartCard.seriesModel.hasData) {
+            minX = chartCard.seriesModel.minX;
+            maxX = chartCard.seriesModel.maxX;
+        } else if (chartCard.dataPoints && chartCard.dataPoints.length > 0) {
+            minX = chartCard.dataPoints[0].x;
+            maxX = chartCard.dataPoints[0].x;
+            for (var i = 1; i < chartCard.dataPoints.length; i++) {
+                var px = chartCard.dataPoints[i].x;
+                if (px < minX) minX = px;
+                if (px > maxX) maxX = px;
+            }
+        }
+
+        var nowMs = Date.now();
+        if (minX === null || maxX === null) {
+            minX = nowMs - 30000;
+            maxX = nowMs + 30000;
+        } else if (minX === maxX) {
+            minX = minX - 1000;
+            maxX = maxX + 1000;
+        }
+
+        var span = Math.abs(maxX - minX);
+        var margin = Math.max(1000, span * 0.1);
+        var startX = minX - margin;
+        var endX = maxX + margin;
 
         // 绘制 OOS 线
-        oosSeries.append(hugeMin, oosLimitValue);
-        oosSeries.append(hugeMax, oosLimitValue);
+        oosSeries.append(startX, oosLimitValue);
+        oosSeries.append(endX, oosLimitValue);
 
         // 绘制 OOC 线
-        oocSeries.append(hugeMin, oocLimitValue);
-        oocSeries.append(hugeMax, oocLimitValue);
+        oocSeries.append(startX, oocLimitValue);
+        oocSeries.append(endX, oocLimitValue);
     }
 
     function updateAxesFromSeries() {
@@ -202,14 +227,13 @@ Rectangle {
             maxY = Math.max(...allValues);
         }
 
-        var visibleWindow = chartCard.seriesModel.maxRows ? Math.max(10, chartCard.seriesModel.maxRows) : 60;
+        var visibleWindowMs = (chartCard.seriesModel.maxRows ? Math.max(10, chartCard.seriesModel.maxRows) : 60) * 1000.0;
 
-        // X 轴逻辑保持不变
         if (minX === maxX) {
-            minX = minX - 1;
-            maxX = maxX + 1;
-        } else if (maxX - minX > visibleWindow) {
-            minX = maxX - visibleWindow;
+            minX = minX - 1000;
+            maxX = maxX + 1000;
+        } else if (maxX - minX > visibleWindowMs) {
+            minX = maxX - visibleWindowMs;
         }
 
         // Y 轴增加一点 Padding
@@ -218,20 +242,24 @@ Rectangle {
             maxY = maxY + 1;
         }
 
-        var paddingX = Math.max(0.5, Math.abs(maxX - minX) * 0.05);
+        var paddingX = Math.max(500, Math.abs(maxX - minX) * 0.05);
         var paddingY = Math.max(0.5, Math.abs(maxY - minY) * 0.1);
 
-        xAxis.min = minX - paddingX;
-        xAxis.max = maxX + paddingX;
+        xAxis.min = new Date(minX - paddingX);
+        xAxis.max = new Date(maxX + paddingX);
         yAxis.min = minY - paddingY;
         yAxis.max = maxY + paddingY;
+        updateLimitLines();
     }
 
     function resetAxesToDefault() {
-        xAxis.min = 0;
-        xAxis.max = 10;
+        var nowMs = Date.now();
+        var halfWindow = 30000;
+        xAxis.min = new Date(nowMs - halfWindow);
+        xAxis.max = new Date(nowMs + halfWindow);
         yAxis.min = 0;
         yAxis.max = 100;
+        updateLimitLines();
     }
 
     function updateMapperBinding() {
@@ -291,13 +319,15 @@ Rectangle {
 
         lineSeries.clear();
         pointSeries.clear();
-        var minX = 0, maxX = 0, minY = 0, maxY = 0;
-        if (dataPoints.length > 0) {
-            minX = dataPoints[0].x;
-            maxX = dataPoints[0].x;
-            minY = dataPoints[0].y;
-            maxY = dataPoints[0].y;
+        if (!dataPoints || dataPoints.length === 0) {
+            resetAxesToDefault();
+            return;
         }
+
+        var minX = dataPoints[0].x;
+        var maxX = dataPoints[0].x;
+        var minY = dataPoints[0].y;
+        var maxY = dataPoints[0].y;
 
         for (var i = 0; i < dataPoints.length; i++) {
             var point = dataPoints[i];
@@ -309,12 +339,28 @@ Rectangle {
             if (point.y > maxY) maxY = point.y;
         }
 
-        if (dataPoints.length === 0) {
-            xAxis.min = 0; xAxis.max = 10;
-            yAxis.min = 0; yAxis.max = 100;
+        if (showLimits) {
+            var values = [minY, maxY, oosLimitValue, oocLimitValue];
+            minY = Math.min(...values);
+            maxY = Math.max(...values);
         }
-        // 如果是直接赋值 dataPoints 模式，也需要在这里更新轴范围
-        // (省略了详细的 Y 轴自动缩放逻辑，建议尽量使用 SeriesModel)
+
+        if (minX === maxX) {
+            minX = minX - 1000;
+            maxX = maxX + 1000;
+        }
+        if (minY === maxY) {
+            minY = minY - 1;
+            maxY = maxY + 1;
+        }
+
+        var paddingX = Math.max(500, Math.abs(maxX - minX) * 0.05);
+        var paddingY = Math.max(0.5, Math.abs(maxY - minY) * 0.1);
+        xAxis.min = new Date(minX - paddingX);
+        xAxis.max = new Date(maxX + paddingX);
+        yAxis.min = minY - paddingY;
+        yAxis.max = maxY + paddingY;
+        updateLimitLines();
     }
 
     Connections {

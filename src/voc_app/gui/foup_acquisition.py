@@ -2,6 +2,7 @@ import struct
 import threading
 from functools import partial
 from typing import Iterable, List
+import time
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
@@ -12,7 +13,7 @@ class FoupAcquisitionController(QObject):
     """管理 FOUP 采集通道的 TCP 连接与数据分发。
 
     约定：采集服务器通过 127.0.0.1:65432 提供简单文本流，一次发送一个浮点字符串
-    （例如 "10.1"，可选换行/空格分隔）。本控制器读取前一个可解析值并使用样本序号
+    （例如 "10.1"，可选换行/空格分隔）。本控制器读取前一个可解析值并使用毫秒时间戳
     作为 X 轴，将数据推送到 SeriesTableModel。"""
 
     runningChanged = Signal()
@@ -45,6 +46,7 @@ class FoupAcquisitionController(QObject):
         self._stop_event = threading.Event()
         self._communicator: SocketCommunicator | None = None
         self._sample_index = 0
+        self._last_timestamp_ms = 0.0
         self._channel_count = 1  # 默认单通道，动态检测后更新
 
         # 连接信号到槽，确保跨线程调用安全
@@ -115,6 +117,7 @@ class FoupAcquisitionController(QObject):
         self._set_status("正在连接...")
         self._worker = threading.Thread(target=self._run_loop, daemon=True)
         self._worker.start()
+        self._last_timestamp_ms = 0.0
 
     @Slot()
     def stopAcquisition(self) -> None:
@@ -186,10 +189,14 @@ class FoupAcquisitionController(QObject):
         self.lastValueChanged.emit()
 
         self._sample_index += 1
-        x_value = float(self._sample_index)
+        timestamp_ms = time.time() * 1000.0
+        # 避免同一毫秒内多次触发导致时间戳重复
+        if timestamp_ms <= self._last_timestamp_ms:
+            timestamp_ms = self._last_timestamp_ms + 1.0
+        self._last_timestamp_ms = timestamp_ms
 
         # 使用信号机制安全地跨线程传递数据（传递所有通道的值）
-        self.dataPointReceived.emit(x_value, values)
+        self.dataPointReceived.emit(timestamp_ms, values)
 
     def _append_point_to_model(self, x: float, y_values: list) -> None:
         """将多通道数据添加到对应的series models中"""

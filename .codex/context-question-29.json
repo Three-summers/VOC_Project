@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-12-01T11:18:55+08:00",
+  "sourceQuestion": "Q2",
+  "goal": "确定时间轴下的视窗/范围计算方式",
+  "findings": {
+    "currentWindow": "ChartCard.updateAxesFromSeries 以 maxRows 或 60 作为 visibleWindow（纯数值），当 x 变为毫秒时间戳时会把窗口压缩到 60ms",
+    "dataDensity": "Foup/生成器一秒 1 点左右，CSV 也以秒级采样，合理窗口应按秒数 * 1000 计算",
+    "limitLines": "OOS/OOC 目前用超大固定范围，在时间戳场景会远离实际数据，需根据当前 min/max 动态绘制"
+  },
+  "conclusion": "将视窗转换为时间跨度：visibleWindowMs = maxRows*1000（默认 60 秒），基于数据 min/max 计算 padding，并把 xAxis.min/xAxis.max 设置为 Date 对象；OOS/OOC 线按当前数据范围加 margin 绘制。"
+}
