@@ -16,6 +16,7 @@ Column {
     property var informationPanelRef: null
     property var foupLimitRef: null
     readonly property var acquisitionController: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+    readonly property int channelCount: (acquisitionController && acquisitionController.channelCount) ? acquisitionController.channelCount : 1
     property string ipText: (acquisitionController && acquisitionController.host) ? acquisitionController.host : ""
 
     Connections {
@@ -57,14 +58,9 @@ Column {
     }
 
     CustomButton {
-        text: "配置 OOC/OOS"
+        text: "配置通道参数"
         width: parent.width
-        onClicked: {
-            const ref = foupLimitRef;
-            limitDialog.tempOOC = (ref && !isNaN(ref.ooc)) ? ref.ooc : 80;
-            limitDialog.tempOOS = (ref && !isNaN(ref.oos)) ? ref.oos : 90;
-            limitDialog.open();
-        }
+        onClicked: limitDialog.openWithChannel(0)
     }
 
     CustomButton {
@@ -103,74 +99,281 @@ Column {
         width: parent.width
     }
 
-    // 弹窗配置 OOC/OOS
+    // 弹窗配置 OOC/OOS/Target（按通道）
     Components.DataInputDialog {
         id: limitDialog
-        title: "配置 FOUP OOC / OOS"
+        title: "配置通道参数"
         popupAnchorItem: informationPanelRef ? informationPanelRef : Qt.application.activeWindow
-        property real tempOOC: 80
-        property real tempOOS: 90
+        property int selectedChannel: 0
+        property real tempOOCUpper: 80
+        property real tempOOCLower: 20
+        property real tempOOSUpper: 90
+        property real tempOOSLower: 10
+        property real tempTarget: 50
+        property var oosUpperFieldRef: null
+        property var oosLowerFieldRef: null
+        property var oocUpperFieldRef: null
+        property var oocLowerFieldRef: null
+        property var targetFieldRef: null
+
+        function loadChannel(index) {
+            selectedChannel = Math.max(0, index || 0);
+            const ref = foupLimitRef;
+            if (!ref || typeof ref.getLimits !== "function") {
+                tempOOCUpper = 80; tempOOCLower = 20; tempOOSUpper = 90; tempOOSLower = 10; tempTarget = 50;
+                setFieldTexts();
+                return;
+            }
+            const limits = ref.getLimits(selectedChannel);
+            tempOOCUpper = limits.oocUpper;
+            tempOOCLower = limits.oocLower;
+            tempOOSUpper = limits.oosUpper;
+            tempOOSLower = limits.oosLower;
+            tempTarget = limits.target;
+            setFieldTexts();
+        }
+
+        function openWithChannel(index) {
+            loadChannel(index);
+            limitDialog.open();
+        }
+
+        function setFieldTexts() {
+            if (oosUpperFieldRef) oosUpperFieldRef.text = tempOOSUpper.toString();
+            if (oosLowerFieldRef) oosLowerFieldRef.text = tempOOSLower.toString();
+            if (oocUpperFieldRef) oocUpperFieldRef.text = tempOOCUpper.toString();
+            if (oocLowerFieldRef) oocLowerFieldRef.text = tempOOCLower.toString();
+            if (targetFieldRef) targetFieldRef.text = tempTarget.toString();
+        }
+
+        function parseOrKeep(currentValue, textValue) {
+            if (textValue === "" || textValue === null || typeof textValue === "undefined")
+                return currentValue;
+            var parsed = parseFloat(textValue);
+            return isNaN(parsed) ? currentValue : parsed;
+        }
 
         contentData: Component {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: Components.UiTheme.spacing("md")
-                spacing: Components.UiTheme.spacing("md")
+                spacing: Components.UiTheme.spacing("sm")
 
                 Text {
-                    text: "设置 FOUP 采集通道的控制/规格界限。"
+                    text: "设置指定通道的 OOC/OOS 上下界与 Target"
                     color: Components.UiTheme.color("textPrimary")
                     font.pixelSize: Components.UiTheme.fontSize("body")
                     wrapMode: Text.WordWrap
                 }
 
-                RowLayout {
+                // 统一的表单行，保持左对齐与统一高度
+                ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: Components.UiTheme.spacing("md")
-                    Label {
-                        text: "OOC"
-                        color: Components.UiTheme.color("textSecondary")
-                        font.pixelSize: Components.UiTheme.fontSize("body")
-                    }
-                    TextField {
-                        id: oocField
+                    spacing: Components.UiTheme.spacing("sm")
+
+                    // 通道选择
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: limitDialog.tempOOC.toString()
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "通道"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
+                        }
+                        ComboBox {
+                            id: channelSelector
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            model: Math.max(1, channelCount)
+                            padding: Components.UiTheme.spacing("xs")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            contentItem: Text {
+                                text: channelSelector.displayText
+                                verticalAlignment: Text.AlignVCenter
+                                color: Components.UiTheme.color("textPrimary")
+                                font.pixelSize: Components.UiTheme.fontSize("body")
+                                leftPadding: Components.UiTheme.spacing("sm")
+                            }
+                            indicator: Rectangle {
+                                width: Components.UiTheme.spacing("md")
+                                height: Components.UiTheme.spacing("md")
+                                radius: Components.UiTheme.radius("sm")
+                                color: "transparent"
+                                border.color: "transparent"
+                                anchors.verticalCenter: parent.verticalCenter
+                                anchors.right: parent.right
+                                anchors.rightMargin: Components.UiTheme.spacing("sm")
+                                Canvas {
+                                    anchors.fill: parent
+                                    onPaint: {
+                                        var ctx = getContext("2d");
+                                        ctx.strokeStyle = Components.UiTheme.color("textSecondary");
+                                        ctx.lineWidth = 1.5;
+                                        ctx.beginPath();
+                                        ctx.moveTo(width * 0.2, height * 0.4);
+                                        ctx.lineTo(width * 0.5, height * 0.7);
+                                        ctx.lineTo(width * 0.8, height * 0.4);
+                                        ctx.stroke();
+                                    }
+                                }
+                            }
+                            background: Rectangle {
+                                color: Components.UiTheme.color("surface")
+                                border.color: Components.UiTheme.color("outline")
+                                radius: Components.UiTheme.radius("sm")
+                            }
+                            delegate: ItemDelegate {
+                                text: "通道 " + index
+                                width: parent ? parent.width : undefined
+                                font.pixelSize: Components.UiTheme.fontSize("body")
+                                background: Rectangle {
+                                    color: pressed ? Components.UiTheme.color("panelAlt") : Components.UiTheme.color("surface")
+                                    border.color: Components.UiTheme.color("outline")
+                                }
+                                onClicked: function() {
+                                    channelSelector.currentIndex = index;
+                                    limitDialog.loadChannel(index);
+                                    channelSelector.popup.close();
+                                }
+                            }
+                            onActivated: function(i) { limitDialog.loadChannel(i); }
+                        }
+                    }
+
+                    // OOS 上
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "OOS 上"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
+                        }
+                    TextField {
+                        id: oosUpperField
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Components.UiTheme.controlHeight("input")
                         validator: DoubleValidator { bottom: -999999; top: 999999 }
-                        color: Components.UiTheme.color("textPrimary")
+                            color: Components.UiTheme.color("textPrimary")
+                            placeholderText: "例如 90"
+                        placeholderTextColor: Components.UiTheme.color("textSecondary")
+                        background: Rectangle { color: Components.UiTheme.color("surface"); border.color: Components.UiTheme.color("outline"); radius: Components.UiTheme.radius("sm") }
+                        onEditingFinished: limitDialog.tempOOSUpper = limitDialog.parseOrKeep(limitDialog.tempOOSUpper, text)
+                        Component.onCompleted: {
+                            limitDialog.oosUpperFieldRef = oosUpperField;
+                            limitDialog.setFieldTexts();
+                        }
+                    }
+                    }
+
+                    // OOS 下
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "OOS 下"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
+                        }
+                        TextField {
+                            id: oosLowerField
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            validator: DoubleValidator { bottom: -999999; top: 999999 }
+                            color: Components.UiTheme.color("textPrimary")
+                        placeholderText: "例如 10"
+                        placeholderTextColor: Components.UiTheme.color("textSecondary")
+                        background: Rectangle { color: Components.UiTheme.color("surface"); border.color: Components.UiTheme.color("outline"); radius: Components.UiTheme.radius("sm") }
+                        onEditingFinished: limitDialog.tempOOSLower = limitDialog.parseOrKeep(limitDialog.tempOOSLower, text)
+                        Component.onCompleted: {
+                            limitDialog.oosLowerFieldRef = oosLowerField;
+                            limitDialog.setFieldTexts();
+                        }
+                    }
+                    }
+
+                    // OOC 上
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "OOC 上"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
+                        }
+                        TextField {
+                            id: oocUpperField
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            validator: DoubleValidator { bottom: -999999; top: 999999 }
+                            color: Components.UiTheme.color("textPrimary")
                         placeholderText: "例如 80"
                         placeholderTextColor: Components.UiTheme.color("textSecondary")
-                        background: Rectangle {
-                            color: Components.UiTheme.color("surface")
-                            border.color: Components.UiTheme.color("outline")
-                            radius: Components.UiTheme.radius("sm")
+                        background: Rectangle { color: Components.UiTheme.color("surface"); border.color: Components.UiTheme.color("outline"); radius: Components.UiTheme.radius("sm") }
+                        onEditingFinished: limitDialog.tempOOCUpper = limitDialog.parseOrKeep(limitDialog.tempOOCUpper, text)
+                        Component.onCompleted: {
+                            limitDialog.oocUpperFieldRef = oocUpperField;
+                            limitDialog.setFieldTexts();
                         }
-                        onTextChanged: limitDialog.tempOOC = parseFloat(text)
                     }
-                }
+                    }
 
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Components.UiTheme.spacing("md")
-                    Label {
-                        text: "OOS"
-                        color: Components.UiTheme.color("textSecondary")
-                        font.pixelSize: Components.UiTheme.fontSize("body")
-                    }
-                    TextField {
-                        id: oosField
+                    // OOC 下
+                    RowLayout {
                         Layout.fillWidth: true
-                        text: limitDialog.tempOOS.toString()
-                        validator: DoubleValidator { bottom: -999999; top: 999999 }
-                        color: Components.UiTheme.color("textPrimary")
-                        placeholderText: "例如 90"
-                        placeholderTextColor: Components.UiTheme.color("textSecondary")
-                        background: Rectangle {
-                            color: Components.UiTheme.color("surface")
-                            border.color: Components.UiTheme.color("outline")
-                            radius: Components.UiTheme.radius("sm")
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "OOC 下"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
                         }
-                        onTextChanged: limitDialog.tempOOS = parseFloat(text)
+                        TextField {
+                            id: oocLowerField
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            validator: DoubleValidator { bottom: -999999; top: 999999 }
+                            color: Components.UiTheme.color("textPrimary")
+                        placeholderText: "例如 20"
+                        placeholderTextColor: Components.UiTheme.color("textSecondary")
+                        background: Rectangle { color: Components.UiTheme.color("surface"); border.color: Components.UiTheme.color("outline"); radius: Components.UiTheme.radius("sm") }
+                        onEditingFinished: limitDialog.tempOOCLower = limitDialog.parseOrKeep(limitDialog.tempOOCLower, text)
+                        Component.onCompleted: {
+                            limitDialog.oocLowerFieldRef = oocLowerField;
+                            limitDialog.setFieldTexts();
+                        }
+                    }
+                    }
+
+                    // Target
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "Target"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
+                        }
+                        TextField {
+                            id: targetField
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            validator: DoubleValidator { bottom: -999999; top: 999999 }
+                            color: Components.UiTheme.color("textPrimary")
+                        placeholderText: "例如 50"
+                        placeholderTextColor: Components.UiTheme.color("textSecondary")
+                        background: Rectangle { color: Components.UiTheme.color("surface"); border.color: Components.UiTheme.color("outline"); radius: Components.UiTheme.radius("sm") }
+                        onEditingFinished: limitDialog.tempTarget = limitDialog.parseOrKeep(limitDialog.tempTarget, text)
+                        Component.onCompleted: {
+                            limitDialog.targetFieldRef = targetField;
+                            limitDialog.setFieldTexts();
+                        }
+                    }
                     }
                 }
             }
@@ -193,13 +396,14 @@ Column {
                     Layout.preferredWidth: Components.UiTheme.controlWidth("button")
                     Layout.preferredHeight: Components.UiTheme.controlHeight("button")
                     onClicked: {
-                        if (foupLimitRef) {
-                            const next = {
-                                ooc: !isNaN(limitDialog.tempOOC) ? limitDialog.tempOOC : 80,
-                                oos: !isNaN(limitDialog.tempOOS) ? limitDialog.tempOOS : 90
-                            };
-                            foupLimitRef.ooc = next.ooc;
-                            foupLimitRef.oos = next.oos;
+                        if (foupLimitRef && typeof foupLimitRef.setLimits === "function") {
+                            foupLimitRef.setLimits(limitDialog.selectedChannel, {
+                                oocUpper: !isNaN(limitDialog.tempOOCUpper) ? limitDialog.tempOOCUpper : 80,
+                                oocLower: !isNaN(limitDialog.tempOOCLower) ? limitDialog.tempOOCLower : 20,
+                                oosUpper: !isNaN(limitDialog.tempOOSUpper) ? limitDialog.tempOOSUpper : 90,
+                                oosLower: !isNaN(limitDialog.tempOOSLower) ? limitDialog.tempOOSLower : 10,
+                                target: !isNaN(limitDialog.tempTarget) ? limitDialog.tempTarget : 50
+                            });
                         }
                         limitDialog.close();
                     }
@@ -209,8 +413,7 @@ Column {
         }
 
         onOpened: {
-            tempOOC = (foupLimitRef && !isNaN(foupLimitRef.ooc)) ? foupLimitRef.ooc : 80;
-            tempOOS = (foupLimitRef && !isNaN(foupLimitRef.oos)) ? foupLimitRef.oos : 90;
+            loadChannel(selectedChannel);
         }
     }
 

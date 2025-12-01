@@ -135,3 +135,16 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures；后端不再暴露 OOC/OOS 属性，前端共享 QtObject 保持功能。需在 PySide6 环境确认：弹窗回显、修改后界限线更新、位置与 IP 弹窗一致。
 - Risk Assessment: 中。GUI 行为仍需实机观察。 
+
+## Verification - 2025-12-01T18:29:11+08:00
+- Executor: Codex
+- Scope: FOUP 通道级 OOC/OOS 上下界 + Target 配置、图表显示
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；前端通过共享 limitsMap 按通道配置 OOC/OOS 上下界与 Target，ChartCard 新增多条限界线并随通道配置更新。无后端信号依赖。
+- Hand-check (需 PySide6 环境):
+  1) 命令面板“配置 OOC/OOS/Target”弹窗含通道下拉 + 5 个输入，回显当前通道值；
+  2) 确定后 Config FOUP 图表限界线与 Target 立即更新且仅作用于选定通道；
+  3) 多通道切换时回显与显示对应通道值；
+  4) 与 IP 弹窗位置一致。 
+- Risk Assessment: 中。GUI 行为需实机确认；若通道数未知时下拉默认 1，需结合采集控制器 channelCount 实际检查。 

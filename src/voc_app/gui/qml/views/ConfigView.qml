@@ -277,16 +277,24 @@ Rectangle {
                                 color: Components.UiTheme.color("panel")
                                 border.color: Components.UiTheme.color("outline")
 
-                                // 使用 readonly property 缓存配置，确保稳定的属性绑定
                                 readonly property var config: configView.chartEntry(modelData.index, modelData.title)
+                                readonly property int channelIdx: (typeof modelData.channelIndex === "number") ? modelData.channelIndex : 0
+                                readonly property var limits: (configView.foupLimitRef && typeof configView.foupLimitRef.getLimits === "function")
+                                    ? configView.foupLimitRef.getLimits(channelIdx)
+                                    : null
+
                                 seriesModel: config.seriesModel
                                 xColumn: config.xColumn
                                 yColumn: config.yColumn
                                 showLimits: true
-                                oocLimitValue: (configView.foupLimitRef && !isNaN(configView.foupLimitRef.ooc)) ? configView.foupLimitRef.ooc : 80
-                                oosLimitValue: (configView.foupLimitRef && !isNaN(configView.foupLimitRef.oos)) ? configView.foupLimitRef.oos : 90
+                                oocLimitValue: limits ? limits.oocUpper : 80
+                                oocLowerLimitValue: limits ? limits.oocLower : Number.NaN
+                                oosLimitValue: limits ? limits.oosUpper : 90
+                                oosLowerLimitValue: limits ? limits.oosLower : Number.NaN
+                                targetValue: limits ? limits.target : Number.NaN
 
                                 scaleFactor: configView.scaleFactor
+                                chartTitle: "通道" + index + "数据"
 
                                 Text {
                                     visible: !seriesModel

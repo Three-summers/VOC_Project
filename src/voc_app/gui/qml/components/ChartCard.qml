@@ -19,7 +19,10 @@ Rectangle {
 
     // 规格界限 (OOS) 和 控制界限 (OOC) 的值
     property real oosLimitValue: 90.0
+    property real oosLowerLimitValue: Number.NaN
     property real oocLimitValue: 80.0
+    property real oocLowerLimitValue: Number.NaN
+    property real targetValue: Number.NaN
     property bool showLimits: true
 
     property var chartStyle: {
@@ -29,7 +32,8 @@ Rectangle {
             // OOC: R220, G81, B52
             "oocColor": Qt.rgba(220/255, 81/255, 52/255, 1.0),
             // Chart: R128, G0, B128
-            "mainColor": Qt.rgba(128/255, 0/255, 128/255, 1.0)
+            "mainColor": Qt.rgba(128/255, 0/255, 128/255, 1.0),
+            "targetColor": Qt.rgba(0/255, 122/255, 204/255, 1.0)
         }
     }
 
@@ -103,7 +107,7 @@ Rectangle {
             // -----------------------------------------------------------------
             LineSeries {
                 id: oosSeries
-                name: "OOS"
+                name: "OOS 上界"
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.oosColor
@@ -114,11 +118,26 @@ Rectangle {
             }
 
             // -----------------------------------------------------------------
-            // 2. OOC Series (控制界限) - 虚线
+            // 2. OOS 下界 - 实线
+            // -----------------------------------------------------------------
+            LineSeries {
+                id: oosLowerSeries
+                name: "OOS 下界"
+                axisX: xAxis
+                axisY: yAxis
+                color: chartCard.chartStyle.v1.oosColor
+                style: Qt.SolidLine
+                width: 1.5 * Components.UiTheme.controlScale
+                visible: chartCard.showLimits
+                // useOpenGL: chartView.width > 0 && chartView.height > 0
+            }
+
+            // -----------------------------------------------------------------
+            // 3. OOC Series (控制界限) - 虚线
             // -----------------------------------------------------------------
             LineSeries {
                 id: oocSeries
-                name: "OOC"
+                name: "OOC 上界"
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.oocColor
@@ -129,7 +148,37 @@ Rectangle {
             }
 
             // -----------------------------------------------------------------
-            // 3. Main Data Series (主数据) - 实线
+            // 4. OOC 下界 - 虚线
+            // -----------------------------------------------------------------
+            LineSeries {
+                id: oocLowerSeries
+                name: "OOC 下界"
+                axisX: xAxis
+                axisY: yAxis
+                color: chartCard.chartStyle.v1.oocColor
+                style: Qt.DashLine
+                width: 1.5 * Components.UiTheme.controlScale
+                visible: chartCard.showLimits
+                // useOpenGL: chartView.width > 0 && chartView.height > 0
+            }
+
+            // -----------------------------------------------------------------
+            // 5. Target 线 - 点划线
+            // -----------------------------------------------------------------
+            LineSeries {
+                id: targetSeries
+                name: "Target"
+                axisX: xAxis
+                axisY: yAxis
+                color: chartCard.chartStyle.v1.targetColor
+                style: Qt.DotLine
+                width: 2 * Components.UiTheme.controlScale
+                visible: chartCard.showLimits
+                // useOpenGL: chartView.width > 0 && chartView.height > 0
+            }
+
+            // -----------------------------------------------------------------
+            // 6. Main Data Series (主数据) - 实线
             // -----------------------------------------------------------------
             LineSeries {
                 id: lineSeries
@@ -159,13 +208,41 @@ Rectangle {
             VXYModelMapper {
                 id: pointMapper
             }
+
+            // function updateLegendVisibility() {
+            //     if (!chartView.legend || !chartView.legend.markers) {
+            //         return;
+            //     }
+            //
+            //     var markers = chartView.legend.markers;
+            //
+            //     for (var i = 0; i < markers.length; i++) {
+            //         var marker = markers[i];
+            //
+            //         if (marker.series === lineSeries || marker.series === pointSeries) {
+            //             marker.visible = false;
+            //         }
+            //     }
+            // }
+            //
+            // Component.onCompleted: {
+            //     updateMapperBinding();
+            //     updateLimitLines();
+            //
+            //     Qt.callLater(updateLegendVisibility);
+            // }
+            //
+            // onSeriesAdded: Qt.callLater(updateLegendVisibility)
         }
     }
 
     // 优化后的绘制函数：绘制一条极其长的线，利用 Viewport 裁剪，避免滚动时重绘
     function updateLimitLines() {
         oosSeries.clear();
+        oosLowerSeries.clear();
         oocSeries.clear();
+        oocLowerSeries.clear();
+        targetSeries.clear();
 
         if (!showLimits) return;
 
@@ -199,13 +276,26 @@ Rectangle {
         var startX = minX - margin;
         var endX = maxX + margin;
 
-        // 绘制 OOS 线
-        oosSeries.append(startX, oosLimitValue);
-        oosSeries.append(endX, oosLimitValue);
-
-        // 绘制 OOC 线
-        oocSeries.append(startX, oocLimitValue);
-        oocSeries.append(endX, oocLimitValue);
+        if (!isNaN(oosLimitValue)) {
+            oosSeries.append(startX, oosLimitValue);
+            oosSeries.append(endX, oosLimitValue);
+        }
+        if (!isNaN(oosLowerLimitValue)) {
+            oosLowerSeries.append(startX, oosLowerLimitValue);
+            oosLowerSeries.append(endX, oosLowerLimitValue);
+        }
+        if (!isNaN(oocLimitValue)) {
+            oocSeries.append(startX, oocLimitValue);
+            oocSeries.append(endX, oocLimitValue);
+        }
+        if (!isNaN(oocLowerLimitValue)) {
+            oocLowerSeries.append(startX, oocLowerLimitValue);
+            oocLowerSeries.append(endX, oocLowerLimitValue);
+        }
+        if (!isNaN(targetValue)) {
+            targetSeries.append(startX, targetValue);
+            targetSeries.append(endX, targetValue);
+        }
     }
 
     function updateAxesFromSeries() {
@@ -218,10 +308,14 @@ Rectangle {
         var minY = chartCard.seriesModel.minY;
         var maxY = chartCard.seriesModel.maxY;
 
-        // 关键逻辑：确保 Y 轴范围包含 OOS 和 OOC 线，否则界限线可能跑到屏幕外
+        // 关键逻辑：确保 Y 轴范围包含 OOS/OOC 上下界和 Target
         if (showLimits) {
-            // 获取所有关键值的最小值和最大值
-            var allValues = [minY, maxY, oosLimitValue, oocLimitValue];
+            var allValues = [minY, maxY];
+            if (!isNaN(oosLimitValue)) allValues.push(oosLimitValue);
+            if (!isNaN(oosLowerLimitValue)) allValues.push(oosLowerLimitValue);
+            if (!isNaN(oocLimitValue)) allValues.push(oocLimitValue);
+            if (!isNaN(oocLowerLimitValue)) allValues.push(oocLowerLimitValue);
+            if (!isNaN(targetValue)) allValues.push(targetValue);
             minY = Math.min(...allValues);
             maxY = Math.max(...allValues);
         }
@@ -339,7 +433,12 @@ Rectangle {
         }
 
         if (showLimits) {
-            var values = [minY, maxY, oosLimitValue, oocLimitValue];
+            var values = [minY, maxY];
+            if (!isNaN(oosLimitValue)) values.push(oosLimitValue);
+            if (!isNaN(oosLowerLimitValue)) values.push(oosLowerLimitValue);
+            if (!isNaN(oocLimitValue)) values.push(oocLimitValue);
+            if (!isNaN(oocLowerLimitValue)) values.push(oocLowerLimitValue);
+            if (!isNaN(targetValue)) values.push(targetValue);
             minY = Math.min(...values);
             maxY = Math.max(...values);
         }

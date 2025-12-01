@@ -185,3 +185,10 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；移除后端 OOC/OOS 属性后回归通过，前端共享状态不受影响。
 - Notes: GUI 仍需在 PySide6 环境验证 OOC/OOS 弹窗与限界线显示。 
+
+## 2025-12-01T18:29:11+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；新增通道限界映射与多条限界线后 Python 层无回归。
+- Notes: 需在 PySide6 环境手工验证：通道下拉回显、OOS/OOC 上下界与 Target 生效并更新图表；多通道切换时界限正确对应。 

@@ -28,8 +28,35 @@ ApplicationWindow {
 
     QtObject {
         id: foupLimits
-        property real ooc: 80
-        property real oos: 90
+        property var limitsMap: ({})
+        signal limitsChanged()
+
+        function defaultLimits() {
+            return {
+                oocUpper: 80,
+                oocLower: 20,
+                oosUpper: 90,
+                oosLower: 10,
+                target: 50
+            }
+        }
+
+        function getLimits(channelIndex) {
+            const key = channelIndex || 0;
+            const current = limitsMap[key];
+            if (current)
+                return current;
+            return defaultLimits();
+        }
+
+        function setLimits(channelIndex, limits) {
+            const key = channelIndex || 0;
+            const next = Object.assign(defaultLimits(), limits || {});
+            const cloned = Object.assign({}, limitsMap);
+            cloned[key] = next;
+            limitsMap = cloned;
+            limitsChanged();
+        }
     }
 
     Binding {

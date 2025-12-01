@@ -628,3 +628,10 @@
 | 2025-12-01T16:20:00+08:00#558 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 移除后端属性后回归单测通过 |
 | 2025-12-01T16:20:00+08:00#559 | shell | cat <<'EOF' >> .codex/testing.md | 记录回滚后单测结果与手工验证提示 |
 | 2025-12-01T16:20:00+08:00#560 | shell | cat <<'EOF' >> verification.md | 更新验证记录，说明后端不再承载 OOC/OOS |
+| 2025-12-01T16:30:00+08:00#561 | apply_patch | src/voc_app/gui/qml/main.qml | 将 foupLimits 改为按通道存储的 limitsMap，支持 get/set 与默认值 |
+| 2025-12-01T16:30:00+08:00#562 | apply_patch | src/voc_app/gui/qml/commands/Config_foupCommands.qml | 添加 channelCount 属性供通道选择 |
+| 2025-12-01T16:30:00+08:00#563 | apply_patch | src/voc_app/gui/qml/commands/Config_foupCommands.qml | 重写命令面板：通道下拉+五项输入(OOS上下、OOC上下、Target)，使用前端限界映射 |
+| 2025-12-01T16:30:00+08:00#564 | apply_patch | src/voc_app/gui/qml/views/ConfigView.qml | ChartCard 依据通道索引读取共享限界映射，支持上下界与 Target |
+| 2025-12-01T16:30:00+08:00#565 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 多限界线改动后回归单测通过 |
+| 2025-12-01T16:30:00+08:00#566 | shell | cat <<'EOF' >> .codex/testing.md | 记录通道级限界配置的单测与手工验证提示 |
+| 2025-12-01T16:30:00+08:00#567 | shell | cat <<'EOF' >> verification.md | 更新验证记录，说明通道选择与多条限界线的实机检查点 |
