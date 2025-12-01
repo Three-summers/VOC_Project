@@ -14,6 +14,7 @@ Column {
     // 由 CommandPanel 注入，用于对话框定位
     property var commandPanelRef: null
     property var informationPanelRef: null
+    property var foupLimitRef: null
     readonly property var acquisitionController: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
     property string ipText: (acquisitionController && acquisitionController.host) ? acquisitionController.host : ""
 
@@ -56,9 +57,14 @@ Column {
     }
 
     CustomButton {
-        text: "设置时间"
+        text: "配置 OOC/OOS"
         width: parent.width
-        onClicked: console.log("Config/FOUP: 设置时间")
+        onClicked: {
+            const ref = foupLimitRef;
+            limitDialog.tempOOC = (ref && !isNaN(ref.ooc)) ? ref.ooc : 80;
+            limitDialog.tempOOS = (ref && !isNaN(ref.oos)) ? ref.oos : 90;
+            limitDialog.open();
+        }
     }
 
     CustomButton {
@@ -95,6 +101,117 @@ Column {
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
         width: parent.width
+    }
+
+    // 弹窗配置 OOC/OOS
+    Components.DataInputDialog {
+        id: limitDialog
+        title: "配置 FOUP OOC / OOS"
+        popupAnchorItem: informationPanelRef ? informationPanelRef : Qt.application.activeWindow
+        property real tempOOC: 80
+        property real tempOOS: 90
+
+        contentData: Component {
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: Components.UiTheme.spacing("md")
+                spacing: Components.UiTheme.spacing("md")
+
+                Text {
+                    text: "设置 FOUP 采集通道的控制/规格界限（OOC/OOS）。"
+                    color: Components.UiTheme.color("textPrimary")
+                    font.pixelSize: Components.UiTheme.fontSize("body")
+                    wrapMode: Text.WordWrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Components.UiTheme.spacing("md")
+                    Label {
+                        text: "OOC"
+                        color: Components.UiTheme.color("textSecondary")
+                        font.pixelSize: Components.UiTheme.fontSize("body")
+                    }
+                    TextField {
+                        id: oocField
+                        Layout.fillWidth: true
+                        text: limitDialog.tempOOC.toString()
+                        validator: DoubleValidator { bottom: -999999; top: 999999 }
+                        color: Components.UiTheme.color("textPrimary")
+                        placeholderText: "例如 80"
+                        placeholderTextColor: Components.UiTheme.color("textSecondary")
+                        background: Rectangle {
+                            color: Components.UiTheme.color("surface")
+                            border.color: Components.UiTheme.color("outline")
+                            radius: Components.UiTheme.radius("sm")
+                        }
+                        onTextChanged: limitDialog.tempOOC = parseFloat(text)
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Components.UiTheme.spacing("md")
+                    Label {
+                        text: "OOS"
+                        color: Components.UiTheme.color("textSecondary")
+                        font.pixelSize: Components.UiTheme.fontSize("body")
+                    }
+                    TextField {
+                        id: oosField
+                        Layout.fillWidth: true
+                        text: limitDialog.tempOOS.toString()
+                        validator: DoubleValidator { bottom: -999999; top: 999999 }
+                        color: Components.UiTheme.color("textPrimary")
+                        placeholderText: "例如 90"
+                        placeholderTextColor: Components.UiTheme.color("textSecondary")
+                        background: Rectangle {
+                            color: Components.UiTheme.color("surface")
+                            border.color: Components.UiTheme.color("outline")
+                            radius: Components.UiTheme.radius("sm")
+                        }
+                        onTextChanged: limitDialog.tempOOS = parseFloat(text)
+                    }
+                }
+            }
+        }
+
+        footerData: Component {
+            RowLayout {
+                anchors.fill: parent
+                anchors.margins: Components.UiTheme.spacing("md")
+                spacing: Components.UiTheme.spacing("md")
+                Item { Layout.fillWidth: true }
+                Components.CustomButton {
+                    text: "取消"
+                    Layout.preferredWidth: Components.UiTheme.controlWidth("button")
+                    Layout.preferredHeight: Components.UiTheme.controlHeight("button")
+                    onClicked: limitDialog.close()
+                }
+                Components.CustomButton {
+                    text: "确定"
+                    Layout.preferredWidth: Components.UiTheme.controlWidth("button")
+                    Layout.preferredHeight: Components.UiTheme.controlHeight("button")
+                    onClicked: {
+                        if (foupLimitRef) {
+                            const next = {
+                                ooc: !isNaN(limitDialog.tempOOC) ? limitDialog.tempOOC : 80,
+                                oos: !isNaN(limitDialog.tempOOS) ? limitDialog.tempOOS : 90
+                            };
+                            foupLimitRef.ooc = next.ooc;
+                            foupLimitRef.oos = next.oos;
+                        }
+                        limitDialog.close();
+                    }
+                }
+                Item { Layout.fillWidth: true }
+            }
+        }
+
+        onOpened: {
+            tempOOC = (foupLimitRef && !isNaN(foupLimitRef.ooc)) ? foupLimitRef.ooc : 80;
+            tempOOS = (foupLimitRef && !isNaN(foupLimitRef.oos)) ? foupLimitRef.oos : 90;
+        }
     }
 
     // 弹窗设置 IP，带确定/取消

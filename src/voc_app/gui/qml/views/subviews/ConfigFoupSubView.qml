@@ -144,6 +144,9 @@ Item {
                         seriesModel: config.seriesModel
                         xColumn: config.xColumn
                         yColumn: config.yColumn
+                        showLimits: true
+                        oocLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition) ? foupAcquisition.oocLimit : 80
+                        oosLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition) ? foupAcquisition.oosLimit : 90
 
                         scaleFactor: rootItem.scaleFactor // Use rootItem
 

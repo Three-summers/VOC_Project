@@ -103,3 +103,35 @@
 - Result: ✅ Passed
 - Details: 1 test, 0 failures；仅颜色常量更新，Python 层无回归。GUI 需在 PySide6 环境确认浅色背景/按钮/文字对比度以及调色子页重置是否应用新默认值。
 - Risk Assessment: 中。若某些视图存在硬编码深色叠层，可能与浅色不协调；需实机检查主界面、对话框、放大遮罩。 
+
+## Verification - 2025-12-01T15:44:11+08:00
+- Executor: Codex
+- Scope: FOUP OOC/OOS 配置对话框 + 限界线绑定
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；后端新增 OOC/OOS 属性，前端使用对话框设置并传递给 ChartCard。需在具备 PySide6 的环境手工验证：
+  1) Config 命令面板“配置 OOC/OOS”按钮弹出对话框并可输入数值；
+  2) 确认后 ChartCard 限界线随数值更新（所有 FOUP 通道）；
+  3) 再次打开对话框回显当前值；
+  4) 采集中修改若无需求可保留（目前未禁用）。
+- Risk Assessment: 中。GUI 渲染需实机检查，若某处仍使用默认限界值或对话框定位偏移需调整。 
+
+## Verification - 2025-12-01T16:03:11+08:00
+- Executor: Codex
+- Scope: FOUP OOC/OOS 前端共享配置（无后端信号）
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；OOC/OOS 对话框改用前端共享状态 QtObject，Config Foup ChartCard 绑定该状态显示限界线，不依赖后端属性。需实机验证：
+  1) 命令面板“配置 OOC/OOS”弹窗位置与 IP 弹窗一致；
+  2) 修改后界限线立即反映在 Config Foup 图表；
+  3) 再次打开弹窗回显最新值；
+  4) 采集中/停止状态下行为是否符合预期（目前未禁用）。
+- Risk Assessment: 中。GUI 渲染与行为需在 PySide6 环境观察，若与采集中状态交互有要求需再补逻辑。 
+
+## Verification - 2025-12-01T16:09:22+08:00
+- Executor: Codex
+- Scope: 移除后端 OOC/OOS 属性（改用前端共享状态）
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；后端不再暴露 OOC/OOS 属性，前端共享 QtObject 保持功能。需在 PySide6 环境确认：弹窗回显、修改后界限线更新、位置与 IP 弹窗一致。
+- Risk Assessment: 中。GUI 行为仍需实机观察。 

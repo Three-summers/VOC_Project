@@ -13,6 +13,7 @@ Rectangle {
     property alias currentViewItem: viewLoader.item
     property alias currentSubPage: subNavBar.currentKey
     property real scaleFactor: Components.UiTheme.controlScale
+    property var foupLimitRef: null
     property var subNavigationConfig: ({
         "Status": [
             { key: "loadport", title: "Loadport" },
@@ -86,7 +87,10 @@ Rectangle {
                 }
 
                 if (viewLoader.item && informationPanel.scaleFactor && viewLoader.item.hasOwnProperty("scaleFactor"))
-                viewLoader.item.scaleFactor = informationPanel.scaleFactor;
+                    viewLoader.item.scaleFactor = informationPanel.scaleFactor;
+
+                if (viewLoader.item && informationPanel.foupLimitRef && viewLoader.item.hasOwnProperty("foupLimitRef"))
+                    viewLoader.item.foupLimitRef = informationPanel.foupLimitRef;
 
                 informationPanel.propagateSubPage();
             }

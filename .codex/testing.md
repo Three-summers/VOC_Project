@@ -164,3 +164,24 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；调色板切换为浅色后无 Python 层回归问题。
 - Notes: GUI 浅色主题需在 PySide6 环境手工检查整体对比度与可读性。 
+
+## 2025-12-01T15:44:11+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；新增 OOC/OOS 配置与前端绑定后 Python 层无回归。
+- Notes: OOC/OOS 对话框与限界线需在 PySide6 环境手工验证（弹窗位置、数值生效、曲线限界线更新）。 
+
+## 2025-12-01T16:03:11+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；OOC/OOS 改为前端共享状态后 Python 层无回归。
+- Notes: 需在 PySide6 环境手工验证：Config 命令面板 OOC/OOS 弹窗（与 IP 同位置）更新后，Config Foup 图表限界线实时反映共享值。 
+
+## 2025-12-01T16:09:22+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；移除后端 OOC/OOS 属性后回归通过，前端共享状态不受影响。
+- Notes: GUI 仍需在 PySide6 环境验证 OOC/OOS 弹窗与限界线显示。 

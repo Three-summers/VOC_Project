@@ -610,3 +610,21 @@
 | 2025-12-01T11:50:14+08:00#540 | shell | cat <<'EOF' >> .codex/testing.md | 记录浅色主题变更后的单测结果与手工验证提示 |
 | 2025-12-01T11:50:14+08:00#541 | shell | cat <<'EOF' >> verification.md | 追加浅色主题验证记录与风险提示 |
 | 2025-12-01T11:50:14+08:00#542 | plan_update | update_plan | 标记浅色主题三步计划全部完成 |
+| 2025-12-01T15:40:40+08:00#543 | sequential-thinking | 调用 | 理解需求：Config Foup 子页替换时间按钮为 OOC/OOS 配置对话框，位置与配置 IP 一致，仅影响 Foup 采集通道的 OOC/OOS 值 |
+| 2025-12-01T15:40:40+08:00#544 | plan_update | update_plan | 为 OOC/OOS 配置任务建立四步计划 |
+| 2025-12-01T15:40:40+08:00#545 | apply_patch | src/voc_app/gui/foup_acquisition.py | 添加 OOC/OOS 属性及信号，供 QML 配置 |
+| 2025-12-01T15:40:40+08:00#546 | apply_patch | src/voc_app/gui/qml/commands/Config_foupCommands.qml | 将“设置时间”改为 OOC/OOS 弹窗配置，绑定采集控制器属性 |
+| 2025-12-01T15:40:40+08:00#547 | apply_patch | src/voc_app/gui/qml/views/subviews/ConfigFoupSubView.qml | ChartCard 绑定 OOC/OOS 限制值并启用显示 |
+| 2025-12-01T15:40:40+08:00#548 | plan_update | update_plan | 标记后端属性、前端对话框、图表绑定完成 |
+| 2025-12-01T15:40:40+08:00#549 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 运行单测（OOC/OOS 改动后），结果通过 |
+| 2025-12-01T15:40:40+08:00#550 | shell | cat <<'EOF' >> .codex/testing.md | 记录 OOC/OOS 改动后的单测及手工验证提示 |
+| 2025-12-01T15:40:40+08:00#551 | shell | cat <<'EOF' >> verification.md | 更新验证记录，列出 OOC/OOS 对话框实机检查点 |
+| 2025-12-01T15:40:40+08:00#552 | plan_update | update_plan | 标记 OOC/OOS 改动相关四步全部完成 |
+| 2025-12-01T15:40:40+08:00#553 | apply_patch | src/voc_app/gui/qml/commands/Config_foupCommands.qml | OOC/OOS 对话框改为使用前端共享状态，不依赖后端信号 |
+| 2025-12-01T15:40:40+08:00#554 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 运行单测（前端共享 OOC/OOS 状态），结果通过 |
+| 2025-12-01T15:40:40+08:00#555 | shell | cat <<'EOF' >> .codex/testing.md | 记录共享状态改动的单测与手工验证提示 |
+| 2025-12-01T15:40:40+08:00#556 | shell | cat <<'EOF' >> verification.md | 更新验证记录，强调无后端信号、需实机检查弹窗与限界线 |
+| 2025-12-01T16:20:00+08:00#557 | apply_patch | src/voc_app/gui/foup_acquisition.py | 移除未使用的 OOC/OOS 后端属性与信号，回滚至无前端依赖状态 |
+| 2025-12-01T16:20:00+08:00#558 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 移除后端属性后回归单测通过 |
+| 2025-12-01T16:20:00+08:00#559 | shell | cat <<'EOF' >> .codex/testing.md | 记录回滚后单测结果与手工验证提示 |
+| 2025-12-01T16:20:00+08:00#560 | shell | cat <<'EOF' >> verification.md | 更新验证记录，说明后端不再承载 OOC/OOS |

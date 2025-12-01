@@ -20,6 +20,7 @@ Rectangle {
         acquisitionStatus: "采集中"
     })
     readonly property int foupChartIndex: 2
+    property var foupLimitRef: null
 
     function chartEntry(rowIndex, fallbackTitle) {
         const fallback = {
@@ -281,6 +282,9 @@ Rectangle {
                                 seriesModel: config.seriesModel
                                 xColumn: config.xColumn
                                 yColumn: config.yColumn
+                                showLimits: true
+                                oocLimitValue: (configView.foupLimitRef && !isNaN(configView.foupLimitRef.ooc)) ? configView.foupLimitRef.ooc : 80
+                                oosLimitValue: (configView.foupLimitRef && !isNaN(configView.foupLimitRef.oos)) ? configView.foupLimitRef.oos : 90
 
                                 scaleFactor: configView.scaleFactor
 

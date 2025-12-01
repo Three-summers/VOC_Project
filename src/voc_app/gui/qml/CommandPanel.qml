@@ -13,6 +13,7 @@ Rectangle {
     property string currentSubPage: ""
     property Component _activeComponent: null
     property real scaleFactor: Components.UiTheme.controlScale
+    property var foupLimitRef: null
 
     Loader {
         id: commandLoader
@@ -30,6 +31,8 @@ Rectangle {
                 commandLoader.item.subPageKey = commandPanel.currentSubPage;
             if (commandLoader.item.hasOwnProperty("scaleFactor"))
                 commandLoader.item.scaleFactor = commandPanel.scaleFactor;
+            if (commandLoader.item.hasOwnProperty("foupLimitRef"))
+                commandLoader.item.foupLimitRef = commandPanel.foupLimitRef;
         }
     }
 

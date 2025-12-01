@@ -26,6 +26,12 @@ ApplicationWindow {
     font.pixelSize: Components.UiTheme.fontSize("body")
     Component.onCompleted: root.showFullScreen()
 
+    QtObject {
+        id: foupLimits
+        property real ooc: 80
+        property real oos: 90
+    }
+
     Binding {
         target: Components.UiTheme
         property: "baseScale"
@@ -88,6 +94,7 @@ ApplicationWindow {
                 currentView: root.currentView
                 csvFileManagerRef: csvFileManager
                 alarmStoreRef: typeof alarmStore !== "undefined" ? alarmStore : null
+                foupLimitRef: foupLimits
             }
 
             // 3. 命令面板 (Right)
@@ -101,6 +108,7 @@ ApplicationWindow {
                 informationPanelRef: informationPanel
                 alarmStoreRef: typeof alarmStore !== "undefined" ? alarmStore : null
                 currentSubPage: informationPanel.currentSubPage
+                foupLimitRef: foupLimits
             }
         }
 
