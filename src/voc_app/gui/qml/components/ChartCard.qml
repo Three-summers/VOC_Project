@@ -26,6 +26,11 @@ Rectangle {
     property real oocLowerLimitValue: Number.NaN
     property real targetValue: Number.NaN
     property bool showLimits: true
+    property bool showOocUpper: true   // 是否显示OOC上界
+    property bool showOocLower: true   // 是否显示OOC下界
+    property bool showOosUpper: true   // 是否显示OOS上界
+    property bool showOosLower: true   // 是否显示OOS下界
+    property bool showTarget: true     // 是否显示Target线
 
     property var chartStyle: {
         "v1": {
@@ -177,7 +182,7 @@ Rectangle {
                 color: chartCard.chartStyle.v1.oosColor
                 style: Qt.SolidLine // 图片要求：实线
                 width: 1.5 * Components.UiTheme.controlScale
-                visible: chartCard.showLimits
+                visible: chartCard.showLimits && chartCard.showOosUpper
                 // useOpenGL: chartView.width > 0 && chartView.height > 0 // 开启 OpenGL 加速渲染
             }
 
@@ -192,7 +197,7 @@ Rectangle {
                 color: chartCard.chartStyle.v1.oosColor
                 style: Qt.SolidLine
                 width: 1.5 * Components.UiTheme.controlScale
-                visible: chartCard.showLimits
+                visible: chartCard.showLimits && chartCard.showOosLower
                 // useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 
@@ -207,7 +212,7 @@ Rectangle {
                 color: chartCard.chartStyle.v1.oocColor
                 style: Qt.DashLine // 图片要求：虚线
                 width: 1.5 * Components.UiTheme.controlScale
-                visible: chartCard.showLimits
+                visible: chartCard.showLimits && chartCard.showOocUpper
                 // useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 
@@ -222,7 +227,7 @@ Rectangle {
                 color: chartCard.chartStyle.v1.oocColor
                 style: Qt.DashLine
                 width: 1.5 * Components.UiTheme.controlScale
-                visible: chartCard.showLimits
+                visible: chartCard.showLimits && chartCard.showOocLower
                 // useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 
@@ -237,7 +242,7 @@ Rectangle {
                 color: chartCard.chartStyle.v1.targetColor
                 style: Qt.DotLine
                 width: 2 * Components.UiTheme.controlScale
-                visible: chartCard.showLimits
+                visible: chartCard.showLimits && chartCard.showTarget
                 // useOpenGL: chartView.width > 0 && chartView.height > 0
             }
 

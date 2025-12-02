@@ -32,6 +32,11 @@ class ChannelPreset:
     oos_upper: float
     oos_lower: float
     target: float
+    show_ooc_upper: bool = True   # 是否显示OOC上界
+    show_ooc_lower: bool = True   # 是否显示OOC下界
+    show_oos_upper: bool = True   # 是否显示OOS上界
+    show_oos_lower: bool = True   # 是否显示OOS下界
+    show_target: bool = True      # 是否显示Target线
 
 
 @dataclass
@@ -51,7 +56,10 @@ class ServerTypePreset:
             unit="",
             ooc_upper=80.0, ooc_lower=20.0,
             oos_upper=90.0, oos_lower=10.0,
-            target=50.0
+            target=50.0,
+            show_ooc_upper=True, show_ooc_lower=True,
+            show_oos_upper=True, show_oos_lower=True,
+            show_target=True
         )
 
 
@@ -68,9 +76,12 @@ class ServerTypeRegistry:
                 ChannelPreset(
                     title="PID",
                     unit="ppb",
-                    ooc_upper=80.0, ooc_lower=20.0,
-                    oos_upper=90.0, oos_lower=10.0,
-                    target=50.0
+                    ooc_upper=3000.0, ooc_lower=0.0,
+                    oos_upper=5000.0, oos_lower=0.0,
+                    target=1000.0,
+                    show_ooc_upper=True, show_ooc_lower=False,
+                    show_oos_upper=True, show_oos_lower=False,
+                    show_target=True
                 ),
             ]
         ),
@@ -82,23 +93,32 @@ class ServerTypeRegistry:
                 ChannelPreset(
                     title="Noise CH1",
                     unit="dB",
-                    ooc_upper=75.0, ooc_lower=25.0,
-                    oos_upper=85.0, oos_lower=15.0,
-                    target=50.0
+                    ooc_upper=70.0, ooc_lower=70.0,
+                    oos_upper=80.0, oos_lower=80.0,
+                    target=60.0,
+                    show_ooc_upper=True, show_ooc_lower=False,
+                    show_oos_upper=True, show_oos_lower=False,
+                    show_target=True
                 ),
                 ChannelPreset(
                     title="Temperature",
                     unit="℃",
-                    ooc_upper=30.0, ooc_lower=18.0,
-                    oos_upper=35.0, oos_lower=15.0,
-                    target=25.0
+                    ooc_upper=25.0, ooc_lower=15.0,
+                    oos_upper=30.0, oos_lower=10.0,
+                    target=20.0,
+                    show_ooc_upper=True, show_ooc_lower=True,
+                    show_oos_upper=True, show_oos_lower=True,
+                    show_target=True
                 ),
                 ChannelPreset(
                     title="Humidity",
                     unit="%",
-                    ooc_upper=70.0, ooc_lower=30.0,
-                    oos_upper=80.0, oos_lower=20.0,
-                    target=50.0
+                    ooc_upper=50.0, ooc_lower=30.0,
+                    oos_upper=60.0, oos_lower=20.0,
+                    target=40.0,
+                    show_ooc_upper=True, show_ooc_lower=True,
+                    show_oos_upper=True, show_oos_lower=True,
+                    show_target=True
                 ),
             ]
         ),
@@ -112,7 +132,10 @@ class ServerTypeRegistry:
                     unit="",
                     ooc_upper=80.0, ooc_lower=20.0,
                     oos_upper=90.0, oos_lower=10.0,
-                    target=50.0
+                    target=50.0,
+                    show_ooc_upper=True, show_ooc_lower=True,
+                    show_oos_upper=True, show_oos_lower=True,
+                    show_target=True
                 ),
             ]
         ),
@@ -171,6 +194,11 @@ class ChannelConfig:
     oos_upper: float = 90.0
     oos_lower: float = 10.0
     target: float = 50.0
+    show_ooc_upper: bool = True   # 是否显示OOC上界
+    show_ooc_lower: bool = True   # 是否显示OOC下界
+    show_oos_upper: bool = True   # 是否显示OOS上界
+    show_oos_lower: bool = True   # 是否显示OOS下界
+    show_target: bool = True      # 是否显示Target线
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -185,6 +213,11 @@ class ChannelConfig:
             oos_upper=float(data.get("oos_upper", 90.0)),
             oos_lower=float(data.get("oos_lower", 10.0)),
             target=float(data.get("target", 50.0)),
+            show_ooc_upper=bool(data.get("show_ooc_upper", True)),
+            show_ooc_lower=bool(data.get("show_ooc_lower", True)),
+            show_oos_upper=bool(data.get("show_oos_upper", True)),
+            show_oos_lower=bool(data.get("show_oos_lower", True)),
+            show_target=bool(data.get("show_target", True)),
         )
 
     @classmethod
@@ -198,18 +231,36 @@ class ChannelConfig:
             oos_upper=preset.oos_upper,
             oos_lower=preset.oos_lower,
             target=preset.target,
+            show_ooc_upper=preset.show_ooc_upper,
+            show_ooc_lower=preset.show_ooc_lower,
+            show_oos_upper=preset.show_oos_upper,
+            show_oos_lower=preset.show_oos_lower,
+            show_target=preset.show_target,
         )
 
 
 class ChannelConfigManager:
-    """管理所有通道配置的持久化"""
+    """管理所有通道配置的持久化
+
+    配置键格式：{server_type}_{channel_idx}，例如 "pid_0", "noise_1"
+    这样不同服务端类型的通道配置不会互相覆盖
+    """
 
     def __init__(self, config_path: Path | None = None):
         if config_path is None:
             config_path = Path(__file__).parent / "channel_config.json"
         self._config_path = config_path
-        self._configs: Dict[int, ChannelConfig] = {}
+        self._configs: Dict[str, ChannelConfig] = {}  # 键格式: "{server_type}_{channel_idx}"
+        self._current_server_type: ServerType = ServerType.UNKNOWN
         self._load()
+
+    def _make_key(self, channel_idx: int) -> str:
+        """生成配置键"""
+        return f"{self._current_server_type.value}_{channel_idx}"
+
+    def set_server_type(self, server_type: ServerType) -> None:
+        """设置当前服务端类型"""
+        self._current_server_type = server_type
 
     def _load(self) -> None:
         """从 JSON 文件加载配置"""
@@ -220,8 +271,7 @@ class ChannelConfigManager:
                 data = json.load(f)
             for key, value in data.items():
                 try:
-                    channel_idx = int(key)
-                    self._configs[channel_idx] = ChannelConfig.from_dict(value)
+                    self._configs[key] = ChannelConfig.from_dict(value)
                 except (ValueError, TypeError):
                     continue
         except Exception as e:
@@ -230,7 +280,7 @@ class ChannelConfigManager:
     def save(self) -> None:
         """保存配置到 JSON 文件"""
         try:
-            data = {str(k): v.to_dict() for k, v in self._configs.items()}
+            data = {k: v.to_dict() for k, v in self._configs.items()}
             with open(self._config_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
@@ -238,15 +288,17 @@ class ChannelConfigManager:
 
     def get(self, channel_idx: int) -> ChannelConfig:
         """获取指定通道的配置，不存在则返回默认配置"""
-        if channel_idx not in self._configs:
-            self._configs[channel_idx] = ChannelConfig(
+        key = self._make_key(channel_idx)
+        if key not in self._configs:
+            self._configs[key] = ChannelConfig(
                 title=f"FOUP 通道 {channel_idx + 1}"
             )
-        return self._configs[channel_idx]
+        return self._configs[key]
 
     def set(self, channel_idx: int, config: ChannelConfig) -> None:
         """设置指定通道的配置并保存"""
-        self._configs[channel_idx] = config
+        key = self._make_key(channel_idx)
+        self._configs[key] = config
         self.save()
 
     def update(self, channel_idx: int, **kwargs) -> ChannelConfig:
@@ -255,7 +307,8 @@ class ChannelConfigManager:
         for key, value in kwargs.items():
             if hasattr(config, key):
                 setattr(config, key, value)
-        self._configs[channel_idx] = config
+        config_key = self._make_key(channel_idx)
+        self._configs[config_key] = config
         self.save()
         return config
 
@@ -501,6 +554,8 @@ class FoupAcquisitionController(QObject):
 
         if self._server_type != new_type:
             self._server_type = new_type
+            # 更新配置管理器的服务端类型
+            self._config_manager.set_server_type(new_type)
             # 应用预设配置到所有通道
             self._apply_preset_config(new_type)
             self.serverTypeChanged.emit()
@@ -509,6 +564,9 @@ class FoupAcquisitionController(QObject):
     def _apply_preset_config(self, server_type: ServerType) -> None:
         """应用预设配置到所有通道"""
         preset = ServerTypeRegistry.get_preset(server_type)
+
+        # 设置配置管理器的服务端类型，确保配置键正确
+        self._config_manager.set_server_type(server_type)
 
         for channel_idx in range(preset.channel_count):
             channel_preset = preset.get_channel_preset(channel_idx)
@@ -683,3 +741,49 @@ class FoupAcquisitionController(QObject):
         if 0 <= channel_idx < len(self._channel_values):
             return self._channel_values[channel_idx]
         return float("nan")
+
+    @Slot(int, result=bool)
+    def getShowOocUpper(self, channel_idx: int) -> bool:
+        """获取指定通道是否显示OOC上界"""
+        return self._config_manager.get(channel_idx).show_ooc_upper
+
+    @Slot(int, result=bool)
+    def getShowOocLower(self, channel_idx: int) -> bool:
+        """获取指定通道是否显示OOC下界"""
+        return self._config_manager.get(channel_idx).show_ooc_lower
+
+    @Slot(int, result=bool)
+    def getShowOosUpper(self, channel_idx: int) -> bool:
+        """获取指定通道是否显示OOS上界"""
+        return self._config_manager.get(channel_idx).show_oos_upper
+
+    @Slot(int, result=bool)
+    def getShowOosLower(self, channel_idx: int) -> bool:
+        """获取指定通道是否显示OOS下界"""
+        return self._config_manager.get(channel_idx).show_oos_lower
+
+    @Slot(int, result=bool)
+    def getShowTarget(self, channel_idx: int) -> bool:
+        """获取指定通道是否显示Target线"""
+        return self._config_manager.get(channel_idx).show_target
+
+    @Slot(int, bool, bool, bool, bool, bool)
+    def setShowLimits(
+        self,
+        channel_idx: int,
+        show_ooc_upper: bool,
+        show_ooc_lower: bool,
+        show_oos_upper: bool,
+        show_oos_lower: bool,
+        show_target: bool,
+    ) -> None:
+        """设置指定通道的限制线显示配置"""
+        self._config_manager.update(
+            channel_idx,
+            show_ooc_upper=show_ooc_upper,
+            show_ooc_lower=show_ooc_lower,
+            show_oos_upper=show_oos_upper,
+            show_oos_lower=show_oos_lower,
+            show_target=show_target,
+        )
+        self.channelConfigChanged.emit(channel_idx)

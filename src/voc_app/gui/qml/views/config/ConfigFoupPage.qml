@@ -187,6 +187,21 @@ Item {
                         targetValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
                             ? foupAcquisition.getTarget(channelIdx)
                             : 50
+                        showOocUpper: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                            ? foupAcquisition.getShowOocUpper(channelIdx)
+                            : true
+                        showOocLower: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                            ? foupAcquisition.getShowOocLower(channelIdx)
+                            : true
+                        showOosUpper: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                            ? foupAcquisition.getShowOosUpper(channelIdx)
+                            : true
+                        showOosLower: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                            ? foupAcquisition.getShowOosLower(channelIdx)
+                            : true
+                        showTarget: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                            ? foupAcquisition.getShowTarget(channelIdx)
+                            : true
 
                         Text {
                             visible: !seriesModel
@@ -209,6 +224,11 @@ Item {
                                     chartCard.oosLimitValue = foupAcquisition.getOosUpper(chartCard.channelIdx)
                                     chartCard.oosLowerLimitValue = foupAcquisition.getOosLower(chartCard.channelIdx)
                                     chartCard.targetValue = foupAcquisition.getTarget(chartCard.channelIdx)
+                                    chartCard.showOocUpper = foupAcquisition.getShowOocUpper(chartCard.channelIdx)
+                                    chartCard.showOocLower = foupAcquisition.getShowOocLower(chartCard.channelIdx)
+                                    chartCard.showOosUpper = foupAcquisition.getShowOosUpper(chartCard.channelIdx)
+                                    chartCard.showOosLower = foupAcquisition.getShowOosLower(chartCard.channelIdx)
+                                    chartCard.showTarget = foupAcquisition.getShowTarget(chartCard.channelIdx)
                                 }
                             }
                             function onChannelValuesChanged() {
