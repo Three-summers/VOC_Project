@@ -53,13 +53,6 @@ Rectangle {
             subPageSelected(actualKey);
     }
 
-    function resetSelection() {
-        if (items && items.length > 0)
-            setCurrentKey(keyForIndex(0), false);
-        else
-            currentKey = "";
-    }
-
     Row {
         id: buttonRow
         anchors.left: parent.left
@@ -83,6 +76,4 @@ Rectangle {
             }
         }
     }
-
-    onItemsChanged: Qt.callLater(resetSelection)
 }

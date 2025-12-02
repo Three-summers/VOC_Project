@@ -25,6 +25,8 @@ Rectangle {
             { key: "theme", title: "调色" }
         ]
     })
+    // 记住每个主页面的子页面选择
+    property var subPageMemory: ({})
 
     function resolveViewSource(name) {
         const fileBase = name.endsWith("View") ? name : name + "View";
@@ -45,12 +47,23 @@ Rectangle {
         subNavBar.items = items;
         subNavBar.visible = items.length > 0;
         if (items.length > 0) {
+            // 优先使用记忆的子页面，否则使用第一个
+            const rememberedKey = subPageMemory[currentView];
             const defaultKey = items[0].key || items[0].title || ("tab0");
-            subNavBar.setCurrentKey(defaultKey, false);
+            const targetKey = rememberedKey || defaultKey;
+            subNavBar.setCurrentKey(targetKey, false);
             propagateSubPage();
         } else {
             subNavBar.currentKey = "";
             propagateSubPage();
+        }
+    }
+
+    function saveSubPageMemory(key) {
+        if (currentView && key) {
+            var newMemory = Object.assign({}, subPageMemory);
+            newMemory[currentView] = key;
+            subPageMemory = newMemory;
         }
     }
 
@@ -64,7 +77,10 @@ Rectangle {
             Layout.fillWidth: true
             visible: false
             scaleFactor: informationPanel.scaleFactor
-            onSubPageSelected: informationPanel.propagateSubPage()
+            onSubPageSelected: function(key) {
+                informationPanel.saveSubPageMemory(key);
+                informationPanel.propagateSubPage();
+            }
         }
 
         Loader {

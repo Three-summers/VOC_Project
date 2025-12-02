@@ -222,6 +222,10 @@ class E84Controller(QObject):
         self.timeout_timer.stop()
         self.timeout_expired = False
 
+    # 用于 Foup 坐落完成后的预操作
+    def _key_set_callback(self):
+        pass
+
     def Refresh_Input(self):
         self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
         self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
@@ -242,6 +246,7 @@ class E84Controller(QObject):
                 and self.E84_Key_Value["KEY_1"]
                 and self.E84_Key_Value["KEY_2"]
             ):
+                self._key_set_callback()
                 self.E84_SigPin.set_output("HO_AVBL", SIG_ON)
                 self.E84_SigPin.set_output("ES", SIG_ON)
                 self.E84_InfoPin.set_output("ALARM_LED", LED_OFF)
