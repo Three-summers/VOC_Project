@@ -148,3 +148,39 @@
   3) 多通道切换时回显与显示对应通道值；
   4) 与 IP 弹窗位置一致。 
 - Risk Assessment: 中。GUI 行为需实机确认；若通道数未知时下拉默认 1，需结合采集控制器 channelCount 实际检查。 
+
+## Verification - 2025-12-02T16:11:49+08:00
+- Executor: Codex
+- Scope: 为 SocketCommunicator 设置 2s 超时，避免 socket recv 长时间阻塞线程
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 串口单测 1/1 通过，未覆盖 socket 行为。新超时仅影响 socket 模块；预期超时时抛出 `socket.timeout`，将被采集线程捕获并退出循环。
+- Hand-check (需 PySide6 + 服务器环境):
+  1) 启动 GUI，调用 `startAcquisition` 后在无数据/断流时应在 2s 左右触发 error/status 更新，线程退出；
+  2) 正常数据流应持续更新曲线，无异常日志；
+  3) 停止时 socket 能及时关闭，不遗留阻塞线程。 
+- Risk Assessment: 中。未在真实 TCP 环境验证，需实机确认超时触发路径与用户提示是否满足预期。 
+
+## Verification - 2025-12-02T16:17:57+08:00
+- Executor: Codex
+- Scope: Socket 超时/异常处理健壮性（recv 返回空包，捕获异常，stop 时容忍已关闭 socket）
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 单测 1/1 通过；_recv_exact 捕获 socket 异常返回 None，_send_command 捕获发送异常避免 Bad file descriptor。
+- Hand-check (需 PySide6 + 服务器环境):
+  1) 采集过程中点击“停止”时不应出现 Bad file descriptor 日志，线程退出且状态更新为“已停止/异常”；
+  2) 服务器断开或停发数据时，约 2s 后采集线程退出并上报 error/status；
+  3) 正常数据流不受影响。 
+- Risk Assessment: 中。需实机验证日志与状态提示是否符合预期。 
+
+## Verification - 2025-12-02T16:29:15+08:00
+- Executor: Codex
+- Scope: Config FOUP 视图改为单列滚动，每次仅显示一张图表
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 仅 QML 布局改动，Python 单测未覆盖 UI，1/1 通过。
+- Hand-check (需 GUI):
+  1) FOUP 配置页图表区域为单列 ScrollView，可上下滚动查看多通道；
+  2) 单张 ChartCard 占满宽度，文本/限界线渲染正常；
+  3) 状态行显示服务器类型与通道数，滚动时保持可见。 
+- Risk Assessment: 低-中。需在小屏幕设备上确认滚动体验与性能。 

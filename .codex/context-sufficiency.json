@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-01T11:18:55+08:00",
+  "timestamp": "2025-12-02T15:33:38+08:00",
   "checks": {
     "interfaceDefined": true,
     "techChoicesUnderstood": true,
@@ -7,13 +7,13 @@
     "verificationKnown": true
   },
   "notes": {
-    "interfaces": "ChartCard 改为 DateTimeAxis，要求 x 为毫秒时间戳；SeriesTableModel.append_point/ColumnData.dataPoints 需提供 ms 值；CsvFileManager 在解析时统一转换时间列，FoupAcquisition/ChartDataGenerator 输出 ms 时间戳；现有 ChartCard 属性/SeriesModel 接口保持不变，仅调整 x 语义。",
-    "tech": "沿用 QtCharts DateTimeAxis，格式 HH:mm:ss；视窗按 maxRows*1000ms 计算，padding 依据时间跨度；不新增依赖，保持 PySide6/QML 原栈。",
+    "interfaces": "数据链路：FoupAcquisition.startAcquisition() -> SocketCommunicator(host, port) -> 长度前缀 UTF-8 文本 -> _handle_line 逗号拆分 -> dataPointReceived(timestamp_ms, values[]) -> SeriesTableModel.append_point(x,y) -> ChartCard VXYModelMapper 显示。ChartListModel 序列顺序：0/1 为 Loadport 示例，2+ 为 FOUP 通道。",
+    "tech": "PySide6 + QtCharts/QML；线程内收包，用 Signal 跨线程更新 QAbstractTableModel；QML 端 ChartCard 用 DateTimeAxis 和 VXYModelMapper 读取表格，无额外依赖。",
     "risks": [
-      "时间列为纯序号时会显示 00:00 起的时间标签，需在文档/备注说明为相对时间",
-      "DateTimeAxis 需要 Date 对象/毫秒值，若某处仍传入秒会导致标签偏差",
-      "GUI 环境可能缺失，无法自动验证渲染；需在 verification 标注风险"
+      "采集主机默认 192.168.1.8:65432 硬编码，若环境不同需配置/改动。",
+      "仅 FoupAcquisition 使用 socket；Loadport 曲线仍为随机示例，可能与实际硬件数据不符。",
+      "缺少自动化 GUI/网络测试，图表渲染需实机观察。"
     ],
-    "verification": "运行现有单测命令 PYTHONPATH=src python3 -m unittest tests/test_serial_device.py；GUI 手工/实机验证：CSV 绘图、实时采集曲线、放大/保存时 X 轴显示时间标签并正确滚动。环境受限时在 verification.md 记录无法执行 GUI 验证。"
+    "verification": "可执行的单测仅 tests/test_serial_device.py；图表链路需在 GUI 环境下启动 app、调用 foupAcquisition.startAcquisition 并观察 ChartCard 曲线滚动、OOC/OOS/Target 线显示及 channelCount 变更。"
   }
 }

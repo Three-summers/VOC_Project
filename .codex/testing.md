@@ -192,3 +192,24 @@
 - Result: Passed
 - Output Summary: 1 test, 0 failures；新增通道限界映射与多条限界线后 Python 层无回归。
 - Notes: 需在 PySide6 环境手工验证：通道下拉回显、OOS/OOC 上下界与 Target 生效并更新图表；多通道切换时界限正确对应。 
+
+## 2025-12-02T16:11:49+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；SocketCommunicator 默认 2s 超时后串口单测无回归。
+- Notes: GUI 环境仍需实机验证：socket 断流/停机时线程应在超时后退出，状态刷新正常。
+
+## 2025-12-02T16:17:57+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；Socket 超时返回空包并捕获 recv 异常后，串口单测无回归。
+- Notes: 需在采集场景下验证：stop 时发送 stop 命令若 socket 已关闭不再抛 Bad file descriptor；超时/异常应令采集线程自然退出并更新状态。 
+
+## 2025-12-02T16:29:15+08:00
+- Executor: Codex
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: Passed
+- Output Summary: 1 test, 0 failures；FOUP 视图改为单列滚动后无 Python 层回归。
+- Notes: 需在 GUI 中检查滚动视图呈现：屏幕小尺寸下滚动浏览多通道，单张图表占满宽度。 

@@ -635,3 +635,26 @@
 | 2025-12-01T16:30:00+08:00#565 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 多限界线改动后回归单测通过 |
 | 2025-12-01T16:30:00+08:00#566 | shell | cat <<'EOF' >> .codex/testing.md | 记录通道级限界配置的单测与手工验证提示 |
 | 2025-12-01T16:30:00+08:00#567 | shell | cat <<'EOF' >> verification.md | 更新验证记录，说明通道选择与多条限界线的实机检查点 |
+| 2025-12-02T15:33:38+08:00#568 | sequential-thinking | 调用 | 理解 socket→图表逻辑任务与工具流程 |
+| 2025-12-02T15:33:38+08:00#569 | serena-activate_project | /home/say/code/python/VOC_Project | 激活项目以便读取文件 |
+| 2025-12-02T15:33:38+08:00#570 | serena-onboarding | onboarding | 读取初次接入提示 |
+| 2025-12-02T15:33:38+08:00#571 | shell | cat docs/STRUCTURE.md | 获取目录结构与运行方式 |
+| 2025-12-02T15:33:38+08:00#572 | shell | sed -n '1,240p' src/voc_app/gui/app.py | 查看 GUI 入口、模型与上下文注入 |
+| 2025-12-02T15:33:38+08:00#573 | shell | sed -n '1,240p' src/voc_app/gui/socket_client.py | 理解 socket 通信抽象 |
+| 2025-12-02T15:33:38+08:00#574 | shell | sed -n '240,640p' src/voc_app/gui/foup_acquisition.py | 解析采集线程的收包、通道检测与数据推送 |
+| 2025-12-02T15:33:38+08:00#575 | shell | sed -n '1,520p' src/voc_app/gui/qml/components/ChartCard.qml | 核对 ChartCard 图表与 VXYModelMapper 绑定 |
+| 2025-12-02T15:33:38+08:00#576 | shell | sed -n '1,260p' src/voc_app/gui/qml/views/config/ConfigFoupPage.qml | 确认 chartListModel 索引与通道绑定 |
+| 2025-12-02T15:33:38+08:00#577 | shrimp-plan_task | plan_task | 规划 socket→图表数据流解读步骤 |
+| 2025-12-02T15:33:38+08:00#578 | shrimp-analyze_task | analyze_task | 记录初步数据流方案（SocketCommunicator→FoupAcquisition→SeriesModel→QML） |
+| 2025-12-02T15:33:38+08:00#579 | shrimp-reflect_task | reflect_task | 审视方案覆盖度与风险 |
+| 2025-12-02T15:33:38+08:00#580 | shrimp-split_tasks | split_tasks | 追加两项阅读任务（链路梳理、QML 绑定） |
+| 2025-12-02T15:33:38+08:00#581 | apply_patch | .codex/context-scan.json | 更新当前任务的上下文扫描（socket→图表链路） |
+| 2025-12-02T15:33:38+08:00#582 | apply_patch | .codex/context-question-31.json | 记录关键疑问与解答（socket 使用者、索引映射） |
+| 2025-12-02T15:33:38+08:00#583 | apply_patch | .codex/context-sufficiency.json | 完成充分性检查并列出风险/验证方式 |
+| 2025-12-02T16:11:49+08:00#584 | apply_patch | src/voc_app/gui/socket_client.py | 为 SocketCommunicator 设置默认 2s 超时，避免 recv 长时间阻塞 |
+| 2025-12-02T16:17:57+08:00#585 | apply_patch | src/voc_app/gui/socket_client.py | 超时改为空包返回，避免上层抛出异常 |
+| 2025-12-02T16:17:57+08:00#586 | apply_patch | src/voc_app/gui/foup_acquisition.py | _recv_exact 捕获 socket 异常返回 None，_send_command 容忍关闭后的 send 错误 |
+| 2025-12-02T16:17:57+08:00#587 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | 超时/异常处理改动后回归单测通过 |
+| 2025-12-02T16:29:15+08:00#588 | apply_patch | src/voc_app/gui/qml/views/config/ConfigFoupPage.qml | FOUP 配置视图改为单列滚动，每次显示一张图表 |
+| 2025-12-02T16:29:15+08:00#589 | shell | PYTHONPATH=src python3 -m unittest tests/test_serial_device.py | UI 改动后回归串口单测通过 |
+| 2025-12-02T16:32:37+08:00#590 | apply_patch | src/voc_app/gui/qml/views/config/ConfigFoupPage.qml | 调整 ChartCard 高度占满可视区，滚动查看下一张 |

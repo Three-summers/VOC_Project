@@ -1,36 +1,49 @@
 {
-  "timestamp": "2025-12-01T11:50:14+08:00",
-  "taskScope": "将 GUI 主题切换为浅色风格",
+  "timestamp": "2025-12-02T15:33:38+08:00",
+  "taskScope": "梳理 socket 接收数据到图表展示的完整逻辑（只读分析）",
   "locations": {
-    "uiTheme": {
-      "file": "src/voc_app/gui/qml/components/UiTheme.qml",
-      "role": "全局调色板与尺寸定义，palette/defaultPalette 当前为深色背景",
-      "notes": "重置功能依赖 createDefaultPalette，需同步改为浅色"},
-    "configThemeSubView": {
-      "file": "src/voc_app/gui/qml/views/subviews/ConfigThemeSubView.qml",
-      "role": "调色子页显示与编辑 palette，使用 UiTheme.palette 的键列表",
-      "notes": "重置按钮调用 UiTheme.createDefaultPalette()"},
-    "configThemeCommands": {
-      "file": "src/voc_app/gui/qml/commands/Config_themeCommands.qml",
-      "role": "调色命令面板，支持重置/导出当前 palette",
-      "notes": "默认 palette 来自 UiTheme 单例"}
+    "appEntry": {
+      "file": "src/voc_app/gui/app.py",
+      "role": "PySide6 入口，注入 QML 上下文。创建 ChartDataListModel，预置 2 条 Loadport SeriesTableModel（随机生成示例）和最多 8 条 FOUP SeriesTableModel，并实例化 FoupAcquisitionController 绑定这些模型。"
+    },
+    "socketClient": {
+      "file": "src/voc_app/gui/socket_client.py",
+      "role": "通信抽象与 SocketCommunicator，实现长度前缀协议 + UTF-8 文本消息；Client 封装 run_shell/get_file，但 FoupAcquisition 仅复用 SocketCommunicator。"
+    },
+    "foupAcquisition": {
+      "file": "src/voc_app/gui/foup_acquisition.py",
+      "role": "采集线程：连接 host/port，发送 voc_data_coll_ctrl_start/stop，按 4 字节大端长度读取消息，逗号拆分多通道 float，dataPointReceived 信号把 (timestamp_ms, values[]) 追加到各 SeriesTableModel。首次包依据通道数检测 ServerType 并应用 ChannelConfig 预设。"
+    },
+    "qmlCharts": {
+      "files": [
+        "src/voc_app/gui/qml/components/ChartCard.qml",
+        "src/voc_app/gui/qml/views/config/ConfigFoupPage.qml",
+        "src/voc_app/gui/qml/main.qml"
+      ],
+      "role": "QML 侧通过 chartListModel.get 取 seriesModel/x/y 列并生成 ChartCard。ChartCard 用 VXYModelMapper 绑定 SeriesTableModel -> LineSeries/ScatterSeries，DateTimeAxis 显示 ms 时间，绘制 OOC/OOS/Target 限界线；ConfigFoupPage 按 channelCount 重复生成图表，展示当前值/限界。"
+    }
   },
   "techStack": {
-    "ui": "QtQuick/QtQuick.Controls，UiTheme 单例提供 palette/尺寸，组件通过 UiTheme.color/spacing 获取样式",
-    "backend": "PySide6 注入 context，主题在 QML 侧控制"},
+    "backend": "Python 3 + PySide6 (Qt Charts/QML)。SocketCommunicator 基于 TCP，FoupAcquisition 独立线程 + 信号跨线程写 QAbstractTableModel。",
+    "frontend": "QtQuick/QtCharts QML 组件，ChartCard + VXYModelMapper 读取 SeriesTableModel。"
+  },
   "tests": {
     "unit": {
       "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
-      "status": "仅串口单测，与主题无直接覆盖"},
+      "status": "覆盖串口设备，未覆盖 GUI/socket 绘图链路"
+    },
     "gui": {
-      "status": "无自动 GUI 测试，需手工观察浅色主题效果"}
+      "status": "无自动 GUI 测试；需实机观察采集开始后曲线滚动与限界线显示"
+    }
   },
   "observationReport": {
     "gaps": [
-      "palette/defaultPalette 均为深色，需要整体替换为浅色方案",
-      "可能存在零星硬编码颜色需确认与浅色兼容"],
+      "默认 host=192.168.1.8/port=65432 硬编码，需实机确认服务端一致。",
+      "Loadport 曲线当前由 ChartDataGenerator 随机数据驱动，与 socket 无关。"
+    ],
     "nextSteps": [
-      "定义浅色调色板（背景/面板/文字/按钮/边框/强调色）并更新 palette 与 createDefaultPalette",
-      "回顾是否有硬编码深色背景，必要时调整"]
+      "确认是否存在其他 socket 消费者（目前仅 FoupAcquisition），关注 channel_config.json 持久化的影响。",
+      "在 QML 中核对 chartListModel 索引与 Foup 通道对应关系（基准索引 2）。"
+    ]
   }
 }

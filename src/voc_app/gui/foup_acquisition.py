@@ -14,9 +14,10 @@ from voc_app.gui.socket_client import SocketCommunicator
 
 class ServerType(Enum):
     """服务端类型枚举"""
+
     UNKNOWN = "unknown"
-    PID = "pid"          # 1 个点
-    NOISE = "noise"      # 3 个点
+    PID = "pid"  # 1 个点
+    NOISE = "noise"  # 3 个点
     # 未来可扩展更多类型
     # TEMPERATURE = "temperature"
     # PRESSURE = "pressure"
@@ -25,6 +26,7 @@ class ServerType(Enum):
 @dataclass
 class ChannelPreset:
     """单个通道的预设配置"""
+
     title: str
     unit: str  # Y轴单位，如 ppb, dB, ℃, %
     ooc_upper: float
@@ -32,16 +34,17 @@ class ChannelPreset:
     oos_upper: float
     oos_lower: float
     target: float
-    show_ooc_upper: bool = True   # 是否显示OOC上界
-    show_ooc_lower: bool = True   # 是否显示OOC下界
-    show_oos_upper: bool = True   # 是否显示OOS上界
-    show_oos_lower: bool = True   # 是否显示OOS下界
-    show_target: bool = True      # 是否显示Target线
+    show_ooc_upper: bool = True  # 是否显示OOC上界
+    show_ooc_lower: bool = True  # 是否显示OOC下界
+    show_oos_upper: bool = True  # 是否显示OOS上界
+    show_oos_lower: bool = True  # 是否显示OOS下界
+    show_target: bool = True  # 是否显示Target线
 
 
 @dataclass
 class ServerTypePreset:
     """服务端类型的预设配置，包含所有通道的默认值"""
+
     server_type: ServerType
     display_name: str
     channel_count: int
@@ -51,15 +54,23 @@ class ServerTypePreset:
         """获取指定通道的预设，越界时返回最后一个通道的配置"""
         if channel_idx < len(self.channels):
             return self.channels[channel_idx]
-        return self.channels[-1] if self.channels else ChannelPreset(
-            title=f"通道 {channel_idx + 1}",
-            unit="",
-            ooc_upper=80.0, ooc_lower=20.0,
-            oos_upper=90.0, oos_lower=10.0,
-            target=50.0,
-            show_ooc_upper=True, show_ooc_lower=True,
-            show_oos_upper=True, show_oos_lower=True,
-            show_target=True
+        return (
+            self.channels[-1]
+            if self.channels
+            else ChannelPreset(
+                title=f"通道 {channel_idx + 1}",
+                unit="",
+                ooc_upper=80.0,
+                ooc_lower=20.0,
+                oos_upper=90.0,
+                oos_lower=10.0,
+                target=50.0,
+                show_ooc_upper=True,
+                show_ooc_lower=True,
+                show_oos_upper=True,
+                show_oos_lower=True,
+                show_target=True,
+            )
         )
 
 
@@ -76,14 +87,18 @@ class ServerTypeRegistry:
                 ChannelPreset(
                     title="PID",
                     unit="ppb",
-                    ooc_upper=3000.0, ooc_lower=0.0,
-                    oos_upper=5000.0, oos_lower=0.0,
+                    ooc_upper=3000.0,
+                    ooc_lower=0.0,
+                    oos_upper=5000.0,
+                    oos_lower=0.0,
                     target=1000.0,
-                    show_ooc_upper=True, show_ooc_lower=False,
-                    show_oos_upper=True, show_oos_lower=False,
-                    show_target=True
+                    show_ooc_upper=True,
+                    show_ooc_lower=False,
+                    show_oos_upper=True,
+                    show_oos_lower=False,
+                    show_target=True,
                 ),
-            ]
+            ],
         ),
         ServerType.NOISE: ServerTypePreset(
             server_type=ServerType.NOISE,
@@ -93,34 +108,46 @@ class ServerTypeRegistry:
                 ChannelPreset(
                     title="Noise CH1",
                     unit="dB",
-                    ooc_upper=70.0, ooc_lower=70.0,
-                    oos_upper=80.0, oos_lower=80.0,
+                    ooc_upper=70.0,
+                    ooc_lower=70.0,
+                    oos_upper=80.0,
+                    oos_lower=80.0,
                     target=60.0,
-                    show_ooc_upper=True, show_ooc_lower=False,
-                    show_oos_upper=True, show_oos_lower=False,
-                    show_target=True
+                    show_ooc_upper=True,
+                    show_ooc_lower=False,
+                    show_oos_upper=True,
+                    show_oos_lower=False,
+                    show_target=True,
                 ),
                 ChannelPreset(
                     title="Temperature",
                     unit="℃",
-                    ooc_upper=25.0, ooc_lower=15.0,
-                    oos_upper=30.0, oos_lower=10.0,
+                    ooc_upper=25.0,
+                    ooc_lower=15.0,
+                    oos_upper=30.0,
+                    oos_lower=10.0,
                     target=20.0,
-                    show_ooc_upper=True, show_ooc_lower=True,
-                    show_oos_upper=True, show_oos_lower=True,
-                    show_target=True
+                    show_ooc_upper=True,
+                    show_ooc_lower=True,
+                    show_oos_upper=True,
+                    show_oos_lower=True,
+                    show_target=True,
                 ),
                 ChannelPreset(
                     title="Humidity",
                     unit="%",
-                    ooc_upper=50.0, ooc_lower=30.0,
-                    oos_upper=60.0, oos_lower=20.0,
+                    ooc_upper=50.0,
+                    ooc_lower=30.0,
+                    oos_upper=60.0,
+                    oos_lower=20.0,
                     target=40.0,
-                    show_ooc_upper=True, show_ooc_lower=True,
-                    show_oos_upper=True, show_oos_lower=True,
-                    show_target=True
+                    show_ooc_upper=True,
+                    show_ooc_lower=True,
+                    show_oos_upper=True,
+                    show_oos_lower=True,
+                    show_target=True,
                 ),
-            ]
+            ],
         ),
         ServerType.UNKNOWN: ServerTypePreset(
             server_type=ServerType.UNKNOWN,
@@ -130,14 +157,18 @@ class ServerTypeRegistry:
                 ChannelPreset(
                     title="通道 1",
                     unit="",
-                    ooc_upper=80.0, ooc_lower=20.0,
-                    oos_upper=90.0, oos_lower=10.0,
+                    ooc_upper=80.0,
+                    ooc_lower=20.0,
+                    oos_upper=90.0,
+                    oos_lower=10.0,
                     target=50.0,
-                    show_ooc_upper=True, show_ooc_lower=True,
-                    show_oos_upper=True, show_oos_lower=True,
-                    show_target=True
+                    show_ooc_upper=True,
+                    show_ooc_lower=True,
+                    show_oos_upper=True,
+                    show_oos_lower=True,
+                    show_target=True,
                 ),
-            ]
+            ],
         ),
     }
 
@@ -179,7 +210,9 @@ class ServerTypeRegistry:
         cls._PRESETS[preset.server_type] = preset
 
     @classmethod
-    def register_channel_count_mapping(cls, channel_count: int, server_type: ServerType) -> None:
+    def register_channel_count_mapping(
+        cls, channel_count: int, server_type: ServerType
+    ) -> None:
         """注册通道数到服务端类型的映射"""
         cls._CHANNEL_COUNT_MAP[channel_count] = server_type
 
@@ -187,6 +220,7 @@ class ServerTypeRegistry:
 @dataclass
 class ChannelConfig:
     """单个通道的配置数据"""
+
     title: str = ""
     unit: str = ""  # Y轴单位，如 ppb, dB, ℃, %
     ooc_upper: float = 80.0
@@ -194,11 +228,11 @@ class ChannelConfig:
     oos_upper: float = 90.0
     oos_lower: float = 10.0
     target: float = 50.0
-    show_ooc_upper: bool = True   # 是否显示OOC上界
-    show_ooc_lower: bool = True   # 是否显示OOC下界
-    show_oos_upper: bool = True   # 是否显示OOS上界
-    show_oos_lower: bool = True   # 是否显示OOS下界
-    show_target: bool = True      # 是否显示Target线
+    show_ooc_upper: bool = True  # 是否显示OOC上界
+    show_ooc_lower: bool = True  # 是否显示OOC下界
+    show_oos_upper: bool = True  # 是否显示OOS上界
+    show_oos_lower: bool = True  # 是否显示OOS下界
+    show_target: bool = True  # 是否显示Target线
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -250,7 +284,9 @@ class ChannelConfigManager:
         if config_path is None:
             config_path = Path(__file__).parent / "channel_config.json"
         self._config_path = config_path
-        self._configs: Dict[str, ChannelConfig] = {}  # 键格式: "{server_type}_{channel_idx}"
+        self._configs: Dict[str, ChannelConfig] = (
+            {}
+        )  # 键格式: "{server_type}_{channel_idx}"
         self._current_server_type: ServerType = ServerType.UNKNOWN
         self._load()
 
@@ -290,9 +326,7 @@ class ChannelConfigManager:
         """获取指定通道的配置，不存在则返回默认配置"""
         key = self._make_key(channel_idx)
         if key not in self._configs:
-            self._configs[key] = ChannelConfig(
-                title=f"FOUP 通道 {channel_idx + 1}"
-            )
+            self._configs[key] = ChannelConfig(title=f"FOUP 通道 {channel_idx + 1}")
         return self._configs[key]
 
     def set(self, channel_idx: int, config: ChannelConfig) -> None:
@@ -461,7 +495,7 @@ class FoupAcquisitionController(QObject):
         self._set_status("正在停止...")
         # self._send_command("power off")
         self._send_command("voc_data_coll_ctrl_stop")
-        QTimer.singleShot(500, self._close_socket);
+        QTimer.singleShot(500, self._close_socket)
 
     # ---- 内部实现 ----
 
@@ -559,7 +593,9 @@ class FoupAcquisitionController(QObject):
             # 应用预设配置到所有通道
             self._apply_preset_config(new_type)
             self.serverTypeChanged.emit()
-            print(f"[INFO] 检测到服务端类型: {new_type.value} (通道数: {channel_count})")
+            print(
+                f"[INFO] 检测到服务端类型: {new_type.value} (通道数: {channel_count})"
+            )
 
     def _apply_preset_config(self, server_type: ServerType) -> None:
         """应用预设配置到所有通道"""
@@ -586,7 +622,9 @@ class FoupAcquisitionController(QObject):
                     if model is not None:
                         model.append_point(x, y_value)
         except Exception as exc:
-            print(f"[ERROR] foup_acquisition: Exception in _append_point_to_model(): {exc!r}")
+            print(
+                f"[ERROR] foup_acquisition: Exception in _append_point_to_model(): {exc!r}"
+            )
 
     def _set_running(self, value: bool) -> None:
         if self._running != value:
@@ -631,7 +669,12 @@ class FoupAcquisitionController(QObject):
         chunks: List[bytes] = []
         remaining = size
         while remaining > 0:
-            chunk = self._communicator.recv(remaining)
+            try:
+                chunk = self._communicator.recv(remaining)
+            except Exception as exc:  # 包括 socket.timeout
+                # 超时或收取异常时视为断开，返回 None
+                print(f"[WARN] foup_acquisition: recv exception {exc}")
+                return None
             if not chunk:
                 return None
             chunks.append(chunk)
@@ -650,6 +693,7 @@ class FoupAcquisitionController(QObject):
             # self._communicator.send(header + payload + b"\n")
             self._communicator.send(header + payload)
         except Exception as exc:
+            # 停止阶段可能 socket 已关闭，避免抛出 Bad file descriptor
             print(f"FOUP: send_command error {exc}")
 
     # ---- 通道配置相关槽函数（供 QML 调用）----

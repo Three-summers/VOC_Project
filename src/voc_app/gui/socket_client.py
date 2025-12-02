@@ -34,8 +34,11 @@ class Communicator(abc.ABC):
 class SocketCommunicator(Communicator):
     """使用 Socket 进行通信的实现."""
 
-    def __init__(self, host: str, port: int):
+    def __init__(self, host: str, port: int, timeout: float | None = 2.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 设置超时，避免阻塞导致线程无法退出
+        if timeout is not None:
+            self.sock.settimeout(timeout)
         try:
             self.sock.connect((host, port))
         except ConnectionRefusedError as e:
@@ -45,7 +48,11 @@ class SocketCommunicator(Communicator):
         self.sock.sendall(data)
 
     def recv(self, size: int) -> bytes:
-        return self.sock.recv(size)
+        try:
+            return self.sock.recv(size)
+        except socket.timeout:
+            # 超时返回空字节，交由上层判定为断开/中断
+            return b""
 
     def close(self):
         try:

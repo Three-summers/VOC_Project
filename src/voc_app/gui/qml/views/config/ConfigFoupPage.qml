@@ -112,20 +112,24 @@ Item {
                 }
             }
 
-            // 动态图表容器（固定两列布局）
-            GridLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                columns: 2
-                rowSpacing: Components.UiTheme.spacing("md")
-                columnSpacing: Components.UiTheme.spacing("md")
+        // 动态图表容器：单列 + 可滚动，一次聚焦一个图表
+        ScrollView {
+            id: chartScrollView
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+
+            contentWidth: availableWidth
+
+            ColumnLayout {
+                id: chartColumn
+                width: parent.width
+                spacing: Components.UiTheme.spacing("md")
 
                 // 动态生成图表
                 Repeater {
                     id: chartRepeater
                     model: {
-                        // 根据foupAcquisition.channelCount动态生成图表列表
-                        // 至少显示1个图表，防止采集前布局空白
                         if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
                             return [{ title: "FOUP 通道 1", index: root.foupChartIndex, channelIndex: 0 }]
                         }
@@ -143,12 +147,10 @@ Item {
 
                     delegate: Components.ChartCard {
                         id: chartCard
-                        // 单通道时占满两列，多通道时每个占一列
-                        Layout.columnSpan: (chartRepeater.count === 1) ? 2 : 1
                         Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.preferredHeight: Components.UiTheme.controlHeight(220)
-                        Layout.minimumHeight: 180
+                        // 占满可视区域，屏幕小可滚动查看下一张
+                        Layout.preferredHeight: Math.max(Components.UiTheme.controlHeight(260), chartScrollView.height)
+                        Layout.minimumHeight: chartScrollView.height * 0.8
                         radius: Components.UiTheme.radius(18)
                         color: Components.UiTheme.color("panel")
                         border.color: Components.UiTheme.color("outline")
@@ -162,7 +164,6 @@ Item {
                         showLimits: true
                         scaleFactor: root.scaleFactor
 
-                        // 从后端获取通道配置
                         chartTitle: (typeof foupAcquisition !== "undefined" && foupAcquisition)
                             ? foupAcquisition.getChannelTitle(channelIdx)
                             : modelData.title
@@ -211,7 +212,6 @@ Item {
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }
 
-                        // 监听后端配置变更信号
                         Connections {
                             target: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
                             enabled: typeof foupAcquisition !== "undefined" && foupAcquisition
@@ -238,9 +238,9 @@ Item {
                     }
                 }
 
-                // 状态信息（跨两列显示）
+                // 状态信息（单列展示）
                 Text {
-                    Layout.columnSpan: 2
+                    Layout.fillWidth: true
                     text: {
                         if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
                             return "通道数量: 1"
@@ -253,6 +253,7 @@ Item {
                     font.pixelSize: Components.UiTheme.fontSize("body")
                 }
             }
+        }
         }
     }
 }
