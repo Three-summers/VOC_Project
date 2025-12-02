@@ -1,12 +1,98 @@
+import json
 import struct
 import threading
-from functools import partial
-from typing import Iterable, List
+from dataclasses import dataclass, field, asdict
+from pathlib import Path
+from typing import Iterable, List, Dict, Any
 import time
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
 from voc_app.gui.socket_client import SocketCommunicator
+
+
+@dataclass
+class ChannelConfig:
+    """单个通道的配置数据"""
+    title: str = ""
+    ooc_upper: float = 80.0
+    ooc_lower: float = 20.0
+    oos_upper: float = 90.0
+    oos_lower: float = 10.0
+    target: float = 50.0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ChannelConfig":
+        return cls(
+            title=data.get("title", ""),
+            ooc_upper=float(data.get("ooc_upper", 80.0)),
+            ooc_lower=float(data.get("ooc_lower", 20.0)),
+            oos_upper=float(data.get("oos_upper", 90.0)),
+            oos_lower=float(data.get("oos_lower", 10.0)),
+            target=float(data.get("target", 50.0)),
+        )
+
+
+class ChannelConfigManager:
+    """管理所有通道配置的持久化"""
+
+    def __init__(self, config_path: Path | None = None):
+        if config_path is None:
+            config_path = Path(__file__).parent / "channel_config.json"
+        self._config_path = config_path
+        self._configs: Dict[int, ChannelConfig] = {}
+        self._load()
+
+    def _load(self) -> None:
+        """从 JSON 文件加载配置"""
+        if not self._config_path.exists():
+            return
+        try:
+            with open(self._config_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            for key, value in data.items():
+                try:
+                    channel_idx = int(key)
+                    self._configs[channel_idx] = ChannelConfig.from_dict(value)
+                except (ValueError, TypeError):
+                    continue
+        except Exception as e:
+            print(f"[WARN] ChannelConfigManager: 加载配置失败: {e}")
+
+    def save(self) -> None:
+        """保存配置到 JSON 文件"""
+        try:
+            data = {str(k): v.to_dict() for k, v in self._configs.items()}
+            with open(self._config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"[ERROR] ChannelConfigManager: 保存配置失败: {e}")
+
+    def get(self, channel_idx: int) -> ChannelConfig:
+        """获取指定通道的配置，不存在则返回默认配置"""
+        if channel_idx not in self._configs:
+            self._configs[channel_idx] = ChannelConfig(
+                title=f"FOUP 通道 {channel_idx + 1}"
+            )
+        return self._configs[channel_idx]
+
+    def set(self, channel_idx: int, config: ChannelConfig) -> None:
+        """设置指定通道的配置并保存"""
+        self._configs[channel_idx] = config
+        self.save()
+
+    def update(self, channel_idx: int, **kwargs) -> ChannelConfig:
+        """更新指定通道的部分配置并保存"""
+        config = self.get(channel_idx)
+        for key, value in kwargs.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+        self._configs[channel_idx] = config
+        self.save()
+        return config
 
 
 class FoupAcquisitionController(QObject):
@@ -22,6 +108,7 @@ class FoupAcquisitionController(QObject):
     errorOccurred = Signal(str)
     channelCountChanged = Signal()
     hostChanged = Signal()
+    channelConfigChanged = Signal(int)  # 通道配置变更信号，参数为通道索引
     # 新增信号：用于跨线程传递数据点到主线程（支持多通道）
     dataPointReceived = Signal(float, list)  # x, [y1, y2, y3, ...]
 
@@ -48,6 +135,9 @@ class FoupAcquisitionController(QObject):
         self._sample_index = 0
         self._last_timestamp_ms = 0.0
         self._channel_count = 1  # 默认单通道，动态检测后更新
+
+        # 通道配置管理器
+        self._config_manager = ChannelConfigManager()
 
         # 连接信号到槽，确保跨线程调用安全
         self.dataPointReceived.connect(self._append_point_to_model)
@@ -273,3 +363,75 @@ class FoupAcquisitionController(QObject):
             self._communicator.send(header + payload)
         except Exception as exc:
             print(f"FOUP: send_command error {exc}")
+
+    # ---- 通道配置相关槽函数（供 QML 调用）----
+
+    @Slot(int, result="QVariant")
+    def getChannelConfig(self, channel_idx: int) -> Dict[str, Any]:
+        """获取指定通道的配置，返回字典供 QML 使用"""
+        config = self._config_manager.get(channel_idx)
+        return config.to_dict()
+
+    @Slot(int, str)
+    def setChannelTitle(self, channel_idx: int, title: str) -> None:
+        """设置指定通道的标题"""
+        self._config_manager.update(channel_idx, title=title)
+        self.channelConfigChanged.emit(channel_idx)
+
+    @Slot(int, float, float, float, float, float)
+    def setChannelLimits(
+        self,
+        channel_idx: int,
+        ooc_upper: float,
+        ooc_lower: float,
+        oos_upper: float,
+        oos_lower: float,
+        target: float,
+    ) -> None:
+        """设置指定通道的 OOC/OOS/Target 限制"""
+        self._config_manager.update(
+            channel_idx,
+            ooc_upper=ooc_upper,
+            ooc_lower=ooc_lower,
+            oos_upper=oos_upper,
+            oos_lower=oos_lower,
+            target=target,
+        )
+        self.channelConfigChanged.emit(channel_idx)
+
+    @Slot(int, "QVariant")
+    def setChannelConfig(self, channel_idx: int, config_dict: Dict[str, Any]) -> None:
+        """设置指定通道的完整配置"""
+        config = ChannelConfig.from_dict(config_dict)
+        self._config_manager.set(channel_idx, config)
+        self.channelConfigChanged.emit(channel_idx)
+
+    @Slot(int, result=str)
+    def getChannelTitle(self, channel_idx: int) -> str:
+        """获取指定通道的标题"""
+        return self._config_manager.get(channel_idx).title
+
+    @Slot(int, result=float)
+    def getOocUpper(self, channel_idx: int) -> float:
+        """获取指定通道的 OOC 上界"""
+        return self._config_manager.get(channel_idx).ooc_upper
+
+    @Slot(int, result=float)
+    def getOocLower(self, channel_idx: int) -> float:
+        """获取指定通道的 OOC 下界"""
+        return self._config_manager.get(channel_idx).ooc_lower
+
+    @Slot(int, result=float)
+    def getOosUpper(self, channel_idx: int) -> float:
+        """获取指定通道的 OOS 上界"""
+        return self._config_manager.get(channel_idx).oos_upper
+
+    @Slot(int, result=float)
+    def getOosLower(self, channel_idx: int) -> float:
+        """获取指定通道的 OOS 下界"""
+        return self._config_manager.get(channel_idx).oos_lower
+
+    @Slot(int, result=float)
+    def getTarget(self, channel_idx: int) -> float:
+        """获取指定通道的目标值"""
+        return self._config_manager.get(channel_idx).target

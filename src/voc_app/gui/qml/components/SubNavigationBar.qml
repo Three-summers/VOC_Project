@@ -14,8 +14,7 @@ Rectangle {
 
     property var items: []
     property string currentKey: ""
-    // 充当互斥锁的角色，当索引更改时调用 setCurrentKey，但是在 setCurrentKey 代码中也修改了索引，避免递归调用
-    property bool _blockTabSignal: false
+    property int _currentIndex: 0
     property real scaleFactor: Components.UiTheme.controlScale
     readonly property real verticalPadding: Components.UiTheme.spacing("sm")
     readonly property real layoutHeight: height > 0 ? height : implicitHeight
@@ -46,16 +45,12 @@ Rectangle {
         const idx = key ? indexOfKey(key) : 0;
         const actualIndex = idx >= 0 ? idx : 0;
         const actualKey = items && items.length > 0 ? keyForIndex(actualIndex) : "";
-        if (currentKey === actualKey && tabBar.currentIndex === actualIndex)
+        if (currentKey === actualKey && _currentIndex === actualIndex)
             return;
-        _blockTabSignal = true;
-        tabBar.currentIndex = actualIndex;
-        _blockTabSignal = false;
+        _currentIndex = actualIndex;
         currentKey = actualKey;
         if (emitSignal && actualKey)
             subPageSelected(actualKey);
-        if (!emitSignal && actualKey)
-            Qt.callLater(function() { tabBar.currentIndex = actualIndex; });
     }
 
     function resetSelection() {
@@ -65,39 +60,27 @@ Rectangle {
             currentKey = "";
     }
 
-    TabBar {
-        id: tabBar
+    Row {
+        id: buttonRow
         anchors.left: parent.left
-        anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        anchors.margins: Components.UiTheme.spacing("xs")
-        height: subNav.availableButtonHeight
-        spacing: Components.UiTheme.spacing("xs")
-        // 只有当 items 不为空时显示
+        anchors.margins: Components.UiTheme.spacing("sm")
+        spacing: Components.UiTheme.spacing("md")
         visible: subNav.items && subNav.items.length > 0
-        background: Rectangle { color: "transparent" }
 
         Repeater {
             model: subNav.items
-            // 动态生成按钮
-            delegate: TabButton {
+
+            delegate: Components.CustomButton {
                 property string key: modelData.key || modelData.title || modelData.text || ("tab" + index)
                 text: modelData.title || modelData.text || modelData.key || ("Tab " + (index + 1))
-                checkable: true
-                width: Math.max(120 * Components.UiTheme.controlScale, text.length * Components.UiTheme.spacing("md"))
-                implicitHeight: subNav.availableButtonHeight - Components.UiTheme.spacing("xs")
-                font.pixelSize: Components.UiTheme.fontSize("label")
+                twoState: true
+                checked: subNav._currentIndex === index
+                status: subNav._currentIndex === index ? "processing" : "normal"
+                scaleFactor: subNav.scaleFactor
+                implicitHeight: subNav.availableButtonHeight
                 onClicked: subNav.setCurrentKey(key, true)
             }
-        }
-
-        onCurrentIndexChanged: {
-            // 这里是防止递归调用的真正逻辑
-            if (subNav._blockTabSignal)
-                return;
-            const key = subNav.keyForIndex(currentIndex);
-            if (key)
-                subNav.setCurrentKey(key, true);
         }
     }
 

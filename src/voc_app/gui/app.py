@@ -1,11 +1,13 @@
 import sys
 import os
+
 # from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCharts import QAbstractSeries, QChartView
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -40,6 +42,32 @@ class AuthenticationManager(QObject):
         if username in self._users and self._users[username] == password:
             return True
         return False
+
+
+# 在后端隐藏特定图例，QML 中无此 API
+class ChartLegendHelper(QObject):
+    @Slot(QObject, list)
+    def hideSeriesInLegend(self, chartView, series_list):
+        if not series_list or len(series_list) == 0:
+            return
+
+        # 不要从 chartView 拿 chart，而是从 Series 反向获取，这是因为 QML 直接传无法获取对象
+        # 任何一个已经添加到图表中的 Series 都可以通过 .chart() 方法获取其父图表
+        first_series = series_list[0]
+
+        # 注意：这里调用的是 C++ 的 chart() 方法，不是属性
+        chart = first_series.chart()
+
+        # 再次判空（如果 Series 还没被添加到图表，这里可能是 None）
+        if not chart:
+            print("Warning: Series is not attached to any chart yet.")
+            return
+
+        for series in series_list:
+            if series:
+                markers = chart.legend().markers(series)
+                for marker in markers:
+                    marker.setVisible(False)
 
 
 # 非树莓环境调试：暂时注释 LoadportBridge，避免触发硬件线程
@@ -129,6 +157,9 @@ if __name__ == "__main__":
     log_dir = (APP_DIR / "Log").resolve()
     log_dir.mkdir(parents=True, exist_ok=True)
     engine.rootContext().setContextProperty("fileRootPath", str(log_dir))
+
+    chart_legend_helper = ChartLegendHelper()
+    engine.rootContext().setContextProperty("chartLegendHelper", chart_legend_helper)
 
     chart_list_model = ChartDataListModel()
 

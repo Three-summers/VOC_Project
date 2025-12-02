@@ -44,6 +44,7 @@ Rectangle {
     property int yColumn: 1
     property real scaleFactor: Components.UiTheme.controlScale
 
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Components.UiTheme.spacing("md")
@@ -76,6 +77,32 @@ Rectangle {
             margins.bottom: Components.UiTheme.spacing("sm")
             margins.left: Components.UiTheme.spacing("md")
             margins.right: Components.UiTheme.spacing("md")
+
+            Timer {
+                id: legendRefresher
+                interval: 100 // 延迟 100ms，给底层渲染一点时间生成图例
+                running: true // 组件加载完成后自动启动一次
+                repeat: false
+                onTriggered: {
+                    chartLegendHelper.hideSeriesInLegend(chartView, [lineSeries, pointSeries]);
+                }
+            }
+            //
+            // function updateLegendVisibility() {
+            //     if (!chartView.legend || !chartView.legend.markers) {
+            //         return;
+            //     }
+            //
+            //     var markers = chartView.legend.markers;
+            //
+            //     for (var i = 0; i < markers.length; i++) {
+            //         var marker = markers[i];
+            //
+            //         if (marker.series === lineSeries || marker.series === pointSeries) {
+            //             marker.visible = false;
+            //         }
+            //     }
+            // }
 
             DateTimeAxis {
                 id: xAxis
@@ -209,32 +236,11 @@ Rectangle {
                 id: pointMapper
             }
 
-            // function updateLegendVisibility() {
-            //     if (!chartView.legend || !chartView.legend.markers) {
-            //         return;
-            //     }
-            //
-            //     var markers = chartView.legend.markers;
-            //
-            //     for (var i = 0; i < markers.length; i++) {
-            //         var marker = markers[i];
-            //
-            //         if (marker.series === lineSeries || marker.series === pointSeries) {
-            //             marker.visible = false;
-            //         }
-            //     }
-            // }
-            //
-            // Component.onCompleted: {
-            //     updateMapperBinding();
-            //     updateLimitLines();
-            //
-            //     Qt.callLater(updateLegendVisibility);
-            // }
-            //
-            // onSeriesAdded: Qt.callLater(updateLegendVisibility)
+
+            // onSeriesAdded: Qt.callLater(updateLegendVisibility);
         }
     }
+
 
     // 优化后的绘制函数：绘制一条极其长的线，利用 Viewport 裁剪，避免滚动时重绘
     function updateLimitLines() {
@@ -380,12 +386,14 @@ Rectangle {
     Component.onCompleted: {
         updateMapperBinding();
         updateLimitLines(); // 初始化绘制一次
+        // Qt.callLater(chartView.updateLegendVisibility);
     }
 
     // 仅当界限数值改变时才重绘
     onOosLimitValueChanged: updateLimitLines()
     onOocLimitValueChanged: updateLimitLines()
     onShowLimitsChanged: updateLimitLines()
+
 
     onSeriesModelChanged: {
         if (chartCard.seriesModel) {

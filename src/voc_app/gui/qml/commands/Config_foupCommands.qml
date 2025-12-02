@@ -118,18 +118,16 @@ Column {
 
         function loadChannel(index) {
             selectedChannel = Math.max(0, index || 0);
-            const ref = foupLimitRef;
-            if (!ref || typeof ref.getLimits !== "function") {
+            // 从后端获取配置
+            if (acquisitionController) {
+                tempOOCUpper = acquisitionController.getOocUpper(selectedChannel);
+                tempOOCLower = acquisitionController.getOocLower(selectedChannel);
+                tempOOSUpper = acquisitionController.getOosUpper(selectedChannel);
+                tempOOSLower = acquisitionController.getOosLower(selectedChannel);
+                tempTarget = acquisitionController.getTarget(selectedChannel);
+            } else {
                 tempOOCUpper = 80; tempOOCLower = 20; tempOOSUpper = 90; tempOOSLower = 10; tempTarget = 50;
-                setFieldTexts();
-                return;
             }
-            const limits = ref.getLimits(selectedChannel);
-            tempOOCUpper = limits.oocUpper;
-            tempOOCLower = limits.oocLower;
-            tempOOSUpper = limits.oosUpper;
-            tempOOSLower = limits.oosLower;
-            tempTarget = limits.target;
             setFieldTexts();
         }
 
@@ -396,14 +394,16 @@ Column {
                     Layout.preferredWidth: Components.UiTheme.controlWidth("button")
                     Layout.preferredHeight: Components.UiTheme.controlHeight("button")
                     onClicked: {
-                        if (foupLimitRef && typeof foupLimitRef.setLimits === "function") {
-                            foupLimitRef.setLimits(limitDialog.selectedChannel, {
-                                oocUpper: !isNaN(limitDialog.tempOOCUpper) ? limitDialog.tempOOCUpper : 80,
-                                oocLower: !isNaN(limitDialog.tempOOCLower) ? limitDialog.tempOOCLower : 20,
-                                oosUpper: !isNaN(limitDialog.tempOOSUpper) ? limitDialog.tempOOSUpper : 90,
-                                oosLower: !isNaN(limitDialog.tempOOSLower) ? limitDialog.tempOOSLower : 10,
-                                target: !isNaN(limitDialog.tempTarget) ? limitDialog.tempTarget : 50
-                            });
+                        // 保存到后端（持久化）
+                        if (acquisitionController) {
+                            acquisitionController.setChannelLimits(
+                                limitDialog.selectedChannel,
+                                !isNaN(limitDialog.tempOOCUpper) ? limitDialog.tempOOCUpper : 80,
+                                !isNaN(limitDialog.tempOOCLower) ? limitDialog.tempOOCLower : 20,
+                                !isNaN(limitDialog.tempOOSUpper) ? limitDialog.tempOOSUpper : 90,
+                                !isNaN(limitDialog.tempOOSLower) ? limitDialog.tempOOSLower : 10,
+                                !isNaN(limitDialog.tempTarget) ? limitDialog.tempTarget : 50
+                            );
                         }
                         limitDialog.close();
                     }

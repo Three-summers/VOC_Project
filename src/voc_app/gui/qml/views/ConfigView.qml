@@ -53,20 +53,6 @@ Rectangle {
         anchors.margins: Components.UiTheme.spacing("xl")
         spacing: Components.UiTheme.spacing("lg")
 
-        Text {
-            text: "配置页面"
-            font.bold: true
-            font.pixelSize: Components.UiTheme.fontSize("title")
-            color: Components.UiTheme.color("textPrimary")
-        }
-
-        Text {
-            text: "通过子页面查看并设置 Loadport 与 FOUP 的基础运行参数。"
-            wrapMode: Text.Wrap
-            color: Components.UiTheme.color("textSecondary")
-            font.pixelSize: Components.UiTheme.fontSize("body")
-        }
-
         Loader {
             id: contentLoader
             Layout.fillWidth: true
@@ -267,6 +253,7 @@ Rectangle {
                             }
 
                             delegate: Components.ChartCard {
+                                id: chartCard
                                 // 单通道时占满两列，多通道时每个占一列
                                 Layout.columnSpan: (chartRepeater.count === 1) ? 2 : 1
                                 Layout.fillWidth: true
@@ -279,22 +266,32 @@ Rectangle {
 
                                 readonly property var config: configView.chartEntry(modelData.index, modelData.title)
                                 readonly property int channelIdx: (typeof modelData.channelIndex === "number") ? modelData.channelIndex : 0
-                                readonly property var limits: (configView.foupLimitRef && typeof configView.foupLimitRef.getLimits === "function")
-                                    ? configView.foupLimitRef.getLimits(channelIdx)
-                                    : null
 
                                 seriesModel: config.seriesModel
                                 xColumn: config.xColumn
                                 yColumn: config.yColumn
                                 showLimits: true
-                                oocLimitValue: limits ? limits.oocUpper : 80
-                                oocLowerLimitValue: limits ? limits.oocLower : Number.NaN
-                                oosLimitValue: limits ? limits.oosUpper : 90
-                                oosLowerLimitValue: limits ? limits.oosLower : Number.NaN
-                                targetValue: limits ? limits.target : Number.NaN
-
                                 scaleFactor: configView.scaleFactor
-                                chartTitle: "通道" + index + "数据"
+
+                                // 从后端获取通道配置
+                                chartTitle: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getChannelTitle(channelIdx)
+                                    : modelData.title
+                                oocLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getOocUpper(channelIdx)
+                                    : 80
+                                oocLowerLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getOocLower(channelIdx)
+                                    : 20
+                                oosLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getOosUpper(channelIdx)
+                                    : 90
+                                oosLowerLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getOosLower(channelIdx)
+                                    : 10
+                                targetValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getTarget(channelIdx)
+                                    : 50
 
                                 Text {
                                     visible: !seriesModel
@@ -302,6 +299,22 @@ Rectangle {
                                     text: "点击开始采集后显示实时曲线"
                                     color: Components.UiTheme.color("textSecondary")
                                     font.pixelSize: Components.UiTheme.fontSize("body")
+                                }
+
+                                // 监听后端配置变更信号
+                                Connections {
+                                    target: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+                                    enabled: typeof foupAcquisition !== "undefined" && foupAcquisition
+                                    function onChannelConfigChanged(idx) {
+                                        if (idx === chartCard.channelIdx) {
+                                            chartCard.chartTitle = foupAcquisition.getChannelTitle(chartCard.channelIdx)
+                                            chartCard.oocLimitValue = foupAcquisition.getOocUpper(chartCard.channelIdx)
+                                            chartCard.oocLowerLimitValue = foupAcquisition.getOocLower(chartCard.channelIdx)
+                                            chartCard.oosLimitValue = foupAcquisition.getOosUpper(chartCard.channelIdx)
+                                            chartCard.oosLowerLimitValue = foupAcquisition.getOosLower(chartCard.channelIdx)
+                                            chartCard.targetValue = foupAcquisition.getTarget(chartCard.channelIdx)
+                                        }
+                                    }
                                 }
                             }
                         }
