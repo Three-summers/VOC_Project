@@ -105,11 +105,13 @@ Column {
         title: "配置通道参数"
         popupAnchorItem: informationPanelRef ? informationPanelRef : Qt.application.activeWindow
         property int selectedChannel: 0
+        property string tempUnit: ""
         property real tempOOCUpper: 80
         property real tempOOCLower: 20
         property real tempOOSUpper: 90
         property real tempOOSLower: 10
         property real tempTarget: 50
+        property var unitFieldRef: null
         property var oosUpperFieldRef: null
         property var oosLowerFieldRef: null
         property var oocUpperFieldRef: null
@@ -120,13 +122,14 @@ Column {
             selectedChannel = Math.max(0, index || 0);
             // 从后端获取配置
             if (acquisitionController) {
+                tempUnit = acquisitionController.getUnit(selectedChannel);
                 tempOOCUpper = acquisitionController.getOocUpper(selectedChannel);
                 tempOOCLower = acquisitionController.getOocLower(selectedChannel);
                 tempOOSUpper = acquisitionController.getOosUpper(selectedChannel);
                 tempOOSLower = acquisitionController.getOosLower(selectedChannel);
                 tempTarget = acquisitionController.getTarget(selectedChannel);
             } else {
-                tempOOCUpper = 80; tempOOCLower = 20; tempOOSUpper = 90; tempOOSLower = 10; tempTarget = 50;
+                tempUnit = ""; tempOOCUpper = 80; tempOOCLower = 20; tempOOSUpper = 90; tempOOSLower = 10; tempTarget = 50;
             }
             setFieldTexts();
         }
@@ -137,6 +140,7 @@ Column {
         }
 
         function setFieldTexts() {
+            if (unitFieldRef) unitFieldRef.text = tempUnit;
             if (oosUpperFieldRef) oosUpperFieldRef.text = tempOOSUpper.toString();
             if (oosLowerFieldRef) oosLowerFieldRef.text = tempOOSLower.toString();
             if (oocUpperFieldRef) oocUpperFieldRef.text = tempOOCUpper.toString();
@@ -236,6 +240,32 @@ Column {
                                 }
                             }
                             onActivated: function(i) { limitDialog.loadChannel(i); }
+                        }
+                    }
+
+                    // Y轴单位
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("md")
+                        Label {
+                            text: "单位"
+                            color: Components.UiTheme.color("textSecondary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            Layout.preferredWidth: 72
+                        }
+                        TextField {
+                            id: unitField
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            color: Components.UiTheme.color("textPrimary")
+                            placeholderText: "例如 ppb, dB, ℃, %"
+                            placeholderTextColor: Components.UiTheme.color("textSecondary")
+                            background: Rectangle { color: Components.UiTheme.color("surface"); border.color: Components.UiTheme.color("outline"); radius: Components.UiTheme.radius("sm") }
+                            onTextChanged: limitDialog.tempUnit = text
+                            Component.onCompleted: {
+                                limitDialog.unitFieldRef = unitField;
+                                limitDialog.setFieldTexts();
+                            }
                         }
                     }
 
@@ -396,6 +426,12 @@ Column {
                     onClicked: {
                         // 保存到后端（持久化）
                         if (acquisitionController) {
+                            // 保存单位
+                            acquisitionController.setChannelUnit(
+                                limitDialog.selectedChannel,
+                                limitDialog.tempUnit || ""
+                            );
+                            // 保存 OOC/OOS/Target
                             acquisitionController.setChannelLimits(
                                 limitDialog.selectedChannel,
                                 !isNaN(limitDialog.tempOOCUpper) ? limitDialog.tempOOCUpper : 80,

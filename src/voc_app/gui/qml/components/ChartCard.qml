@@ -16,6 +16,7 @@ Rectangle {
     radius: Components.UiTheme.radius("sm")
 
     property string chartTitle: "Humidity/Temperature" // 示例标题
+    property string yAxisUnit: ""  // Y轴单位，如 ppb, dB, ℃, %
 
     // 规格界限 (OOS) 和 控制界限 (OOC) 的值
     property real oosLimitValue: 90.0
@@ -123,9 +124,11 @@ Rectangle {
                 max: 100
                 labelFormat: "%.0f"
                 tickCount: 5
+                titleText: chartCard.yAxisUnit  // 显示Y轴单位
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
                 labelsColor: Components.UiTheme.color("textSecondary")
+                titleVisible: chartCard.yAxisUnit.length > 0
                 gridLineColor: Components.UiTheme.color("outline")
             }
 

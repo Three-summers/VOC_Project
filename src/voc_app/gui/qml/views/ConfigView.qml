@@ -237,10 +237,11 @@ Rectangle {
                             id: chartRepeater
                             model: {
                                 // 根据foupAcquisition.channelCount动态生成图表列表
+                                // 至少显示1个图表，防止采集前布局空白
                                 if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
-                                    return [{ title: "FOUP 通道 1", index: configView.foupChartIndex }]
+                                    return [{ title: "FOUP 通道 1", index: configView.foupChartIndex, channelIndex: 0 }]
                                 }
-                                const count = foupAcquisition.channelCount
+                                const count = Math.max(1, foupAcquisition.channelCount)
                                 const charts = []
                                 for (let i = 0; i < count; i++) {
                                     charts.push({
@@ -277,6 +278,9 @@ Rectangle {
                                 chartTitle: (typeof foupAcquisition !== "undefined" && foupAcquisition)
                                     ? foupAcquisition.getChannelTitle(channelIdx)
                                     : modelData.title
+                                yAxisUnit: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getUnit(channelIdx)
+                                    : ""
                                 oocLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
                                     ? foupAcquisition.getOocUpper(channelIdx)
                                     : 80
@@ -308,6 +312,7 @@ Rectangle {
                                     function onChannelConfigChanged(idx) {
                                         if (idx === chartCard.channelIdx) {
                                             chartCard.chartTitle = foupAcquisition.getChannelTitle(chartCard.channelIdx)
+                                            chartCard.yAxisUnit = foupAcquisition.getUnit(chartCard.channelIdx)
                                             chartCard.oocLimitValue = foupAcquisition.getOocUpper(chartCard.channelIdx)
                                             chartCard.oocLowerLimitValue = foupAcquisition.getOocLower(chartCard.channelIdx)
                                             chartCard.oosLimitValue = foupAcquisition.getOosUpper(chartCard.channelIdx)

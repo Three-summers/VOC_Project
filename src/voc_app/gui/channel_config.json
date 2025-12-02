@@ -1,6 +1,7 @@
 {
   "0": {
     "title": "Noise CH1",
+    "unit": "dB",
     "ooc_upper": 75.0,
     "ooc_lower": 25.0,
     "oos_upper": 85.0,
@@ -8,23 +9,26 @@
     "target": 50.0
   },
   "1": {
-    "title": "Noise CH2",
-    "ooc_upper": 75.0,
-    "ooc_lower": 25.0,
-    "oos_upper": 85.0,
+    "title": "Temperature",
+    "unit": "℃",
+    "ooc_upper": 30.0,
+    "ooc_lower": 18.0,
+    "oos_upper": 35.0,
     "oos_lower": 15.0,
-    "target": 50.0
+    "target": 25.0
   },
   "2": {
-    "title": "Noise CH3",
-    "ooc_upper": 75.0,
-    "ooc_lower": 25.0,
-    "oos_upper": 85.0,
-    "oos_lower": 15.0,
+    "title": "Humidity",
+    "unit": "%",
+    "ooc_upper": 70.0,
+    "ooc_lower": 30.0,
+    "oos_upper": 80.0,
+    "oos_lower": 20.0,
     "target": 50.0
   },
   "3": {
     "title": "FOUP 通道 4",
+    "unit": "",
     "ooc_upper": 80.0,
     "ooc_lower": 20.0,
     "oos_upper": 90.0,
@@ -33,6 +37,7 @@
   },
   "4": {
     "title": "FOUP 通道 5",
+    "unit": "",
     "ooc_upper": 80.0,
     "ooc_lower": 20.0,
     "oos_upper": 90.0,

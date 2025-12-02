@@ -26,6 +26,7 @@ class ServerType(Enum):
 class ChannelPreset:
     """单个通道的预设配置"""
     title: str
+    unit: str  # Y轴单位，如 ppb, dB, ℃, %
     ooc_upper: float
     ooc_lower: float
     oos_upper: float
@@ -47,6 +48,7 @@ class ServerTypePreset:
             return self.channels[channel_idx]
         return self.channels[-1] if self.channels else ChannelPreset(
             title=f"通道 {channel_idx + 1}",
+            unit="",
             ooc_upper=80.0, ooc_lower=20.0,
             oos_upper=90.0, oos_lower=10.0,
             target=50.0
@@ -65,6 +67,7 @@ class ServerTypeRegistry:
             channels=[
                 ChannelPreset(
                     title="PID",
+                    unit="ppb",
                     ooc_upper=80.0, ooc_lower=20.0,
                     oos_upper=90.0, oos_lower=10.0,
                     target=50.0
@@ -78,20 +81,23 @@ class ServerTypeRegistry:
             channels=[
                 ChannelPreset(
                     title="Noise CH1",
+                    unit="dB",
                     ooc_upper=75.0, ooc_lower=25.0,
                     oos_upper=85.0, oos_lower=15.0,
                     target=50.0
                 ),
                 ChannelPreset(
-                    title="Noise CH2",
-                    ooc_upper=75.0, ooc_lower=25.0,
-                    oos_upper=85.0, oos_lower=15.0,
-                    target=50.0
+                    title="Temperature",
+                    unit="℃",
+                    ooc_upper=30.0, ooc_lower=18.0,
+                    oos_upper=35.0, oos_lower=15.0,
+                    target=25.0
                 ),
                 ChannelPreset(
-                    title="Noise CH3",
-                    ooc_upper=75.0, ooc_lower=25.0,
-                    oos_upper=85.0, oos_lower=15.0,
+                    title="Humidity",
+                    unit="%",
+                    ooc_upper=70.0, ooc_lower=30.0,
+                    oos_upper=80.0, oos_lower=20.0,
                     target=50.0
                 ),
             ]
@@ -103,6 +109,7 @@ class ServerTypeRegistry:
             channels=[
                 ChannelPreset(
                     title="通道 1",
+                    unit="",
                     ooc_upper=80.0, ooc_lower=20.0,
                     oos_upper=90.0, oos_lower=10.0,
                     target=50.0
@@ -158,6 +165,7 @@ class ServerTypeRegistry:
 class ChannelConfig:
     """单个通道的配置数据"""
     title: str = ""
+    unit: str = ""  # Y轴单位，如 ppb, dB, ℃, %
     ooc_upper: float = 80.0
     ooc_lower: float = 20.0
     oos_upper: float = 90.0
@@ -171,6 +179,7 @@ class ChannelConfig:
     def from_dict(cls, data: Dict[str, Any]) -> "ChannelConfig":
         return cls(
             title=data.get("title", ""),
+            unit=data.get("unit", ""),
             ooc_upper=float(data.get("ooc_upper", 80.0)),
             ooc_lower=float(data.get("ooc_lower", 20.0)),
             oos_upper=float(data.get("oos_upper", 90.0)),
@@ -183,6 +192,7 @@ class ChannelConfig:
         """从预设创建配置"""
         return cls(
             title=preset.title,
+            unit=preset.unit,
             ooc_upper=preset.ooc_upper,
             ooc_lower=preset.ooc_lower,
             oos_upper=preset.oos_upper,
@@ -651,3 +661,14 @@ class FoupAcquisitionController(QObject):
     def getTarget(self, channel_idx: int) -> float:
         """获取指定通道的目标值"""
         return self._config_manager.get(channel_idx).target
+
+    @Slot(int, result=str)
+    def getUnit(self, channel_idx: int) -> str:
+        """获取指定通道的Y轴单位"""
+        return self._config_manager.get(channel_idx).unit
+
+    @Slot(int, str)
+    def setChannelUnit(self, channel_idx: int, unit: str) -> None:
+        """设置指定通道的Y轴单位"""
+        self._config_manager.update(channel_idx, unit=unit)
+        self.channelConfigChanged.emit(channel_idx)
