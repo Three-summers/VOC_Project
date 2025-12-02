@@ -275,6 +275,7 @@ class FoupAcquisitionController(QObject):
     runningChanged = Signal()
     statusMessageChanged = Signal()
     lastValueChanged = Signal()
+    channelValuesChanged = Signal()  # 各通道值变更信号
     errorOccurred = Signal(str)
     channelCountChanged = Signal()
     hostChanged = Signal()
@@ -302,6 +303,7 @@ class FoupAcquisitionController(QObject):
         self._running = False
         self._status = "未启动"
         self._last_value: float | None = None
+        self._channel_values: List[float] = []  # 各通道当前值
         self._worker: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._communicator: SocketCommunicator | None = None
@@ -471,8 +473,10 @@ class FoupAcquisitionController(QObject):
             self._channel_count = detected_count
             self.channelCountChanged.emit()
 
-        # 更新最后一个值（用于显示）
+        # 更新各通道值
+        self._channel_values = values.copy()
         self._last_value = values[0]
+        self.channelValuesChanged.emit()
         self.lastValueChanged.emit()
 
         self._sample_index += 1
@@ -672,3 +676,10 @@ class FoupAcquisitionController(QObject):
         """设置指定通道的Y轴单位"""
         self._config_manager.update(channel_idx, unit=unit)
         self.channelConfigChanged.emit(channel_idx)
+
+    @Slot(int, result=float)
+    def getChannelValue(self, channel_idx: int) -> float:
+        """获取指定通道的当前值"""
+        if 0 <= channel_idx < len(self._channel_values):
+            return self._channel_values[channel_idx]
+        return float("nan")

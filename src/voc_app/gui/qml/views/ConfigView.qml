@@ -281,6 +281,9 @@ Rectangle {
                                 yAxisUnit: (typeof foupAcquisition !== "undefined" && foupAcquisition)
                                     ? foupAcquisition.getUnit(channelIdx)
                                     : ""
+                                currentValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                                    ? foupAcquisition.getChannelValue(channelIdx)
+                                    : Number.NaN
                                 oocLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
                                     ? foupAcquisition.getOocUpper(channelIdx)
                                     : 80
@@ -320,6 +323,9 @@ Rectangle {
                                             chartCard.targetValue = foupAcquisition.getTarget(chartCard.channelIdx)
                                         }
                                     }
+                                    function onChannelValuesChanged() {
+                                        chartCard.currentValue = foupAcquisition.getChannelValue(chartCard.channelIdx)
+                                    }
                                 }
                             }
                         }
@@ -329,14 +335,11 @@ Rectangle {
                             Layout.columnSpan: 2
                             text: {
                                 if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
-                                    return "通道数量: 1 | 当前值: --"
+                                    return "通道数量: 1"
                                 }
                                 var serverInfo = foupAcquisition.serverTypeDisplayName || "未知"
                                 var channelInfo = "通道: " + foupAcquisition.channelCount
-                                var valueInfo = !isNaN(foupAcquisition.lastValue)
-                                    ? "当前值: " + foupAcquisition.lastValue.toFixed(2)
-                                    : "当前值: --"
-                                return serverInfo + " | " + channelInfo + " | " + valueInfo
+                                return serverInfo + " | " + channelInfo
                             }
                             color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")

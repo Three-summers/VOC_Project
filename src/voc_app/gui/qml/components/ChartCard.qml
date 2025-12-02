@@ -17,6 +17,7 @@ Rectangle {
 
     property string chartTitle: "Humidity/Temperature" // 示例标题
     property string yAxisUnit: ""  // Y轴单位，如 ppb, dB, ℃, %
+    property real currentValue: Number.NaN  // 当前值
 
     // 规格界限 (OOS) 和 控制界限 (OOC) 的值
     property real oosLimitValue: 90.0
@@ -50,12 +51,45 @@ Rectangle {
         anchors.fill: parent
         anchors.margins: Components.UiTheme.spacing("md")
 
-        Text {
-            text: chartCard.chartTitle
-            font.bold: true
-            font.pixelSize: Components.UiTheme.fontSize("subtitle")
-            color: Components.UiTheme.color("textPrimary")
+        RowLayout {
+            Layout.fillWidth: true
             Layout.alignment: Qt.AlignHCenter
+            spacing: Components.UiTheme.spacing("md")
+
+            Text {
+                text: chartCard.chartTitle
+                font.bold: true
+                font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                color: Components.UiTheme.color("textPrimary")
+            }
+
+            Text {
+                visible: !isNaN(chartCard.currentValue)
+                text: {
+                    if (isNaN(chartCard.currentValue)) return "";
+                    var valueStr = chartCard.currentValue.toFixed(2);
+                    return chartCard.yAxisUnit ? valueStr + " " + chartCard.yAxisUnit : valueStr;
+                }
+                font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                font.bold: true
+                color: {
+                    // 根据值与限值关系显示不同颜色
+                    if (isNaN(chartCard.currentValue)) return Components.UiTheme.color("textSecondary");
+                    var val = chartCard.currentValue;
+                    // OOS 超限 - 红色
+                    if ((!isNaN(chartCard.oosLimitValue) && val > chartCard.oosLimitValue) ||
+                        (!isNaN(chartCard.oosLowerLimitValue) && val < chartCard.oosLowerLimitValue)) {
+                        return Components.UiTheme.color("accentAlarm");
+                    }
+                    // OOC 超限 - 橙色
+                    if ((!isNaN(chartCard.oocLimitValue) && val > chartCard.oocLimitValue) ||
+                        (!isNaN(chartCard.oocLowerLimitValue) && val < chartCard.oocLowerLimitValue)) {
+                        return Components.UiTheme.color("accentWarning");
+                    }
+                    // 正常 - 绿色
+                    return Components.UiTheme.color("accentSuccess");
+                }
+            }
         }
 
         ChartView {

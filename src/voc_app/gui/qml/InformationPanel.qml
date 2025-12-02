@@ -22,7 +22,7 @@ Rectangle {
         "Config": [
             { key: "loadport", title: "Loadport" },
             { key: "foup", title: "FOUP" },
-            { key: "theme", title: "调色" }
+            // { key: "theme", title: "调色" }
         ]
     })
     // 记住每个主页面的子页面选择
