@@ -322,9 +322,17 @@ Rectangle {
                         // 状态信息（跨两列显示）
                         Text {
                             Layout.columnSpan: 2
-                            text: (typeof foupAcquisition !== "undefined" && foupAcquisition && !isNaN(foupAcquisition.lastValue))
-                            ? "通道数量: " + foupAcquisition.channelCount + " | 当前值: " + foupAcquisition.lastValue.toFixed(2)
-                            : "通道数量: " + ((typeof foupAcquisition !== "undefined" && foupAcquisition) ? foupAcquisition.channelCount : 1) + " | 当前值: --"
+                            text: {
+                                if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
+                                    return "通道数量: 1 | 当前值: --"
+                                }
+                                var serverInfo = foupAcquisition.serverTypeDisplayName || "未知"
+                                var channelInfo = "通道: " + foupAcquisition.channelCount
+                                var valueInfo = !isNaN(foupAcquisition.lastValue)
+                                    ? "当前值: " + foupAcquisition.lastValue.toFixed(2)
+                                    : "当前值: --"
+                                return serverInfo + " | " + channelInfo + " | " + valueInfo
+                            }
                             color: Components.UiTheme.color("textSecondary")
                             font.pixelSize: Components.UiTheme.fontSize("body")
                         }

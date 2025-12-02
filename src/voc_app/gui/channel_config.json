@@ -1,26 +1,26 @@
 {
   "0": {
-    "title": "FOUP 通道 1",
-    "ooc_upper": 80.0,
-    "ooc_lower": 20.0,
-    "oos_upper": 90.0,
-    "oos_lower": 10.0,
+    "title": "Noise CH1",
+    "ooc_upper": 75.0,
+    "ooc_lower": 25.0,
+    "oos_upper": 85.0,
+    "oos_lower": 15.0,
     "target": 50.0
   },
   "1": {
-    "title": "FOUP 通道 2",
-    "ooc_upper": 80.0,
-    "ooc_lower": 20.0,
-    "oos_upper": 90.0,
-    "oos_lower": 10.0,
+    "title": "Noise CH2",
+    "ooc_upper": 75.0,
+    "ooc_lower": 25.0,
+    "oos_upper": 85.0,
+    "oos_lower": 15.0,
     "target": 50.0
   },
   "2": {
-    "title": "FOUP 通道 3",
-    "ooc_upper": 80.0,
-    "ooc_lower": 20.0,
-    "oos_upper": 90.0,
-    "oos_lower": 10.0,
+    "title": "Noise CH3",
+    "ooc_upper": 75.0,
+    "ooc_lower": 25.0,
+    "oos_upper": 85.0,
+    "oos_lower": 15.0,
     "target": 50.0
   },
   "3": {

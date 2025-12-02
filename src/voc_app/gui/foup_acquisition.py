@@ -1,14 +1,157 @@
 import json
 import struct
 import threading
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
+from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Dict, Any
+from typing import Iterable, List, Dict, Any, Optional
 import time
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
 from voc_app.gui.socket_client import SocketCommunicator
+
+
+class ServerType(Enum):
+    """服务端类型枚举"""
+    UNKNOWN = "unknown"
+    PID = "pid"          # 1 个点
+    NOISE = "noise"      # 3 个点
+    # 未来可扩展更多类型
+    # TEMPERATURE = "temperature"
+    # PRESSURE = "pressure"
+
+
+@dataclass
+class ChannelPreset:
+    """单个通道的预设配置"""
+    title: str
+    ooc_upper: float
+    ooc_lower: float
+    oos_upper: float
+    oos_lower: float
+    target: float
+
+
+@dataclass
+class ServerTypePreset:
+    """服务端类型的预设配置，包含所有通道的默认值"""
+    server_type: ServerType
+    display_name: str
+    channel_count: int
+    channels: List[ChannelPreset]
+
+    def get_channel_preset(self, channel_idx: int) -> ChannelPreset:
+        """获取指定通道的预设，越界时返回最后一个通道的配置"""
+        if channel_idx < len(self.channels):
+            return self.channels[channel_idx]
+        return self.channels[-1] if self.channels else ChannelPreset(
+            title=f"通道 {channel_idx + 1}",
+            ooc_upper=80.0, ooc_lower=20.0,
+            oos_upper=90.0, oos_lower=10.0,
+            target=50.0
+        )
+
+
+class ServerTypeRegistry:
+    """服务端类型注册表，管理所有预设配置"""
+
+    # 预设配置定义
+    _PRESETS: Dict[ServerType, ServerTypePreset] = {
+        ServerType.PID: ServerTypePreset(
+            server_type=ServerType.PID,
+            display_name="PID 控制",
+            channel_count=1,
+            channels=[
+                ChannelPreset(
+                    title="PID",
+                    ooc_upper=80.0, ooc_lower=20.0,
+                    oos_upper=90.0, oos_lower=10.0,
+                    target=50.0
+                ),
+            ]
+        ),
+        ServerType.NOISE: ServerTypePreset(
+            server_type=ServerType.NOISE,
+            display_name="Noise 监测",
+            channel_count=3,
+            channels=[
+                ChannelPreset(
+                    title="Noise CH1",
+                    ooc_upper=75.0, ooc_lower=25.0,
+                    oos_upper=85.0, oos_lower=15.0,
+                    target=50.0
+                ),
+                ChannelPreset(
+                    title="Noise CH2",
+                    ooc_upper=75.0, ooc_lower=25.0,
+                    oos_upper=85.0, oos_lower=15.0,
+                    target=50.0
+                ),
+                ChannelPreset(
+                    title="Noise CH3",
+                    ooc_upper=75.0, ooc_lower=25.0,
+                    oos_upper=85.0, oos_lower=15.0,
+                    target=50.0
+                ),
+            ]
+        ),
+        ServerType.UNKNOWN: ServerTypePreset(
+            server_type=ServerType.UNKNOWN,
+            display_name="未知类型",
+            channel_count=1,
+            channels=[
+                ChannelPreset(
+                    title="通道 1",
+                    ooc_upper=80.0, ooc_lower=20.0,
+                    oos_upper=90.0, oos_lower=10.0,
+                    target=50.0
+                ),
+            ]
+        ),
+    }
+
+    # 通道数到服务端类型的映射（当前的检测策略）
+    _CHANNEL_COUNT_MAP: Dict[int, ServerType] = {
+        1: ServerType.PID,
+        3: ServerType.NOISE,
+    }
+
+    @classmethod
+    def get_preset(cls, server_type: ServerType) -> ServerTypePreset:
+        """获取指定服务端类型的预设配置"""
+        return cls._PRESETS.get(server_type, cls._PRESETS[ServerType.UNKNOWN])
+
+    @classmethod
+    def detect_by_channel_count(cls, channel_count: int) -> ServerType:
+        """根据通道数检测服务端类型（当前策略）"""
+        return cls._CHANNEL_COUNT_MAP.get(channel_count, ServerType.UNKNOWN)
+
+    @classmethod
+    def detect_by_server_response(cls, response: str) -> ServerType:
+        """
+        根据服务端响应检测类型（未来扩展）
+
+        预留接口：未来服务端支持类型查询时，可以通过此方法解析响应
+        例如服务端返回 "SERVER_TYPE:PID" 或 JSON 格式的类型信息
+        """
+        # 未来实现示例：
+        # if response.startswith("SERVER_TYPE:"):
+        #     type_str = response.split(":")[1].strip().lower()
+        #     for st in ServerType:
+        #         if st.value == type_str:
+        #             return st
+        return ServerType.UNKNOWN
+
+    @classmethod
+    def register_preset(cls, preset: ServerTypePreset) -> None:
+        """注册新的服务端类型预设（支持运行时扩展）"""
+        cls._PRESETS[preset.server_type] = preset
+
+    @classmethod
+    def register_channel_count_mapping(cls, channel_count: int, server_type: ServerType) -> None:
+        """注册通道数到服务端类型的映射"""
+        cls._CHANNEL_COUNT_MAP[channel_count] = server_type
 
 
 @dataclass
@@ -33,6 +176,18 @@ class ChannelConfig:
             oos_upper=float(data.get("oos_upper", 90.0)),
             oos_lower=float(data.get("oos_lower", 10.0)),
             target=float(data.get("target", 50.0)),
+        )
+
+    @classmethod
+    def from_preset(cls, preset: ChannelPreset) -> "ChannelConfig":
+        """从预设创建配置"""
+        return cls(
+            title=preset.title,
+            ooc_upper=preset.ooc_upper,
+            ooc_lower=preset.ooc_lower,
+            oos_upper=preset.oos_upper,
+            oos_lower=preset.oos_lower,
+            target=preset.target,
         )
 
 
@@ -100,7 +255,12 @@ class FoupAcquisitionController(QObject):
 
     约定：采集服务器通过 127.0.0.1:65432 提供简单文本流，一次发送一个浮点字符串
     （例如 "10.1"，可选换行/空格分隔）。本控制器读取前一个可解析值并使用毫秒时间戳
-    作为 X 轴，将数据推送到 SeriesTableModel。"""
+    作为 X 轴，将数据推送到 SeriesTableModel。
+
+    服务端类型检测策略：
+    - 当前：根据数据点数量自动检测（1点=PID, 3点=NOISE）
+    - 未来：可通过 socket 查询服务端类型
+    """
 
     runningChanged = Signal()
     statusMessageChanged = Signal()
@@ -109,8 +269,11 @@ class FoupAcquisitionController(QObject):
     channelCountChanged = Signal()
     hostChanged = Signal()
     channelConfigChanged = Signal(int)  # 通道配置变更信号，参数为通道索引
+    serverTypeChanged = Signal()  # 服务端类型变更信号
     # 新增信号：用于跨线程传递数据点到主线程（支持多通道）
     dataPointReceived = Signal(float, list)  # x, [y1, y2, y3, ...]
+    # 内部信号：用于跨线程触发服务端类型检测
+    _serverTypeDetected = Signal(int)  # channel_count
 
     def __init__(
         self,
@@ -134,13 +297,16 @@ class FoupAcquisitionController(QObject):
         self._communicator: SocketCommunicator | None = None
         self._sample_index = 0
         self._last_timestamp_ms = 0.0
-        self._channel_count = 1  # 默认单通道，动态检测后更新
+        self._channel_count = 0  # 初始为 0，表示未检测
+        self._server_type: ServerType = ServerType.UNKNOWN
+        self._server_type_detected = False  # 标记是否已检测过服务端类型
 
         # 通道配置管理器
         self._config_manager = ChannelConfigManager()
 
         # 连接信号到槽，确保跨线程调用安全
         self.dataPointReceived.connect(self._append_point_to_model)
+        self._serverTypeDetected.connect(self._on_server_type_detected)
 
     # ---- 公共属性 ----
 
@@ -183,6 +349,17 @@ class FoupAcquisitionController(QObject):
         self._host = new_host
         self.hostChanged.emit()
 
+    @Property(str, notify=serverTypeChanged)
+    def serverType(self) -> str:
+        """返回当前检测到的服务端类型名称"""
+        return self._server_type.value
+
+    @Property(str, notify=serverTypeChanged)
+    def serverTypeDisplayName(self) -> str:
+        """返回当前服务端类型的显示名称"""
+        preset = ServerTypeRegistry.get_preset(self._server_type)
+        return preset.display_name
+
     # ---- 槽函数 ----
 
     @Slot()
@@ -204,6 +381,10 @@ class FoupAcquisitionController(QObject):
                 print(f"[WARN] foup_acquisition: clear series failed: {exc!r}")
         self._sample_index = 0
         self._stop_event.clear()
+        # 重置服务端类型检测状态
+        self._server_type_detected = False
+        self._server_type = ServerType.UNKNOWN
+        self._channel_count = 0
         self._set_status("正在连接...")
         self._worker = threading.Thread(target=self._run_loop, daemon=True)
         self._worker.start()
@@ -268,8 +449,14 @@ class FoupAcquisitionController(QObject):
         if not values:
             return
 
-        # 更新通道数量（首次检测到数据时）
+        # 首次检测到数据时，根据通道数检测服务端类型
         detected_count = len(values)
+        if not self._server_type_detected:
+            self._server_type_detected = True
+            # 使用信号在主线程中处理类型检测和配置应用
+            self._serverTypeDetected.emit(detected_count)
+
+        # 更新通道数量
         if self._channel_count != detected_count:
             self._channel_count = detected_count
             self.channelCountChanged.emit()
@@ -287,6 +474,35 @@ class FoupAcquisitionController(QObject):
 
         # 使用信号机制安全地跨线程传递数据（传递所有通道的值）
         self.dataPointReceived.emit(timestamp_ms, values)
+
+    def _on_server_type_detected(self, channel_count: int) -> None:
+        """
+        处理服务端类型检测结果（在主线程中执行）
+
+        当前策略：根据通道数检测服务端类型
+        未来扩展：可以在连接时先查询服务端类型
+        """
+        # 根据通道数检测服务端类型
+        new_type = ServerTypeRegistry.detect_by_channel_count(channel_count)
+
+        if self._server_type != new_type:
+            self._server_type = new_type
+            # 应用预设配置到所有通道
+            self._apply_preset_config(new_type)
+            self.serverTypeChanged.emit()
+            print(f"[INFO] 检测到服务端类型: {new_type.value} (通道数: {channel_count})")
+
+    def _apply_preset_config(self, server_type: ServerType) -> None:
+        """应用预设配置到所有通道"""
+        preset = ServerTypeRegistry.get_preset(server_type)
+
+        for channel_idx in range(preset.channel_count):
+            channel_preset = preset.get_channel_preset(channel_idx)
+            # 使用预设创建配置并保存
+            config = ChannelConfig.from_preset(channel_preset)
+            self._config_manager.set(channel_idx, config)
+            # 通知 QML 配置已变更
+            self.channelConfigChanged.emit(channel_idx)
 
     def _append_point_to_model(self, x: float, y_values: list) -> None:
         """将多通道数据添加到对应的series models中"""
