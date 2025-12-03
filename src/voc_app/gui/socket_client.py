@@ -34,7 +34,7 @@ class Communicator(abc.ABC):
 class SocketCommunicator(Communicator):
     """使用 Socket 进行通信的实现."""
 
-    def __init__(self, host: str, port: int, timeout: float | None = 2.0):
+    def __init__(self, host: str, port: int, timeout: float | None = 5.0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # 设置超时，避免阻塞导致线程无法退出
         if timeout is not None:

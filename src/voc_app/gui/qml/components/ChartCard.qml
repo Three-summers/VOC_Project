@@ -124,7 +124,7 @@ Rectangle {
                 running: true // 组件加载完成后自动启动一次
                 repeat: false
                 onTriggered: {
-                    chartLegendHelper.hideSeriesInLegend(chartView, [lineSeries, pointSeries]);
+                    chartLegendHelper.hideSeriesInLegend(chartView, [lineSeries, pointSeries, oosLowerSeries, oocLowerSeries]);
                 }
             }
             //
@@ -176,7 +176,7 @@ Rectangle {
             // -----------------------------------------------------------------
             LineSeries {
                 id: oosSeries
-                name: "OOS 上界"
+                name: "OOS"
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.oosColor
@@ -191,7 +191,7 @@ Rectangle {
             // -----------------------------------------------------------------
             LineSeries {
                 id: oosLowerSeries
-                name: "OOS 下界"
+                name: "OOS"
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.oosColor
@@ -206,7 +206,7 @@ Rectangle {
             // -----------------------------------------------------------------
             LineSeries {
                 id: oocSeries
-                name: "OOC 上界"
+                name: "OOC"
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.oocColor
@@ -221,7 +221,7 @@ Rectangle {
             // -----------------------------------------------------------------
             LineSeries {
                 id: oocLowerSeries
-                name: "OOC 下界"
+                name: "OOC"
                 axisX: xAxis
                 axisY: yAxis
                 color: chartCard.chartStyle.v1.oocColor
