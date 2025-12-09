@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-02T15:33:38+08:00",
+  "timestamp": "2025-12-03T16:02:40+08:00",
   "checks": {
     "interfaceDefined": true,
     "techChoicesUnderstood": true,
@@ -7,13 +7,13 @@
     "verificationKnown": true
   },
   "notes": {
-    "interfaces": "数据链路：FoupAcquisition.startAcquisition() -> SocketCommunicator(host, port) -> 长度前缀 UTF-8 文本 -> _handle_line 逗号拆分 -> dataPointReceived(timestamp_ms, values[]) -> SeriesTableModel.append_point(x,y) -> ChartCard VXYModelMapper 显示。ChartListModel 序列顺序：0/1 为 Loadport 示例，2+ 为 FOUP 通道。",
-    "tech": "PySide6 + QtCharts/QML；线程内收包，用 Signal 跨线程更新 QAbstractTableModel；QML 端 ChartCard 用 DateTimeAxis 和 VXYModelMapper 读取表格，无额外依赖。",
+    "interfaces": "布局输入：foupAcquisition.channelCount, chartListModel.get(index), foupChartIndex=2；输出：ConfigFoupPage.qml 中 Repeater 生成 ChartCard 绑定 seriesModel 等属性。修改点仅布局容器与 columnSpan 规则。",
+    "tech": "QtQuick.Controls + QtQuick.Layouts；现有 ScrollView + ColumnLayout + Repeater，改为 ScrollView + GridLayout (2列) 支持 columnSpan，保持 ChartCard 绑定不变。",
     "risks": [
-      "采集主机默认 192.168.1.8:65432 硬编码，若环境不同需配置/改动。",
-      "仅 FoupAcquisition 使用 socket；Loadport 曲线仍为随机示例，可能与实际硬件数据不符。",
-      "缺少自动化 GUI/网络测试，图表渲染需实机观察。"
+      "奇数>3的布局规则未明，拟采用奇数时首卡跨两列的通用规则。",
+      "卡片高度需平衡可视性与滚动；需避免水平滚动。",
+      "无自动化 GUI 测试，需手动验证布局。"
     ],
-    "verification": "可执行的单测仅 tests/test_serial_device.py；图表链路需在 GUI 环境下启动 app、调用 foupAcquisition.startAcquisition 并观察 ChartCard 曲线滚动、OOC/OOS/Target 线显示及 channelCount 变更。"
+    "verification": "手动/视觉检查：1/2/3/4/5 以上通道数场景下网格布局符合规则；垂直滚动可见全部；无水平滚动。自动测试暂无。"
   }
 }

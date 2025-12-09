@@ -149,6 +149,14 @@
   4) 与 IP 弹窗位置一致。 
 - Risk Assessment: 中。GUI 行为需实机确认；若通道数未知时下拉默认 1，需结合采集控制器 channelCount 实际检查。 
 
+## Verification - 2025-12-05T09:51:10+08:00
+- Executor: Codex
+- Scope: Config FOUP 图表自适应网格（1全宽；2两列；3首卡跨两列半高；4 2x2 半高；>4 溢出半高滚动）
+- Command: `PYTHONPATH=src QT_QPA_PLATFORM=offscreen python3 -m voc_app.gui.app`（未执行）
+- Result: ⚠️ Blocked
+- Details: 当前环境缺少 PySide6，无法运行 GUI 验证。已进行代码审查：移除分页，GridLayout 两列，三张及以上时首卡跨两列但仅占一行半高，其余卡片半高并可滚动，ChartCard 数据绑定保持不变。需在具备 PySide6 的目标设备验证 1/2/3/4/5+ 通道布局与滚动性能。
+- Risk Assessment: 中。布局逻辑依赖实际视口高度和通道数量，需实机确认高度比例与视觉效果是否符合需求。 
+
 ## Verification - 2025-12-02T16:11:49+08:00
 - Executor: Codex
 - Scope: 为 SocketCommunicator 设置 2s 超时，避免 socket recv 长时间阻塞线程
@@ -184,3 +192,15 @@
   2) 单张 ChartCard 占满宽度，文本/限界线渲染正常；
   3) 状态行显示服务器类型与通道数，滚动时保持可见。 
 - Risk Assessment: 低-中。需在小屏幕设备上确认滚动体验与性能。 
+
+## Verification - 2025-12-03T16:09:00+08:00
+- Executor: Codex
+- Scope: Config FOUP 图表改为自适应网格（1全宽；2两列；3首卡跨两列+下一行两列；4 2x2；>4 同规则，垂直滚动）
+- Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed（仅串口单测，未覆盖 QML）
+- Details: 布局改动在 `src/voc_app/gui/qml/views/config/ConfigFoupPage.qml`，ChartCard 数据绑定保持不变，GridLayout 2 列、奇数首卡跨两列，状态行占两列。
+- Hand-check (需 GUI 环境，PySide6 与采集数据源):
+  1) channelCount=1 时单卡全宽显示；2 时同一行两列；3 时第一行单卡跨两列，第二行两列展示剩余卡片；4 时 2x2；
+  2) channelCount>4 时网格继续按两列填充，首卡跨两列（奇数），仅垂直滚动，无水平滚动；
+  3) 每张卡片标题/单位/限界线与实时数据正常刷新，状态行显示服务端类型与通道数。
+- Risk Assessment: 中。缺少 GUI 自动化测试，需人工验证各通道数场景下的布局与性能。 

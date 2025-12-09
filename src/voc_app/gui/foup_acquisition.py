@@ -376,8 +376,8 @@ class FoupAcquisitionController(QObject):
     def __init__(
         self,
         series_models: Iterable[QObject],
-        host: str = "192.168.1.8",
-        # host: str = "127.0.0.1",
+        # host: str = "192.168.1.8",
+        host: str = "127.0.0.1",
         port: int = 65432,
         parent: QObject | None = None,
     ) -> None:
@@ -398,7 +398,7 @@ class FoupAcquisitionController(QObject):
         self._last_timestamp_ms = 0.0
         self._channel_count = 0  # 初始为 0，表示未检测
         self._server_type: ServerType = ServerType.UNKNOWN
-        self._server_type_detected = False  # 标记是否已检测过服务端类型
+        self._detected_channel_count: int = 0  # 记录已检测到的通道数，用于动态调整
 
         # 通道配置管理器
         self._config_manager = ChannelConfigManager()
@@ -488,6 +488,7 @@ class FoupAcquisitionController(QObject):
         self._worker = threading.Thread(target=self._run_loop, daemon=True)
         self._worker.start()
         self._last_timestamp_ms = 0.0
+        self._detected_channel_count = 0
 
     @Slot()
     def stopAcquisition(self) -> None:
@@ -548,10 +549,10 @@ class FoupAcquisitionController(QObject):
         if not values:
             return
 
-        # 首次检测到数据时，根据通道数检测服务端类型
+        # 通道数变化时，根据通道数检测/更新服务端类型与配置
         detected_count = len(values)
-        if not self._server_type_detected:
-            self._server_type_detected = True
+        if self._detected_channel_count != detected_count:
+            self._detected_channel_count = detected_count
             # 使用信号在主线程中处理类型检测和配置应用
             self._serverTypeDetected.emit(detected_count)
 
@@ -590,21 +591,25 @@ class FoupAcquisitionController(QObject):
             self._server_type = new_type
             # 更新配置管理器的服务端类型
             self._config_manager.set_server_type(new_type)
-            # 应用预设配置到所有通道
-            self._apply_preset_config(new_type)
+            # 应用预设配置到所有通道（使用实际通道数保证标题/单位同步）
+            self._apply_preset_config(new_type, channel_count)
             self.serverTypeChanged.emit()
             print(
                 f"[INFO] 检测到服务端类型: {new_type.value} (通道数: {channel_count})"
             )
+        else:
+            # 即便类型未变更，也要在通道数变化时刷新配置，保证标题/单位覆盖新通道
+            self._apply_preset_config(new_type, channel_count)
 
-    def _apply_preset_config(self, server_type: ServerType) -> None:
+    def _apply_preset_config(self, server_type: ServerType, channel_count: int) -> None:
         """应用预设配置到所有通道"""
         preset = ServerTypeRegistry.get_preset(server_type)
-
         # 设置配置管理器的服务端类型，确保配置键正确
         self._config_manager.set_server_type(server_type)
 
-        for channel_idx in range(preset.channel_count):
+        # 以实际检测到的通道数为准，缺省时使用预设末尾作为默认
+        total = max(channel_count, preset.channel_count)
+        for channel_idx in range(total):
             channel_preset = preset.get_channel_preset(channel_idx)
             # 使用预设创建配置并保存
             config = ChannelConfig.from_preset(channel_preset)

@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-12-03T15:45:20+08:00",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "采集线程在 Socket 长时间无响应或连接拒绝时如何优雅退出？当前 _recv_exact 在阻塞状态下 stop 事件无法生效，是否需要超时/重连策略。",
+      "priority": "high",
+      "status": "open",
+      "notes": "SocketCommunicator.recv 在超时返回空字节，上层 _recv_exact 将其视为断开，但如果服务器卡死且未触发超时会阻塞；可通过设置较短超时或非阻塞 recv 解决。"
+    },
+    {
+      "id": "Q2",
+      "question": "host/port 及 channel 预设（PID/Noise）是否应改为可配置来源？目前硬编码在 foup_acquisition.ServerTypeRegistry 与 app.py。",
+      "priority": "medium",
+      "status": "open",
+      "notes": "没有配置文件或 QML 设置项可修改；优化方向是从 JSON/环境读取并在 UI 暴露。"
+    },
+    {
+      "id": "Q3",
+      "question": "在无硬件/无 PySide6 环境下如何执行最小化测试？是否需要条件导入或模拟层以支撑 CI-less 验证。",
+      "priority": "medium",
+      "status": "open",
+      "notes": "当前 import socket_client 时依赖 pyserial，E84 直接依赖 RPi.GPIO；缺少软模拟导致冒烟测试失败。"
+    }
+  ]
+}

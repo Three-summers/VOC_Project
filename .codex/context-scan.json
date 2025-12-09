@@ -1,49 +1,39 @@
 {
-  "timestamp": "2025-12-02T15:33:38+08:00",
-  "taskScope": "梳理 socket 接收数据到图表展示的完整逻辑（只读分析）",
-  "locations": {
-    "appEntry": {
-      "file": "src/voc_app/gui/app.py",
-      "role": "PySide6 入口，注入 QML 上下文。创建 ChartDataListModel，预置 2 条 Loadport SeriesTableModel（随机生成示例）和最多 8 条 FOUP SeriesTableModel，并实例化 FoupAcquisitionController 绑定这些模型。"
+  "timestamp": "2025-12-05T01:45:14Z",
+  "scope": "Config Foup 动态图表布局",
+  "locations": [
+    "src/voc_app/gui/qml/views/config/ConfigFoupPage.qml",
+    "src/voc_app/gui/qml/components/ChartCard.qml"
+  ],
+  "current_state": {
+    "layout_logic": "ScrollView 内 ColumnLayout，Repeater 将通道分组为每页最多 4 个，GridLayout 两列铺排。1/2 张卡片占满列高，3 张时首卡跨两列占 55% 高，其余各占 45% 高，4 张时各占半高。每页高度取 scrollView 高度或 480 的较大值。",
+    "data_source": "foupAcquisition 提供 channelCount、标题、单位、限值等；chartEntry 允许从 chartListModel 取系列配置。",
+    "paging_behavior": "charts 分页，每页最多 4 个，ColumnLayout 垂直堆叠多页，scroll 纵向滚动，单页高度等于可视区。",
+    "styles": "ChartCard 组件提供卡片样式与图表绘制，默认 Layout.preferredHeight 220，但在页面中被覆盖。"
+  },
+  "similar_components": [
+    {
+      "file": "src/voc_app/gui/qml/views/DataLogView.qml",
+      "note": "chartsGrid/zoomChartCard 使用 ChartCard，布局和放大切换可参考高度与填充处理。"
     },
-    "socketClient": {
-      "file": "src/voc_app/gui/socket_client.py",
-      "role": "通信抽象与 SocketCommunicator，实现长度前缀协议 + UTF-8 文本消息；Client 封装 run_shell/get_file，但 FoupAcquisition 仅复用 SocketCommunicator。"
+    {
+      "file": "src/voc_app/gui/qml/views/StatusView.qml",
+      "note": "Repeater 直接堆叠 ChartCard，示例了基本填充和标题区样式。"
     },
-    "foupAcquisition": {
-      "file": "src/voc_app/gui/foup_acquisition.py",
-      "role": "采集线程：连接 host/port，发送 voc_data_coll_ctrl_start/stop，按 4 字节大端长度读取消息，逗号拆分多通道 float，dataPointReceived 信号把 (timestamp_ms, values[]) 追加到各 SeriesTableModel。首次包依据通道数检测 ServerType 并应用 ChannelConfig 预设。"
-    },
-    "qmlCharts": {
-      "files": [
-        "src/voc_app/gui/qml/components/ChartCard.qml",
-        "src/voc_app/gui/qml/views/config/ConfigFoupPage.qml",
-        "src/voc_app/gui/qml/main.qml"
-      ],
-      "role": "QML 侧通过 chartListModel.get 取 seriesModel/x/y 列并生成 ChartCard。ChartCard 用 VXYModelMapper 绑定 SeriesTableModel -> LineSeries/ScatterSeries，DateTimeAxis 显示 ms 时间，绘制 OOC/OOS/Target 限界线；ConfigFoupPage 按 channelCount 重复生成图表，展示当前值/限界。"
+    {
+      "file": "src/voc_app/gui/qml/components/ChartCard.qml",
+      "note": "核心图表组件，定义 Layout 属性、半径、颜色与轴线设置。"
     }
-  },
-  "techStack": {
-    "backend": "Python 3 + PySide6 (Qt Charts/QML)。SocketCommunicator 基于 TCP，FoupAcquisition 独立线程 + 信号跨线程写 QAbstractTableModel。",
-    "frontend": "QtQuick/QtCharts QML 组件，ChartCard + VXYModelMapper 读取 SeriesTableModel。"
-  },
+  ],
   "tests": {
-    "unit": {
-      "command": "PYTHONPATH=src python3 -m unittest tests/test_serial_device.py",
-      "status": "覆盖串口设备，未覆盖 GUI/socket 绘图链路"
-    },
-    "gui": {
-      "status": "无自动 GUI 测试；需实机观察采集开始后曲线滚动与限界线显示"
-    }
-  },
-  "observationReport": {
-    "gaps": [
-      "默认 host=192.168.1.8/port=65432 硬编码，需实机确认服务端一致。",
-      "Loadport 曲线当前由 ChartDataGenerator 随机数据驱动，与 socket 无关。"
+    "existing": [
+      "tests/test_serial_device.py"
     ],
-    "nextSteps": [
-      "确认是否存在其他 socket 消费者（目前仅 FoupAcquisition），关注 channel_config.json 持久化的影响。",
-      "在 QML 中核对 chartListModel 索引与 Foup 通道对应关系（基准索引 2）。"
-    ]
-  }
+    "gaps": "未发现针对 GUI/QML 的自动化测试，布局修改需手动或运行应用验证。"
+  },
+  "observations": [
+    "现有逻辑按每 4 个分页，且高度规则与需求不完全匹配，需要重写布局算法。",
+    "需支持单数时首卡跨两列，其余按两列排布，并处理超过 4 个时滚动和高度折半要求。",
+    "需确认滚动区域高度与首屏高度的关系，避免无限增长。"
+  ]
 }

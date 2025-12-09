@@ -1,6 +1,6 @@
 {
   "unknown_0": {
-    "title": "FOUP 通道 1",
+    "title": "通道 1",
     "unit": "",
     "ooc_upper": 80.0,
     "ooc_lower": 20.0,
@@ -67,6 +67,76 @@
     "show_ooc_lower": false,
     "show_oos_upper": true,
     "show_oos_lower": false,
+    "show_target": true
+  },
+  "unknown_1": {
+    "title": "通道 1",
+    "unit": "",
+    "ooc_upper": 80.0,
+    "ooc_lower": 20.0,
+    "oos_upper": 90.0,
+    "oos_lower": 10.0,
+    "target": 50.0,
+    "show_ooc_upper": true,
+    "show_ooc_lower": true,
+    "show_oos_upper": true,
+    "show_oos_lower": true,
+    "show_target": true
+  },
+  "unknown_2": {
+    "title": "通道 1",
+    "unit": "",
+    "ooc_upper": 80.0,
+    "ooc_lower": 20.0,
+    "oos_upper": 90.0,
+    "oos_lower": 10.0,
+    "target": 50.0,
+    "show_ooc_upper": true,
+    "show_ooc_lower": true,
+    "show_oos_upper": true,
+    "show_oos_lower": true,
+    "show_target": true
+  },
+  "unknown_3": {
+    "title": "通道 1",
+    "unit": "",
+    "ooc_upper": 80.0,
+    "ooc_lower": 20.0,
+    "oos_upper": 90.0,
+    "oos_lower": 10.0,
+    "target": 50.0,
+    "show_ooc_upper": true,
+    "show_ooc_lower": true,
+    "show_oos_upper": true,
+    "show_oos_lower": true,
+    "show_target": true
+  },
+  "unknown_4": {
+    "title": "通道 1",
+    "unit": "",
+    "ooc_upper": 80.0,
+    "ooc_lower": 20.0,
+    "oos_upper": 90.0,
+    "oos_lower": 10.0,
+    "target": 50.0,
+    "show_ooc_upper": true,
+    "show_ooc_lower": true,
+    "show_oos_upper": true,
+    "show_oos_lower": true,
+    "show_target": true
+  },
+  "unknown_5": {
+    "title": "通道 1",
+    "unit": "",
+    "ooc_upper": 80.0,
+    "ooc_lower": 20.0,
+    "oos_upper": 90.0,
+    "oos_lower": 10.0,
+    "target": 50.0,
+    "show_ooc_upper": true,
+    "show_ooc_lower": true,
+    "show_oos_upper": true,
+    "show_oos_lower": true,
     "show_target": true
   }
 }
