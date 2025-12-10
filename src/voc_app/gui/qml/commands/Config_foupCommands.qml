@@ -19,7 +19,6 @@ Column {
     readonly property int channelCount: (acquisitionController && acquisitionController.channelCount) ? acquisitionController.channelCount : 1
     property string ipText: (acquisitionController && acquisitionController.host) ? acquisitionController.host : ""
     property string operationMode: (acquisitionController && acquisitionController.operationMode) ? acquisitionController.operationMode : "test"
-    property string normalPathText: (acquisitionController && acquisitionController.normalModeRemotePath) ? acquisitionController.normalModeRemotePath : "Log"
 
     Connections {
         target: acquisitionController
@@ -28,11 +27,6 @@ Column {
         }
         function onOperationModeChanged() {
             operationMode = acquisitionController.operationMode
-        }
-        function onNormalModeRemotePathChanged() {
-            normalPathText = acquisitionController.normalModeRemotePath
-            if (remotePathField)
-                remotePathField.text = acquisitionController.normalModeRemotePath
         }
     }
 
@@ -45,74 +39,17 @@ Column {
         width: parent.width
     }
 
-    RowLayout {
-        Layout.fillWidth: true
-        spacing: Components.UiTheme.spacing("sm")
-        Label {
-            text: "采集模式"
-            color: Components.UiTheme.color("textSecondary")
-            font.pixelSize: Components.UiTheme.fontSize("body")
-            Layout.preferredWidth: 72
-        }
-        ComboBox {
-            id: modeCombo
-            Layout.fillWidth: true
-            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
-            model: [
-                { title: "测试模式（实时）", value: "test" },
-                { title: "正常模式（下载）", value: "normal" }
-            ]
-            textRole: "title"
-            valueRole: "value"
-            currentIndex: {
-                var idx = model.findIndex(function(item) { return item.value === operationMode; });
-                return idx >= 0 ? idx : 0;
+    CustomButton {
+        text: "切换模式（当前: " + (operationMode === "normal" ? "正常" : "测试") + "）"
+        width: parent.width
+        onClicked: {
+            if (!acquisitionController) {
+                console.warn("foupAcquisition 未注入");
+                return;
             }
-            onActivated: function(index) {
-                var item = model[index];
-                if (item && acquisitionController) {
-                    operationMode = item.value;
-                    acquisitionController.operationMode = operationMode;
-                }
-            }
+            operationMode = operationMode === "normal" ? "test" : "normal";
+            acquisitionController.operationMode = operationMode;
         }
-    }
-
-    RowLayout {
-        visible: operationMode === "normal"
-        Layout.fillWidth: true
-        spacing: Components.UiTheme.spacing("sm")
-        Label {
-            text: "远端目录"
-            color: Components.UiTheme.color("textSecondary")
-            font.pixelSize: Components.UiTheme.fontSize("body")
-            Layout.preferredWidth: 72
-        }
-        TextField {
-            id: remotePathField
-            Layout.fillWidth: true
-            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
-            text: normalPathText
-            font.pixelSize: Components.UiTheme.fontSize("body")
-            color: Components.UiTheme.color("textPrimary")
-            onEditingFinished: {
-                normalPathText = text
-                if (acquisitionController)
-                    acquisitionController.normalModeRemotePath = text
-            }
-        }
-    }
-
-    Text {
-        Layout.fillWidth: true
-        text: {
-            var typeName = acquisitionController ? acquisitionController.serverTypeDisplayName : "未知"
-            var ver = acquisitionController && acquisitionController.serverVersion ? acquisitionController.serverVersion : "--"
-            return "类型: " + typeName + " | 版本: " + ver
-        }
-        color: Components.UiTheme.color("textSecondary")
-        font.pixelSize: Components.UiTheme.fontSize("body")
-        wrapMode: Text.WordWrap
     }
 
     CustomButton {
@@ -144,22 +81,16 @@ Column {
     }
 
     CustomButton {
-        text: {
-            if (acquisitionController && acquisitionController.running)
-                return "采集中"
-            return operationMode === "normal" ? "下载日志" : "开始采集"
-        }
+        text: acquisitionController && acquisitionController.running ? "采集中" : "开始采集（测试模式）"
         width: parent.width
-        enabled: acquisitionController && !acquisitionController.running
+        enabled: acquisitionController && !acquisitionController.running && operationMode === "test"
         status: acquisitionController && acquisitionController.running ? "processing" : "normal"
         onClicked: {
             if (!acquisitionController) {
                 console.warn("foupAcquisition 未注入");
                 return;
             }
-            acquisitionController.operationMode = operationMode;
-            if (operationMode === "normal")
-                acquisitionController.normalModeRemotePath = normalPathText;
+            acquisitionController.operationMode = "test";
             acquisitionController.startAcquisition();
         }
     }

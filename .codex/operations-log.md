@@ -31,3 +31,5 @@
 - 09:37:15 apply_patch: 更新 Config_foupCommands/ConfigFoupPage UI，加入模式切换、远端目录输入、类型/版本状态展示。
 - 09:39:50 shell `python3 -m unittest tests/test_serial_device.py`: 串口单测 1/1 通过（验证基础回归）。
 - 09:40:30 apply_patch: 更新 `.codex/testing.md`、`verification.md` 记录测试结果与未测硬件风险。
+- 10:05:20 apply_patch: 将 Config 模式切换下拉改为按钮；移除 Config 页图表，仅保留版本/状态提示；Status FOUP 页接管实时图表（复用两列布局）。
+- 10:06:10 apply_patch: DataLog 命令面板新增正常模式下载入口与远端目录输入；普通模式操作从 Config 命令迁移至此。

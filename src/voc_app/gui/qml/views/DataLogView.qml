@@ -19,10 +19,19 @@ Rectangle {
     property var lastPlottedColumns: []
     property string lastSettingsSummary: "尚未选择列"
     property string chartFileName: "datalog_chart.png"
+    readonly property var acquisitionController: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+    property string normalPathText: (acquisitionController && acquisitionController.normalModeRemotePath) ? acquisitionController.normalModeRemotePath : "Log"
 
     property bool zoomActive: false
     property string zoomColumnName: ""
     property var zoomDataPoints: null
+
+    Connections {
+        target: acquisitionController
+        function onNormalModeRemotePathChanged() {
+            normalPathText = acquisitionController.normalModeRemotePath
+        }
+    }
 
     // 初次加载或切换视图时自动定位并载入首个文件
     function triggerAutomaticSelection() {
@@ -517,6 +526,39 @@ Rectangle {
             Column {
                 width: parent ? parent.width : Components.UiTheme.controlWidth(320)
                 spacing: Components.UiTheme.spacing("lg")
+
+                Rectangle {
+                    width: parent.width
+                    color: "transparent"
+                    height: Components.UiTheme.controlHeight(90)
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: Components.UiTheme.spacing("sm")
+                        Text {
+                            text: "远端目录（正常模式下载）"
+                            color: Components.UiTheme.color("textPrimary")
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                        }
+                        TextField {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Components.UiTheme.controlHeight("input")
+                            text: dataLogView.normalPathText
+                            font.pixelSize: Components.UiTheme.fontSize("body")
+                            color: Components.UiTheme.color("textPrimary")
+                            background: Rectangle {
+                                color: Components.UiTheme.color("surface")
+                                border.color: Components.UiTheme.color("outline")
+                            }
+                            onEditingFinished: {
+                                dataLogView.normalPathText = text || "Log";
+                                if (dataLogView.acquisitionController) {
+                                    dataLogView.acquisitionController.normalModeRemotePath = dataLogView.normalPathText;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Repeater {
                     model: dataLogView.csvFileManagerRef ? dataLogView.csvFileManagerRef.dataModel : null
                     delegate: RowLayout {
