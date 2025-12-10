@@ -35,6 +35,7 @@ class E84Controller(QObject):
     state_changed = Signal(str)
     warning = Signal(str)
     fatal_error = Signal(str)
+    all_keys_set = Signal()
 
     def __init__(self, refresh_interval: float = 0.2):
         """使用PySide6定时逻辑的E84控制器"""
@@ -91,6 +92,7 @@ class E84Controller(QObject):
         }
 
         self.E84_Key_Old_Value = self.E84_Key_Value.copy()
+        self._keys_all_set: bool = False
 
         self.FOUP_status = True
         self.FOUP_old_status = True
@@ -224,7 +226,7 @@ class E84Controller(QObject):
 
     # 用于 Foup 坐落完成后的预操作
     def _key_set_callback(self):
-        pass
+        self.all_keys_set.emit()
 
     def Refresh_Input(self):
         self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
@@ -234,27 +236,34 @@ class E84Controller(QObject):
             self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
             self.E84_Key_Old_Value = self.E84_Key_Value.copy()
 
-        if (
+        any_key = (
             self.E84_Key_Value["KEY_0"]
             or self.E84_Key_Value["KEY_1"]
             or self.E84_Key_Value["KEY_2"]
-        ):
+        )
+        all_keys_on = (
+            self.E84_Key_Value["KEY_0"]
+            and self.E84_Key_Value["KEY_1"]
+            and self.E84_Key_Value["KEY_2"]
+        )
+
+        if any_key:
             self.FOUP_status = True
             self.E84_InfoPin.set_output("PLACED_LED", LED_ON)
-            if (
-                self.E84_Key_Value["KEY_0"]
-                and self.E84_Key_Value["KEY_1"]
-                and self.E84_Key_Value["KEY_2"]
-            ):
-                self._key_set_callback()
+            if all_keys_on:
+                if not self._keys_all_set:
+                    self._keys_all_set = True
+                    self._key_set_callback()
                 self.E84_SigPin.set_output("HO_AVBL", SIG_ON)
                 self.E84_SigPin.set_output("ES", SIG_ON)
                 self.E84_InfoPin.set_output("ALARM_LED", LED_OFF)
             else:
+                self._keys_all_set = False
                 self.E84_SigPin.set_output("HO_AVBL", SIG_OFF)
                 self.E84_SigPin.set_output("ES", SIG_OFF)
                 self.E84_InfoPin.set_output("ALARM_LED", LED_ON)
         else:
+            self._keys_all_set = False
             self.FOUP_status = False
             self.E84_SigPin.set_output("HO_AVBL", SIG_ON)
             self.E84_SigPin.set_output("ES", SIG_ON)

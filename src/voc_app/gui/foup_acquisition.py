@@ -4,19 +4,19 @@ import threading
 from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Dict, Any, Optional
+from typing import Iterable, List, Dict, Any
 import time
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
-from voc_app.gui.socket_client import SocketCommunicator
+from voc_app.gui.socket_client import SocketCommunicator, Client
 
 
 class ServerType(Enum):
     """服务端类型枚举"""
 
     UNKNOWN = "unknown"
-    PID = "pid"  # 1 个点
+    VOC = "voc"  # 1 个点
     NOISE = "noise"  # 3 个点
     # 未来可扩展更多类型
     # TEMPERATURE = "temperature"
@@ -79,13 +79,13 @@ class ServerTypeRegistry:
 
     # 预设配置定义
     _PRESETS: Dict[ServerType, ServerTypePreset] = {
-        ServerType.PID: ServerTypePreset(
-            server_type=ServerType.PID,
-            display_name="PID 控制",
+        ServerType.VOC: ServerTypePreset(
+            server_type=ServerType.VOC,
+            display_name="VOC 监测",
             channel_count=1,
             channels=[
                 ChannelPreset(
-                    title="PID",
+                    title="VOC",
                     unit="ppb",
                     ooc_upper=3000.0,
                     ooc_lower=0.0,
@@ -172,9 +172,9 @@ class ServerTypeRegistry:
         ),
     }
 
-    # 通道数到服务端类型的映射（当前的检测策略）
+    # 通道数到服务端类型的映射（当前的检测策略）,考虑删除，完全从服务器响应检测
     _CHANNEL_COUNT_MAP: Dict[int, ServerType] = {
-        1: ServerType.PID,
+        1: ServerType.VOC,
         3: ServerType.NOISE,
     }
 
@@ -359,6 +359,28 @@ class FoupAcquisitionController(QObject):
     - 未来：可通过 socket 查询服务端类型
     """
 
+    # 命令集合定义，按类型拆分
+    _COMMAND_SETS: Dict[ServerType, Dict[str, str]] = {
+        ServerType.NOISE: {
+            "sample_normal": "Noise_Hmulity_sample_type_normal",
+            "sample_test": "Noise_Hmulity_sample_type_test",
+            "start": "Noise_Hmulity_data_coll_ctrl_start",
+            "stop": "Noise_Hmulity_data_coll_ctrl_stop",
+        },
+        ServerType.VOC: {
+            "sample_normal": "voc_sample_type_normal",
+            "sample_test": "voc_sample_type_test",
+            "start": "voc_data_coll_ctrl_start",
+            "stop": "voc_data_coll_ctrl_stop",
+        },
+    }
+    _DEFAULT_COMMANDS: Dict[str, str] = {
+        "sample_normal": "voc_sample_type_normal",
+        "sample_test": "voc_sample_type_test",
+        "start": "voc_data_coll_ctrl_start",
+        "stop": "voc_data_coll_ctrl_stop",
+    }
+
     runningChanged = Signal()
     statusMessageChanged = Signal()
     lastValueChanged = Signal()
@@ -368,6 +390,9 @@ class FoupAcquisitionController(QObject):
     hostChanged = Signal()
     channelConfigChanged = Signal(int)  # 通道配置变更信号，参数为通道索引
     serverTypeChanged = Signal()  # 服务端类型变更信号
+    serverVersionChanged = Signal()
+    operationModeChanged = Signal()
+    normalModeRemotePathChanged = Signal()
     # 新增信号：用于跨线程传递数据点到主线程（支持多通道）
     dataPointReceived = Signal(float, list)  # x, [y1, y2, y3, ...]
     # 内部信号：用于跨线程触发服务端类型检测
@@ -398,6 +423,10 @@ class FoupAcquisitionController(QObject):
         self._last_timestamp_ms = 0.0
         self._channel_count = 0  # 初始为 0，表示未检测
         self._server_type: ServerType = ServerType.UNKNOWN
+        self._server_version: str = ""
+        self._operation_mode: str = "test"  # normal/test
+        self._normal_mode_remote_path: str = "Log"  # normal 模式远端路径，默认 Log
+        self._server_type_detected: bool = False
         self._detected_channel_count: int = 0  # 记录已检测到的通道数，用于动态调整
 
         # 通道配置管理器
@@ -430,7 +459,7 @@ class FoupAcquisitionController(QObject):
         return self._channel_count
 
     @Property(str, notify=hostChanged)
-    def host(self) -> str:
+    def host(self) -> str: # type: ignore
         return self._host
 
     @host.setter
@@ -447,6 +476,37 @@ class FoupAcquisitionController(QObject):
             return
         self._host = new_host
         self.hostChanged.emit()
+
+    @Property(str, notify=operationModeChanged)
+    def operationMode(self) -> str: # type: ignore
+        """返回当前采集模式：normal/test"""
+        return self._operation_mode
+
+    @operationMode.setter
+    def operationMode(self, value: str) -> None:
+        new_mode = (value or "test").strip().lower()
+        if new_mode not in {"normal", "test"}:
+            new_mode = "test"
+        if new_mode != self._operation_mode:
+            self._operation_mode = new_mode
+            self.operationModeChanged.emit()
+
+    @Property(str, notify=normalModeRemotePathChanged)
+    def normalModeRemotePath(self) -> str: # type: ignore
+        """normal 模式下载的远端路径（默认 Log）"""
+        return self._normal_mode_remote_path
+
+    @normalModeRemotePath.setter
+    def normalModeRemotePath(self, value: str) -> None:
+        path = value.strip() if value else "Log"
+        if path != self._normal_mode_remote_path:
+            self._normal_mode_remote_path = path
+            self.normalModeRemotePathChanged.emit()
+
+    @Property(str, notify=serverVersionChanged)
+    def serverVersion(self) -> str:
+        """返回最近一次 get_function_version_info 的版本号"""
+        return self._server_version
 
     @Property(str, notify=serverTypeChanged)
     def serverType(self) -> str:
@@ -465,48 +525,64 @@ class FoupAcquisitionController(QObject):
     def startAcquisition(self) -> None:
         if self._running or (self._worker and self._worker.is_alive()):
             return
-        if not self._series_models:
-            self._set_status("无可用曲线")
-            return
         if not self._host:
             self._set_status("请先配置采集 IP")
             return
-        for model in self._series_models:
-            try:
-                clear_fn = getattr(model, "clear", None)
-                if callable(clear_fn):
-                    clear_fn()
-            except Exception as exc:
-                print(f"[WARN] foup_acquisition: clear series failed: {exc!r}")
-        self._sample_index = 0
+        if self._operation_mode == "test" and not self._series_models:
+            self._set_status("无可用曲线")
+            return
+
+        # 清空历史数据
+        if self._operation_mode == "test":
+            for model in self._series_models:
+                try:
+                    clear_fn = getattr(model, "clear", None)
+                    # 检查 clear 方法是否存在并可调用
+                    if callable(clear_fn):
+                        clear_fn()
+                except Exception as exc:
+                    print(f"[WARN] foup_acquisition: clear series failed: {exc!r}")
+            self._sample_index = 0
+            self._last_timestamp_ms = 0.0
+
         self._stop_event.clear()
-        # 重置服务端类型检测状态
         self._server_type_detected = False
         self._server_type = ServerType.UNKNOWN
+        self._server_version = ""
         self._channel_count = 0
-        self._set_status("正在连接...")
-        self._worker = threading.Thread(target=self._run_loop, daemon=True)
-        self._worker.start()
-        self._last_timestamp_ms = 0.0
         self._detected_channel_count = 0
+
+        # 选择运行目标
+        target = (
+            self._run_normal_mode
+            if self._operation_mode == "normal"
+            else self._run_test_mode
+        )
+        self._set_status(
+            "准备下载日志" if self._operation_mode == "normal" else "正在连接..."
+        )
+        self._worker = threading.Thread(target=target, daemon=True)
+        self._worker.start()
 
     @Slot()
     def stopAcquisition(self) -> None:
         self._stop_event.set()
         self._set_status("正在停止...")
-        # self._send_command("power off")
-        self._send_command("voc_data_coll_ctrl_stop")
+        self._send_stop_command()
         QTimer.singleShot(500, self._close_socket)
 
     # ---- 内部实现 ----
 
-    def _run_loop(self) -> None:
+    def _run_test_mode(self) -> None:
         try:
             self._communicator = SocketCommunicator(self._host, self._port)
             self._set_running(True)
             self._set_status("采集中")
-            # self._send_command("power on")
-            self._send_command("voc_data_coll_ctrl_start")
+            self._perform_version_query()
+            self._send_sample_type_command()
+            start_cmd = self._select_command("start")
+            if start_cmd:
+                self._send_command(start_cmd)
             while not self._stop_event.is_set():
                 message = self._recv_message()
                 if message is None:
@@ -516,16 +592,156 @@ class FoupAcquisitionController(QObject):
             self.errorOccurred.emit(f"FOUP 采集异常: {exc}")
             self._set_status(f"异常: {exc}")
         finally:
+            self._send_stop_command()
             self._close_socket()
             self._set_running(False)
             if not self._status.startswith("异常"):
                 self._set_status("已停止")
             self._stop_event.clear()
 
+    def _run_normal_mode(self) -> None:
+        """normal 模式：查询版本并下载日志目录"""
+        try:
+            self._communicator = SocketCommunicator(self._host, self._port)
+            self._set_running(True)
+            self._set_status("查询版本...")
+            self._perform_version_query()
+            self._send_sample_type_command()
+        except Exception as exc:  # noqa: BLE001
+            self.errorOccurred.emit(f"FOUP 连接异常: {exc}")
+            self._set_status(f"异常: {exc}")
+        finally:
+            self._close_socket()
+
+        if self._stop_event.is_set():
+            self._set_running(False)
+            self._set_status("已停止")
+            self._stop_event.clear()
+            return
+
+        try:
+            self._set_status("正在下载日志...")
+            saved_files = self._download_logs()
+            if self._stop_event.is_set():
+                self._set_status("已停止")
+            else:
+                self._set_status(f"下载完成: {len(saved_files)} 个文件")
+        except Exception as exc:  # noqa: BLE001
+            self.errorOccurred.emit(f"FOUP 下载异常: {exc}")
+            self._set_status(f"异常: {exc}")
+        finally:
+            self._set_running(False)
+            self._stop_event.clear()
+
+    def _download_logs(self) -> List[str]:
+        """使用单独连接下载远端目录到本地 Log"""
+        if self._stop_event.is_set():
+            return []
+        dest_root = Path(__file__).parent / "Log"
+        dest_root.mkdir(parents=True, exist_ok=True)
+        communicator: SocketCommunicator | None = None
+        client: Client | None = None
+        try:
+            communicator = SocketCommunicator(self._host, self._port)
+            client = Client(communicator)
+            return client.get_file(self._normal_mode_remote_path, str(dest_root))
+        finally:
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+
+    def _perform_version_query(self) -> None:
+        """发送版本查询并根据响应设置类型/版本"""
+        try:
+            self._send_command("get_function_version_info")
+        except Exception:
+            return
+        for _ in range(3):
+            response = self._recv_message()
+            if not response:
+                break
+            if response.strip().lower() == "ack":
+                self._set_status("收到 ACK")
+                continue
+            detected_type, version = self._parse_version_response(response)
+            if detected_type != ServerType.UNKNOWN or version:
+                self._apply_server_identity(detected_type, version)
+                break
+
+    def _parse_version_response(self, response: str) -> tuple[ServerType, str]:
+        cleaned = (response or "").strip()
+        if not cleaned:
+            return ServerType.UNKNOWN, ""
+        if not any(ch.isalpha() for ch in cleaned):
+            return ServerType.UNKNOWN, ""
+        parts = [part.strip() for part in cleaned.split(",") if part.strip()]
+        type_token = parts[0] if parts else cleaned
+        version = parts[1] if len(parts) > 1 else ""
+        lower_token = type_token.lower()
+        if "voc" in lower_token:
+            return ServerType.VOC, version
+        if "noise" in lower_token:
+            return ServerType.NOISE, version
+        return ServerType.UNKNOWN, version
+
+    def _apply_server_identity(
+        self, server_type: ServerType, version: str | None = None
+    ) -> None:
+        """根据版本响应更新服务端类型与版本"""
+        if server_type != ServerType.UNKNOWN and self._server_type != server_type:
+            self._server_type = server_type
+            preset = ServerTypeRegistry.get_preset(server_type)
+            self._config_manager.set_server_type(server_type)
+            self._apply_preset_config(server_type, preset.channel_count)
+            if self._channel_count != preset.channel_count:
+                self._channel_count = preset.channel_count
+                self.channelCountChanged.emit()
+            self.serverTypeChanged.emit()
+        if version is not None and version != self._server_version:
+            self._server_version = version
+            self.serverVersionChanged.emit()
+
+    def _select_command(self, key: str) -> str | None:
+        """按当前服务端类型返回对应命令"""
+        commands = self._COMMAND_SETS.get(self._server_type)
+        if not commands:
+            commands = self._DEFAULT_COMMANDS
+        return commands.get(key) or self._DEFAULT_COMMANDS.get(key)
+
+    def _send_sample_type_command(self) -> None:
+        """根据模式发送采样类型命令"""
+        cmd_key = "sample_normal" if self._operation_mode == "normal" else "sample_test"
+        cmd = self._select_command(cmd_key)
+        if cmd:
+            self._send_command(cmd)
+
+    def _send_stop_command(self) -> None:
+        """发送当前类型对应的停止命令"""
+        if not self._communicator:
+            return
+        cmd = self._select_command("stop")
+        if cmd:
+            self._send_command(cmd)
+
     def _handle_line(self, text: str) -> None:
         cleaned = text.strip()
         if not cleaned:
             return
+
+        lower_text = cleaned.lower()
+        if lower_text == "ack":
+            # 控制命令的简单应答
+            self._set_status("收到 ACK")
+            return
+
+        parsed_type, version = self._parse_version_response(cleaned)
+        if parsed_type != ServerType.UNKNOWN or version:
+            self._apply_server_identity(parsed_type, version)
+            # 非纯数字的版本行不再当作数据处理
+            if not all(ch in "0123456789.,-+ " for ch in cleaned):
+                return
 
         # 解析逗号分隔的数据
         values = []
@@ -625,7 +841,7 @@ class FoupAcquisitionController(QObject):
                 if channel_idx < len(self._series_models):
                     model = self._series_models[channel_idx]
                     if model is not None:
-                        model.append_point(x, y_value)
+                        model.append_point(x, y_value) # type: ignore
         except Exception as exc:
             print(
                 f"[ERROR] foup_acquisition: Exception in _append_point_to_model(): {exc!r}"
@@ -703,7 +919,7 @@ class FoupAcquisitionController(QObject):
 
     # ---- 通道配置相关槽函数（供 QML 调用）----
 
-    @Slot(int, result="QVariant")
+    @Slot(int, result="QVariant") # type: ignore
     def getChannelConfig(self, channel_idx: int) -> Dict[str, Any]:
         """获取指定通道的配置，返回字典供 QML 使用"""
         config = self._config_manager.get(channel_idx)
@@ -736,7 +952,7 @@ class FoupAcquisitionController(QObject):
         )
         self.channelConfigChanged.emit(channel_idx)
 
-    @Slot(int, "QVariant")
+    @Slot(int, "QVariant") # type: ignore
     def setChannelConfig(self, channel_idx: int, config_dict: Dict[str, Any]) -> None:
         """设置指定通道的完整配置"""
         config = ChannelConfig.from_dict(config_dict)

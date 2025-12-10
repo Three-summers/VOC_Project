@@ -110,6 +110,51 @@ Item {
                         color: Components.UiTheme.color("textPrimary")
                     }
                 }
+
+                Text {
+                    text: "采集模式"
+                    color: Components.UiTheme.color("textSecondary")
+                    font.pixelSize: Components.UiTheme.fontSize("body")
+                }
+
+                Text {
+                    text: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                          ? (foupAcquisition.operationMode === "normal" ? "正常模式（下载）" : "测试模式（实时）")
+                          : "--"
+                    font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                    font.bold: true
+                    color: Components.UiTheme.color("textPrimary")
+                }
+
+                Text {
+                    text: "服务器类型"
+                    color: Components.UiTheme.color("textSecondary")
+                    font.pixelSize: Components.UiTheme.fontSize("body")
+                }
+
+                Text {
+                    text: (typeof foupAcquisition !== "undefined" && foupAcquisition)
+                          ? foupAcquisition.serverTypeDisplayName
+                          : "未知"
+                    font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                    font.bold: true
+                    color: Components.UiTheme.color("textPrimary")
+                }
+
+                Text {
+                    text: "版本号"
+                    color: Components.UiTheme.color("textSecondary")
+                    font.pixelSize: Components.UiTheme.fontSize("body")
+                }
+
+                Text {
+                    text: (typeof foupAcquisition !== "undefined" && foupAcquisition && foupAcquisition.serverVersion.length > 0)
+                          ? foupAcquisition.serverVersion
+                          : "--"
+                    font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                    font.bold: true
+                    color: Components.UiTheme.color("textPrimary")
+                }
             }
 
             // 动态图表容器：根据数量自适应两列，超出部分滚动展示

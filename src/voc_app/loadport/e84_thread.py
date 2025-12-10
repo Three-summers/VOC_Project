@@ -44,6 +44,7 @@ class E84ControllerThread(QObject):
     e84_warning = Signal(str)
     e84_fatal_error = Signal(str)
     system_event = Signal(str, str)
+    all_keys_set = Signal()
 
     def __init__(self, parent: QObject | None = None, **controller_kwargs):
         super().__init__(parent)
@@ -65,9 +66,10 @@ class E84ControllerThread(QObject):
     @Slot()
     def stop(self) -> None:
         if self._thread.isRunning():
+            # 这里使用 invokeMethod 是为了跨线程通信
             QMetaObject.invokeMethod(
                 self._worker,
-                "stop_controller",
+                "stop_controller",  # type: ignore
                 Qt.ConnectionType.QueuedConnection,
             )
             self._thread.quit()
@@ -98,6 +100,11 @@ class E84ControllerThread(QObject):
         self.e84_fatal_error.emit(message)
         self.system_event.emit("e84_fatal_error", message)
 
+    @Slot()
+    def _relay_all_keys_set(self) -> None:
+        self.all_keys_set.emit()
+        self.system_event.emit("e84_all_keys_set", "true")
+
     @Slot(str)
     def _handle_worker_error(self, message: str) -> None:
         self.error.emit(message)
@@ -107,6 +114,7 @@ class E84ControllerThread(QObject):
         controller.state_changed.connect(self._relay_controller_state)
         controller.warning.connect(self._relay_controller_warning)
         controller.fatal_error.connect(self._relay_controller_fatal)
+        controller.all_keys_set.connect(self._relay_all_keys_set)
 
     def _disconnect_controller_signals(self) -> None:
         if not self._controller:
@@ -115,6 +123,7 @@ class E84ControllerThread(QObject):
             self._controller.state_changed.disconnect(self._relay_controller_state)
             self._controller.warning.disconnect(self._relay_controller_warning)
             self._controller.fatal_error.disconnect(self._relay_controller_fatal)
+            self._controller.all_keys_set.disconnect(self._relay_all_keys_set)
         except TypeError:
             pass
         self._controller = None

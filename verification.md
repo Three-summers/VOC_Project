@@ -204,3 +204,16 @@
   2) channelCount>4 时网格继续按两列填充，首卡跨两列（奇数），仅垂直滚动，无水平滚动；
   3) 每张卡片标题/单位/限界线与实时数据正常刷新，状态行显示服务端类型与通道数。
 - Risk Assessment: 中。缺少 GUI 自动化测试，需人工验证各通道数场景下的布局与性能。 
+
+## Verification - 2025-12-09T09:40:00+08:00
+- Executor: Codex
+- Scope: 采集模式切换（正常模式下载日志 / 测试模式实时采集）、版本查询解析、ACK 兼容、E84 三键自动触发桥接、Config UI 模式切换。
+- Command: `python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed（仅串口单测）
+- Details: 后端增加 get_function_version_info 解析、类型化命令表、normal 模式通过 Client.get_file 下载 Log 目录，ACK 直接提示并忽略解析；E84 控制器新增 all_keys_set 信号，GUI 可通过 LoadportBridge 自动调用 startAcquisition（默认启用，可用 DISABLE_E84_BRIDGE 关闭）。Config 页新增模式切换、远端目录输入与类型/版本展示。未在无硬件/无服务器环境下执行实际连接、下载或 E84 信号验证。
+- Hand-check (需服务器与硬件环境):
+  1) 三键同时落下时 GUI 自动建立长连接并先发送 get_function_version_info；根据返回类型发送 sample_type_normal/test，再按模式开始采集或下载，状态文本更新。
+  2) normal 模式下能够从远端目录（默认 Log，可配置）下载文件到本地 Log；下载过程中 running 状态可见，完成后状态提示文件数。
+  3) 测试模式下 start/stop 发送类型化命令，ACK 返回不影响数据解析；断流或停止后 socket 正常关闭。
+  4) Config 命令面板模式切换/目录输入与后端属性同步，服务器类型与版本在页面显示正确。
+- Risk Assessment: 高（缺少真实服务器和 E84 硬件验证）。需在目标设备上实机验证自动建连、日志下载、ACK 行为与 UI 状态。 

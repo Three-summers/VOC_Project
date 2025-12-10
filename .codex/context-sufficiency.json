@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-03T16:02:40+08:00",
+  "timestamp": "2025-12-09T09:25:34Z",
   "checks": {
     "interfaceDefined": true,
     "techChoicesUnderstood": true,
@@ -7,13 +7,13 @@
     "verificationKnown": true
   },
   "notes": {
-    "interfaces": "布局输入：foupAcquisition.channelCount, chartListModel.get(index), foupChartIndex=2；输出：ConfigFoupPage.qml 中 Repeater 生成 ChartCard 绑定 seriesModel 等属性。修改点仅布局容器与 columnSpan 规则。",
-    "tech": "QtQuick.Controls + QtQuick.Layouts；现有 ScrollView + ColumnLayout + Repeater，改为 ScrollView + GridLayout (2列) 支持 columnSpan，保持 ChartCard 绑定不变。",
+    "interfaces": "QML: ConfigFoupPage/Config_foupCommands 需新增模式切换控件并绑定 foupAcquisition 属性；E84 三键事件可通过 E84Controller._key_set_callback → 信号/回调触发 foup 连接；正常模式将调用 Client.get_file(remotePath→local Log)，测试模式沿用 start/stop 采集线程。后端需暴露 setOperationMode/getOperationMode、triggerAutoStartFromE84() 等接口。",
+    "tech": "沿用 PySide6 + QML，socket 协议使用现有长度前缀；目录下载复用 gui/socket_client.py Client.get_file；E84 事件通过信号/回调驱动。",
     "risks": [
-      "奇数>3的布局规则未明，拟采用奇数时首卡跨两列的通用规则。",
-      "卡片高度需平衡可视性与滚动；需避免水平滚动。",
-      "无自动化 GUI 测试，需手动验证布局。"
+      "远端下载路径未明确，拟默认使用服务器 Log 或可配置路径，需在 UI 提示假设。",
+      "GUI 默认未启用 LoadportBridge，需添加可控开关避免无硬件时报错。",
+      "ACK/非数字消息处理需避免误判断线，同时不影响数据解析。"
     ],
-    "verification": "手动/视觉检查：1/2/3/4/5 以上通道数场景下网格布局符合规则；垂直滚动可见全部；无水平滚动。自动测试暂无。"
+    "verification": "1) 手动切换模式：测试模式可实时显示数据，正常模式成功拉取目录到本地 Log 并更新状态。2) 模拟/单元：foup_acquisition 新解析函数对 version/ACK 返回预期 server type。3) 代码层：连接在 stopAcquisition 后关闭。硬件 E84 现场需实机验证。"
   }
 }

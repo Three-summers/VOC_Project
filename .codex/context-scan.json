@@ -1,39 +1,44 @@
 {
-  "timestamp": "2025-12-05T01:45:14Z",
-  "scope": "Config Foup 动态图表布局",
+  "timestamp": "2025-12-09T09:25:34Z",
+  "scope": "FOUP 采集模式切换与 E84 触发长连接",
   "locations": [
+    "src/voc_app/gui/foup_acquisition.py",
+    "src/voc_app/gui/socket_client.py",
     "src/voc_app/gui/qml/views/config/ConfigFoupPage.qml",
-    "src/voc_app/gui/qml/components/ChartCard.qml"
+    "src/voc_app/gui/qml/commands/Config_foupCommands.qml",
+    "src/voc_app/loadport/e84_passive.py",
+    "src/voc_app/gui/app.py"
   ],
   "current_state": {
-    "layout_logic": "ScrollView 内 ColumnLayout，Repeater 将通道分组为每页最多 4 个，GridLayout 两列铺排。1/2 张卡片占满列高，3 张时首卡跨两列占 55% 高，其余各占 45% 高，4 张时各占半高。每页高度取 scrollView 高度或 480 的较大值。",
-    "data_source": "foupAcquisition 提供 channelCount、标题、单位、限值等；chartEntry 允许从 chartListModel 取系列配置。",
-    "paging_behavior": "charts 分页，每页最多 4 个，ColumnLayout 垂直堆叠多页，scroll 纵向滚动，单页高度等于可视区。",
-    "styles": "ChartCard 组件提供卡片样式与图表绘制，默认 Layout.preferredHeight 220，但在页面中被覆盖。"
+    "acquisition_flow": "Config_foupCommands 的按钮调用 foup_acquisition.startAcquisition()，在后台线程创建 SocketCommunicator 后立即发送 voc_data_coll_ctrl_start，按长度前缀协议循环接收并只解析数字（逗号分隔视为多通道），stopAcquisition 会发送 voc_data_coll_ctrl_stop 并关闭 socket。",
+    "type_detection": "当前仅依据收到的数据点个数推断 ServerType（1=PID，3=NOISE），并据此应用预设通道配置；未查询版本或类型字符串。",
+    "ack_handling": "非数字文本会被 _handle_line 丢弃，未特殊处理服务器 ACK。",
+    "ui_state": "ConfigFoupPage 仅展示通道图表与状态，无模式切换控件；ConfigLoadportPage 仅静态显示 IP/时间占位。",
+    "loadport_bridge": "E84 线程封装在 loadport/e84_thread.py；E84Passive 中 _key_set_callback 为空，当三个 KEY 全部为真时仅点亮灯并置 HO_AVBL/ES。GUI 入口 app.py 中 LoadportBridge 被整段注释，默认不会启动 E84 线程。"
   },
   "similar_components": [
     {
-      "file": "src/voc_app/gui/qml/views/DataLogView.qml",
-      "note": "chartsGrid/zoomChartCard 使用 ChartCard，布局和放大切换可参考高度与填充处理。"
+      "file": "src/voc_app/gui/qml_socket_client_bridge.py",
+      "note": "向 QML 暴露 runShell/getFile，使用长度前缀协议；可用于“正常模式”触发远端 get 下载到本地。"
     },
     {
-      "file": "src/voc_app/gui/qml/views/StatusView.qml",
-      "note": "Repeater 直接堆叠 ChartCard，示例了基本填充和标题区样式。"
+      "file": "src/voc_app/gui/socket_client.py",
+      "note": "Client._send_msg/_recv_msg 实现长度前缀协议，get_file 支持递归目录保存，可指定目标根目录。"
     },
     {
-      "file": "src/voc_app/gui/qml/components/ChartCard.qml",
-      "note": "核心图表组件，定义 Layout 属性、半径、颜色与轴线设置。"
+      "file": "docs/ARCHITECTURE.md",
+      "note": "描述 GUI/Foup/Loadport 模块关系与上下文注入，可参照扩展。"
     }
   ],
   "tests": {
     "existing": [
       "tests/test_serial_device.py"
     ],
-    "gaps": "未发现针对 GUI/QML 的自动化测试，布局修改需手动或运行应用验证。"
+    "gaps": "无覆盖 FOUP 采集、模式切换、E84 逻辑，新增功能需手动或新测补充。"
   },
   "observations": [
-    "现有逻辑按每 4 个分页，且高度规则与需求不完全匹配，需要重写布局算法。",
-    "需支持单数时首卡跨两列，其余按两列排布，并处理超过 4 个时滚动和高度折半要求。",
-    "需确认滚动区域高度与首屏高度的关系，避免无限增长。"
+    "没有模式切换命令或版本查询，需新增命令流与 UI 控制。",
+    "E84 三键事件目前无回调动作，且 GUI 默认未启动 E84 线程，需明确运行场景与触发链。",
+    "服务器返回 ACK 时会被视为非数字并丢弃，需调整解析逻辑以免误判连接断开。"
   ]
 }

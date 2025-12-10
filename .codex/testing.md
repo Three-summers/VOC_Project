@@ -14,3 +14,10 @@
 - Command: `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
 - Result: ✅ Passed
 - Details: 1 test, 0 failures；在动态通道数配置刷新改动后回归，Python 层串口逻辑仍稳定。GUI 需实机验证动态通道数切换时标题/单位更新。 
+
+## 2025-12-09
+- Executor: Codex
+- Scope: 采集模式切换、版本查询、E84 自动触发桥接
+- Command: `python3 -m unittest tests/test_serial_device.py`
+- Result: ✅ Passed
+- Details: 1 test, 0 failures；确认基础串口模块未受新改动影响。FOUP 正常/测试模式切换、版本查询、日志下载与 E84 自动建连需在具备服务端与硬件的环境手动验证。正常模式下载流程未在无服务器环境下执行。 

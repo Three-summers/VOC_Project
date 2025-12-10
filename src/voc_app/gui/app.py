@@ -1,13 +1,14 @@
 import sys
 import os
 
-# from datetime import datetime
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCharts import QAbstractSeries, QChartView
+
+from PySide6.QtCharts import QChartView, QAbstractSeries
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -70,16 +71,22 @@ class ChartLegendHelper(QObject):
                     marker.setVisible(False)
 
 
-# 非树莓环境调试：暂时注释 LoadportBridge，避免触发硬件线程
-'''
 class LoadportBridge(QObject):
     """负责启动 loadport 线程并将错误/状态推送到 GUI"""
 
-    def __init__(self, alarm_store: AlarmStore, title_panel: QObject | None, parent=None):
+    def __init__(
+        self,
+        worker,
+        alarm_store: AlarmStore,
+        title_panel: QObject | None,
+        foup_controller: QObject | None = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self._alarm_store = alarm_store
         self._title_panel = title_panel
-        self._worker = E84ControllerThread(self)
+        self._worker = worker
+        self._foup_controller = foup_controller
 
         self._worker.started_controller.connect(self._on_started)
         self._worker.stopped_controller.connect(self._on_stopped)
@@ -87,15 +94,15 @@ class LoadportBridge(QObject):
         self._worker.e84_warning.connect(self._on_warning)
         self._worker.e84_fatal_error.connect(self._on_fatal)
         self._worker.e84_state_changed.connect(self._on_state_changed)
+        if hasattr(self._worker, "all_keys_set"):
+            self._worker.all_keys_set.connect(self._on_all_keys_set)
 
     def start(self):
         """启动后台线程"""
-
         self._worker.start()
 
     def shutdown(self):
         """停止后台线程，确保退出时安全清理"""
-
         self._worker.stop()
 
     def _current_timestamp(self) -> str:
@@ -103,13 +110,11 @@ class LoadportBridge(QObject):
 
     def _set_title_message(self, message: str):
         """更新标题栏消息区域"""
-
         if self._title_panel:
             self._title_panel.setProperty("systemMessage", message)
 
     def _append_alarm(self, level: str, text: str):
         """发送报警并更新标题栏"""
-
         message = f"[{level}] {text}"
         timestamp = self._current_timestamp()
         if self._alarm_store:
@@ -133,7 +138,11 @@ class LoadportBridge(QObject):
 
     def _on_state_changed(self, state: str):
         self._set_title_message(f"E84 状态: {state}")
-'''
+
+    def _on_all_keys_set(self):
+        self._set_title_message("E84 三键已落下，自动启动采集")
+        if self._foup_controller:
+            self._foup_controller.startAcquisition() # type: ignore
 
 os.environ["QSG_RHI_BACKEND"] = "opengl"
 
@@ -202,6 +211,29 @@ if __name__ == "__main__":
     )
     data_update_timer.start()
 
+    loadport_bridge = None
+    # 根据环境变量决定是否启用 E84 桥接（方便非树莓派环境下的调试）
+    disable_e84_bridge = os.environ.get("DISABLE_E84_BRIDGE", "").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    enable_e84_bridge = not disable_e84_bridge
+    if enable_e84_bridge:
+        try:
+            from voc_app.loadport.e84_thread import E84ControllerThread
+
+            worker = E84ControllerThread()
+            loadport_bridge = LoadportBridge(
+                worker=worker,
+                alarm_store=alarm_store,
+                title_panel=None,
+                foup_controller=foup_acquisition,
+            )
+            loadport_bridge.start()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[WARN] 未启动 E84 桥接: {exc}")
+
     qml_file = APP_DIR / "qml" / "main.qml"
     engine.load(str(qml_file))
 
@@ -218,13 +250,8 @@ if __name__ == "__main__":
     # if csv_file_manager.csvFiles:
     #     csv_file_manager.parse_csv_file(csv_file_manager.csvFiles[0])
 
-    # 非树莓环境调试：暂时不启动 loadport 后台线程，避免触发 RPi.GPIO 依赖
-    """
-    bridge = LoadportBridge(alarm_store=alarm_store, title_panel=main_item)
-    bridge.start()
-    app.aboutToQuit.connect(bridge.shutdown)
-    """
-
     app.aboutToQuit.connect(foup_acquisition.stopAcquisition)
+    if loadport_bridge:
+        app.aboutToQuit.connect(loadport_bridge.shutdown)
 
     sys.exit(app.exec())

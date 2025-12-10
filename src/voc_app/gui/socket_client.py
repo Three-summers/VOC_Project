@@ -178,6 +178,8 @@ class Client:
                     local_root = os.path.join(dest_root, os.path.basename(server_path))
                     local_path = local_root
                 else:
+                    if local_root is None:
+                        raise RuntimeError("协议错误: local_root 未初始化。")
                     # 将服务端路径前缀 server_root 替换为 local_root，映射到本地
                     local_path = server_path.replace(server_root, local_root, 1)
 
@@ -206,6 +208,8 @@ class Client:
                         dest_root, os.path.basename(server_filepath)
                     )
                 else:
+                    if local_root is None:
+                        raise RuntimeError("协议错误: local_root 未初始化。")
                     local_filepath = server_filepath.replace(server_root, local_root, 1)
 
                 parent_dir = os.path.dirname(local_filepath)
