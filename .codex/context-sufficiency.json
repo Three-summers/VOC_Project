@@ -1,19 +1,21 @@
 {
-  "timestamp": "2025-12-09T09:25:34Z",
+  "timestamp": "2025-12-11T03:10:58Z",
   "checks": {
-    "interfaceDefined": true,
+    "interfaceDefined": false,
     "techChoicesUnderstood": true,
     "risksIdentified": true,
-    "verificationKnown": true
+    "verificationKnown": false
   },
   "notes": {
-    "interfaces": "QML: ConfigFoupPage/Config_foupCommands 需新增模式切换控件并绑定 foupAcquisition 属性；E84 三键事件可通过 E84Controller._key_set_callback → 信号/回调触发 foup 连接；正常模式将调用 Client.get_file(remotePath→local Log)，测试模式沿用 start/stop 采集线程。后端需暴露 setOperationMode/getOperationMode、triggerAutoStartFromE84() 等接口。",
-    "tech": "沿用 PySide6 + QML，socket 协议使用现有长度前缀；目录下载复用 gui/socket_client.py Client.get_file；E84 事件通过信号/回调驱动。",
-    "risks": [
-      "远端下载路径未明确，拟默认使用服务器 Log 或可配置路径，需在 UI 提示假设。",
-      "GUI 默认未启用 LoadportBridge，需添加可控开关避免无硬件时报错。",
-      "ACK/非数字消息处理需避免误判断线，同时不影响数据解析。"
+    "missing": [
+      "目标频谱刷新率、窗口长度、分辨率（FFT 点数）未定义，且现有协议未提供波形/高采样数据，接口契约暂不可明确。",
+      "服务器是否能推送批量样本或二进制数据流未知，缺少采样率/通道带宽上限数据。"
     ],
-    "verification": "1) 手动切换模式：测试模式可实时显示数据，正常模式成功拉取目录到本地 Log 并更新状态。2) 模拟/单元：foup_acquisition 新解析函数对 version/ACK 返回预期 server type。3) 代码层：连接在 stopAcquisition 后关闭。硬件 E84 现场需实机验证。"
+    "tech": "已知栈：PySide6 + QML (QtCharts), Python 线程串行读取长度前缀文本，SeriesTableModel + VXYModelMapper 做折线；无 GPU/纹理渲染路径。",
+    "risks": [
+      "现有协议/数据模型不支持高采样窗口，无法直接计算频谱；若保持现状只能得到低频趋势曲线。",
+      "QAbstractTableModel + ChartView 在高频/多通道下将产生大量 UI 信号与 CPU 绘制，存在明显性能瓶颈。"
+    ],
+    "verification": "需要先获得真实采样率/数据格式，再基于目标刷新率做基准测试；当前无测试脚本覆盖性能或频谱计算。"
   }
 }

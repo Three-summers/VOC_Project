@@ -1,44 +1,40 @@
 {
-  "timestamp": "2025-12-09T09:25:34Z",
-  "scope": "FOUP 采集模式切换与 E84 触发长连接",
+  "timestamp": "2025-12-11T03:10:58Z",
+  "scope": "高速刷新频谱图集成可行性快速扫描",
   "locations": [
     "src/voc_app/gui/foup_acquisition.py",
-    "src/voc_app/gui/socket_client.py",
-    "src/voc_app/gui/qml/views/config/ConfigFoupPage.qml",
-    "src/voc_app/gui/qml/commands/Config_foupCommands.qml",
-    "src/voc_app/loadport/e84_passive.py",
-    "src/voc_app/gui/app.py"
+    "src/voc_app/gui/csv_model.py",
+    "src/voc_app/gui/qml/components/ChartCard.qml",
+    "src/voc_app/gui/qml/views/StatusView.qml",
+    "src/voc_app/gui/app.py",
+    "docs/server.c"
   ],
   "current_state": {
-    "acquisition_flow": "Config_foupCommands 的按钮调用 foup_acquisition.startAcquisition()，在后台线程创建 SocketCommunicator 后立即发送 voc_data_coll_ctrl_start，按长度前缀协议循环接收并只解析数字（逗号分隔视为多通道），stopAcquisition 会发送 voc_data_coll_ctrl_stop 并关闭 socket。",
-    "type_detection": "当前仅依据收到的数据点个数推断 ServerType（1=PID，3=NOISE），并据此应用预设通道配置；未查询版本或类型字符串。",
-    "ack_handling": "非数字文本会被 _handle_line 丢弃，未特殊处理服务器 ACK。",
-    "ui_state": "ConfigFoupPage 仅展示通道图表与状态，无模式切换控件；ConfigLoadportPage 仅静态显示 IP/时间占位。",
-    "loadport_bridge": "E84 线程封装在 loadport/e84_thread.py；E84Passive 中 _key_set_callback 为空，当三个 KEY 全部为真时仅点亮灯并置 HO_AVBL/ES。GUI 入口 app.py 中 LoadportBridge 被整段注释，默认不会启动 E84 线程。"
+    "data_ingest": "FoupAcquisitionController 使用 SocketCommunicator 读取 4 字节长度前缀 + UTF-8 文本，_handle_line 解析逗号分隔浮点值并立即通过 dataPointReceived 信号把每个通道的单点追加到对应 SeriesTableModel；时间戳在本地生成。",
+    "buffer_render": "SeriesTableModel 保存最近 max_rows（app.py 创建时为 60）条 [ts, value]，溢出时移除首行并重算边界；ChartCard.qml 通过 VXYModelMapper 将 model 映射到 LineSeries/ScatterSeries，boundsChanged 时重新计算轴和 OOC/OOS/Target 参考线，useOpenGL 处于注释状态。",
+    "ui_usage": "StatusView.qml 将 FOUP/Loadport 通道以 GridLayout + ChartCard 显示，FOUP 最多 8 通道，每个卡片独立更新；示例定时器 data_update_timer 仅以 1s 间隔生成随机点演示低频刷新。",
+    "protocol_samples": "docs/server.c 展示的示例服务器使用相同长度前缀协议，侧重 run/get 文件/目录，不包含批量波形推流。"
   },
   "similar_components": [
     {
+      "file": "src/voc_app/gui/csv_model.py",
+      "note": "CsvFileManager + CsvDataModel 支持从磁盘 CSV 读取静态 dataPoints 并喂给 ChartCard，用于离线曲线而非实时高频波形。"
+    },
+    {
       "file": "src/voc_app/gui/qml_socket_client_bridge.py",
-      "note": "向 QML 暴露 runShell/getFile，使用长度前缀协议；可用于“正常模式”触发远端 get 下载到本地。"
-    },
-    {
-      "file": "src/voc_app/gui/socket_client.py",
-      "note": "Client._send_msg/_recv_msg 实现长度前缀协议，get_file 支持递归目录保存，可指定目标根目录。"
-    },
-    {
-      "file": "docs/ARCHITECTURE.md",
-      "note": "描述 GUI/Foup/Loadport 模块关系与上下文注入，可参照扩展。"
+      "note": "向 QML 暴露 runShell/getFile 能力，可复用现有协议下载日志，但同样是离线文件，不是流式波形。"
     }
   ],
   "tests": {
     "existing": [
       "tests/test_serial_device.py"
     ],
-    "gaps": "无覆盖 FOUP 采集、模式切换、E84 逻辑，新增功能需手动或新测补充。"
+    "gaps": "无覆盖采集链、Chart 渲染或高频数据吞吐；未见性能/压力测试。"
   },
   "observations": [
-    "没有模式切换命令或版本查询，需新增命令流与 UI 控制。",
-    "E84 三键事件目前无回调动作，且 GUI 默认未启动 E84 线程，需明确运行场景与触发链。",
-    "服务器返回 ACK 时会被视为非数字并丢弃，需调整解析逻辑以免误判连接断开。"
+    "当前数据源每条消息仅包含单个时间点的浮点值（可多通道），缺少频谱所需的高采样窗口或原始波形，且时间戳由客户端生成，无法反推稳定采样率。",
+    "SeriesTableModel 以列表保存并在溢出时 pop(0) + 重算边界，max_rows=60 会在高频下快速丢弃数据，且每条信号都会触发 QAbstractTableModel 事件，CPU 压力大。",
+    "ChartCard 基于 QtCharts 折线绘制，频繁调用 updateAxesFromSeries/updateLimitLines 重建多条参考线，未启用 GPU 加速，难以支撑高刷新频谱渲染（二维纹理/Shader 更合适）。",
+    "UI 布局为多 ChartCard 并行刷新，通道越多开销线性放大，缺少批量更新或降采样机制。"
   ]
 }

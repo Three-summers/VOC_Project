@@ -169,7 +169,7 @@ class TestServer:
 if __name__ == "__main__":
     host = os.environ.get("TEST_SERVER_HOST", "0.0.0.0")
     port = int(os.environ.get("TEST_SERVER_PORT", "65432"))
-    server_type = os.environ.get("TEST_SERVER_TYPE", "noise")
+    server_type = os.environ.get("TEST_SERVER_TYPE", "voc")
     server = TestServer(host=host, port=port, server_type=server_type)
     try:
         server.start()
