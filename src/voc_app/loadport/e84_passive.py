@@ -39,6 +39,9 @@ class E84Controller(QObject):
     warning = Signal(str)
     fatal_error = Signal(str)
     all_keys_set = Signal()
+    # FOUP 数据采集信号
+    data_collection_start = Signal()  # Unload 时发出，通知开始采集
+    data_collection_stop = Signal()  # Load 完成时发出，通知停止采集
 
     def __init__(self, refresh_interval: float = 0.2):
         """使用PySide6定时逻辑的E84控制器"""
@@ -151,6 +154,11 @@ class E84Controller(QObject):
         if self.state == E84State.IDLE:
             if self.E84Handoff():
                 self.state = E84State.WAIT_TR_REQ
+                # Unload 流程开始时发出 START 信号（VALID=1 之后，TR_REQ 之前）
+                if self.FOUP_status:
+                    logger.info("Unload 流程开始，发出数据采集 START 信号")
+                    self.data_collection_start.emit()
+                    # TODO: 这里可以添加具体的数据采集启动操作
 
         elif self.state == E84State.WAIT_TR_REQ:
             wait_status = self.E84_wait_TR_REQ()
@@ -203,6 +211,11 @@ class E84Controller(QObject):
                 self.state = E84State.IDLE
             elif wait_status == 2:
                 self.state = E84State.WAIT_DONE
+                # Load 流程完成时发出 STOP 信号（COMPT=1 之后）
+                if not self.FOUP_status:
+                    logger.info("Load 流程完成，发出数据采集 STOP 信号")
+                    self.data_collection_stop.emit()
+                    # TODO: 这里可以添加具体的数据采集停止和数据读取操作
 
         elif self.state == E84State.WAIT_DONE:
             wait_status = self.E84_wait_DONE()
