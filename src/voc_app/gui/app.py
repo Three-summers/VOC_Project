@@ -1,8 +1,15 @@
 import sys
 import os
+from pathlib import Path
+
+# 路径设置必须在导入 voc_app 之前，以支持 python app.py 直接运行
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = APP_DIR.parents[2]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 from datetime import datetime
-from pathlib import Path
 
 from voc_app.logging_config import get_logger
 
@@ -17,12 +24,6 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 
 from PySide6.QtCharts import QChartView, QAbstractSeries
-
-APP_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = APP_DIR.parents[2]
-SRC_DIR = PROJECT_ROOT / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.append(str(SRC_DIR))
 
 # 非树莓环境调试：临时禁用 loadport 硬件线程的导入，避免 RPi.GPIO 依赖阻塞 GUI 启动
 # from voc_app.loadport.e84_thread import E84ControllerThread
