@@ -277,7 +277,10 @@ class FoupAcquisitionController(QObject):
                     break
                 self._handle_line(message)
         except Exception as exc:
-            self.errorOccurred.emit(f"FOUP 采集异常: {exc}")
+            try:
+                self.errorOccurred.emit(f"FOUP 采集异常: {exc}")
+            except RuntimeError:
+                pass
             self._set_status(f"异常: {exc}")
         finally:
             self._send_stop_command()
@@ -289,7 +292,10 @@ class FoupAcquisitionController(QObject):
                     self._status = "已停止"
                     emit_status = True
             if emit_status:
-                self.statusMessageChanged.emit()
+                try:
+                    self.statusMessageChanged.emit()
+                except RuntimeError:
+                    pass
             self._stop_event.clear()
 
     def _run_normal_mode(self) -> None:
@@ -302,7 +308,10 @@ class FoupAcquisitionController(QObject):
             self._perform_version_query()
             self._send_sample_type_command()
         except Exception as exc:
-            self.errorOccurred.emit(f"FOUP 连接异常: {exc}")
+            try:
+                self.errorOccurred.emit(f"FOUP 连接异常: {exc}")
+            except RuntimeError:
+                pass
             self._set_status(f"异常: {exc}")
         finally:
             self._close_socket()
@@ -321,7 +330,10 @@ class FoupAcquisitionController(QObject):
             else:
                 self._set_status(f"下载完成: {len(saved_files)} 个文件")
         except Exception as exc:
-            self.errorOccurred.emit(f"FOUP 下载异常: {exc}")
+            try:
+                self.errorOccurred.emit(f"FOUP 下载异常: {exc}")
+            except RuntimeError:
+                pass
             self._set_status(f"异常: {exc}")
         finally:
             self._set_running(False)
@@ -332,21 +344,26 @@ class FoupAcquisitionController(QObject):
             return []
         dest_root = Path(__file__).parent / "Log"
         dest_root.mkdir(parents=True, exist_ok=True)
+
+        with self._lock:
+            host, port = self._host, self._port
+            remote_path = self._normal_mode_remote_path
+
         communicator: SocketCommunicator | None = None
-        client: Client | None = None
         try:
-            with self._lock:
-                host, port = self._host, self._port
-                remote_path = self._normal_mode_remote_path
             communicator = SocketCommunicator(host, port)
             client = Client(communicator)
             return client.get_file(remote_path, str(dest_root))
+        except Exception as exc:
+            logger.error(f"下载日志失败: {exc}")
+            raise
         finally:
-            if client is not None:
+            # 确保 communicator 被关闭（无论 client 是否创建成功）
+            if communicator is not None:
                 try:
-                    client.close()
-                except Exception:
-                    pass
+                    communicator.close()
+                except Exception as e:
+                    logger.debug(f"关闭 communicator 时异常: {e}")
 
     def _perform_version_query(self) -> None:
         try:
@@ -524,7 +541,11 @@ class FoupAcquisitionController(QObject):
                 self._running = value
                 changed = True
         if changed:
-            self.runningChanged.emit()
+            try:
+                self.runningChanged.emit()
+            except RuntimeError:
+                # 对象已被删除，忽略
+                pass
 
     def _set_status(self, message: str) -> None:
         changed = False
@@ -533,7 +554,11 @@ class FoupAcquisitionController(QObject):
                 self._status = message
                 changed = True
         if changed:
-            self.statusMessageChanged.emit()
+            try:
+                self.statusMessageChanged.emit()
+            except RuntimeError:
+                # 对象已被删除，忽略
+                pass
 
     def _close_socket(self) -> None:
         comm = self._communicator

@@ -10,7 +10,6 @@ ApplicationWindow {
     width: 1024
     height: 768
     visible: true
-    visibility: Window.FullScreen
     title: "SESI E95 UI"
 
     // 根据指南，主显示窗口禁止显示操作系统边框
@@ -24,7 +23,21 @@ ApplicationWindow {
     readonly property real scaleFactor: Math.min(width / baseWidth, height / baseHeight)
     readonly property real uiScale: Math.min(Math.max(0.9, 1 + (scaleFactor - 1) * 0.6), 1.6)
     font.pixelSize: Components.UiTheme.fontSize("body")
-    Component.onCompleted: root.showFullScreen()
+
+    // 使用透明度来避免初始化时的闪烁
+    opacity: 0
+
+    // 延迟显示窗口内容，避免初始化时的闪烁
+    Timer {
+        id: showWindowTimer
+        interval: 100  // 等待 100ms 让内容初始化完成
+        running: true
+        repeat: false
+        onTriggered: {
+            root.opacity = 1
+            root.showFullScreen()
+        }
+    }
 
     QtObject {
         id: foupLimits

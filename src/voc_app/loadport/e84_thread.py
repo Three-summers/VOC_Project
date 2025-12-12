@@ -1,6 +1,9 @@
 from PySide6.QtCore import QObject, QThread, Signal, Slot, QMetaObject, Qt
 
 from voc_app.loadport.e84_passive import E84Controller
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class _E84Worker(QObject):
@@ -18,18 +21,23 @@ class _E84Worker(QObject):
     @Slot()
     def start_controller(self) -> None:
         try:
+            logger.info("E84 Worker: 正在启动控制器...")
             self.controller = E84Controller(**self._controller_kwargs)
             self.controller.start()
+            logger.info("E84 Worker: 控制器启动成功")
             self.started.emit(self.controller)
         except Exception as exc:  # noqa: BLE001
+            logger.error(f"E84 Worker: 控制器启动失败 - {exc}")
             self.error.emit(str(exc))
 
     @Slot()
     def stop_controller(self) -> None:
         if self.controller:
+            logger.info("E84 Worker: 正在停止控制器...")
             self.controller.stop()
             self.controller.deleteLater()
             self.controller = None
+            logger.info("E84 Worker: 控制器已停止")
         self.stopped.emit()
 
 

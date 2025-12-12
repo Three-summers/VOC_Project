@@ -5,6 +5,10 @@ import serial
 import abc
 from typing import Any, Optional, Iterable, Union, List
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 # --- 1. 通信层抽象 ---
 
@@ -46,7 +50,9 @@ class SocketCommunicator(Communicator):
             self.sock.settimeout(timeout)
         try:
             self.sock.connect((host, port))
-        except ConnectionRefusedError as e:
+            logger.debug(f"Socket 已连接: {host}:{port}")
+        except (ConnectionRefusedError, TimeoutError, OSError) as e:
+            logger.warning(f"Socket 连接失败 {host}:{port}: {e}")
             raise
 
     def send(self, data: bytes) -> None:
@@ -57,14 +63,22 @@ class SocketCommunicator(Communicator):
             return self.sock.recv(size)
         except socket.timeout:
             # 超时返回空字节，交由上层判定为断开/中断
+            logger.debug("Socket recv 超时")
             return b""
 
     def close(self) -> None:
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
-        except Exception:
+        except (OSError, socket.error):
+            # shutdown 失败是正常的（连接已关闭等）
             pass
-        self.sock.close()
+        except Exception as e:
+            logger.debug(f"Socket shutdown 异常: {e}")
+        try:
+            self.sock.close()
+            logger.debug("Socket 已关闭")
+        except Exception as e:
+            logger.warning(f"Socket close 异常: {e}")
 
 
 class SerialCommunicator(Communicator):
@@ -73,7 +87,9 @@ class SerialCommunicator(Communicator):
     def __init__(self, port: str, baudrate: int, timeout: float = 2.0) -> None:
         try:
             self.ser = serial.Serial(port, baudrate, timeout=timeout)
+            logger.debug(f"串口已打开: {port} @ {baudrate}")
         except serial.SerialException as e:
+            logger.warning(f"串口打开失败 {port}: {e}")
             raise
 
     def send(self, data: bytes) -> None:
@@ -85,9 +101,13 @@ class SerialCommunicator(Communicator):
     def close(self) -> None:
         try:
             self.ser.flush()
-        except Exception:
-            pass
-        self.ser.close()
+        except Exception as e:
+            logger.debug(f"串口 flush 异常: {e}")
+        try:
+            self.ser.close()
+            logger.debug("串口已关闭")
+        except Exception as e:
+            logger.warning(f"串口 close 异常: {e}")
 
 
 # --- 2. 可复用客户端类 ---
@@ -129,6 +149,7 @@ class Client:
         msglen = struct.unpack(">I", raw_len)[0]
         if msglen > self.max_message_size:
             # 超限：消费掉消息体后返回提示
+            logger.warning(f"消息过大 ({msglen} bytes)，已丢弃")
             self._recvall(msglen)
             return "错误: 消息过大已被丢弃."
         body = self._recvall(msglen)
@@ -148,6 +169,7 @@ class Client:
             cmd_str = command
         else:
             cmd_str = " ".join(command)
+        logger.debug(f"run_shell: {cmd_str}")
         self._send_msg(f"run {cmd_str}")
         return self._recv_msg()
 
@@ -160,6 +182,7 @@ class Client:
         """
         dest_root = dest_root or "."
         dest_root = os.path.abspath(dest_root)
+        logger.debug(f"get_file: {remote_path} -> {dest_root}")
 
         self._send_msg(f"get {remote_path}")
 
@@ -232,6 +255,7 @@ class Client:
                         remaining -= len(data)
 
                 saved_files.append(os.path.abspath(local_filepath))
+                logger.debug(f"已下载: {local_filepath}")
 
                 # 如果是单文件模式，收到第一份文件就结束
                 if server_root is None:
@@ -239,9 +263,11 @@ class Client:
 
             elif msg_type == "ERROR":
                 detail = parts[1] if len(parts) > 1 else ""
+                logger.error(f"服务端错误: {detail}")
                 raise RuntimeError(f"服务端错误: {detail}")
 
             else:
+                logger.error(f"未知的服务端响应: {msg}")
                 raise RuntimeError(f"未知的服务端响应: {msg}")
 
     def close(self) -> None:

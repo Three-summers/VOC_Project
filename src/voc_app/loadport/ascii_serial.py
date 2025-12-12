@@ -55,14 +55,12 @@ class AsciiSerialClient:
             line_bytes, _, remaining = self._rx_buffer.partition(b"\n")
             self._rx_buffer = remaining
 
-            try:
-                line_str = (
-                    line_bytes.replace(b"\r", b"")
-                    .decode("utf-8", errors="ignore")
-                    .strip()
-                )
-            except Exception:
-                continue
+            # decode with errors="ignore" 已处理编码错误，无需额外 try-except
+            line_str = (
+                line_bytes.replace(b"\r", b"")
+                .decode("utf-8", errors="ignore")
+                .strip()
+            )
 
             if line_str:
                 self._handle_valid_line(line_str)

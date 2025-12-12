@@ -1,7 +1,12 @@
+import socket
 import threading
 from typing import Optional, List
 
 from PySide6.QtCore import QObject, Signal, Slot, Property, QTimer
+
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class QmlSocketClientBridge(QObject):
@@ -99,6 +104,7 @@ class QmlSocketClientBridge(QObject):
             try:
                 result = func(*args, **kwargs)
             except Exception as e:
+                logger.error(f"异步操作失败: {e}", exc_info=True)
                 self.errorOccurred.emit(str(e))
             else:
                 if on_success_signal is not None:
@@ -120,9 +126,16 @@ class QmlSocketClientBridge(QObject):
                     comm, max_message_size=self._max_message_size
                 )
                 self._set_connected(True)
+            logger.info(f"已连接到 {host}:{port}")
             return True
+        except (ConnectionRefusedError, TimeoutError, socket.error) as e:
+            logger.warning(f"连接失败 {host}:{port} - {e}")
+            self.errorOccurred.emit(f"连接失败: {e}")
+            self._set_connected(False)
+            return False
         except Exception as e:
-            self.errorOccurred.emit(str(e))
+            logger.error(f"连接异常 {host}:{port} - {e}", exc_info=True)
+            self.errorOccurred.emit(f"连接异常: {e}")
             self._set_connected(False)
             return False
 
@@ -132,10 +145,13 @@ class QmlSocketClientBridge(QObject):
             if self._client:
                 try:
                     self._client.close()
-                except Exception:
-                    pass
+                except (OSError, socket.error) as e:
+                    logger.debug(f"关闭连接时发生预期错误: {e}")
+                except Exception as e:
+                    logger.warning(f"关闭连接时发生异常: {e}")
                 self._client = None
                 self._set_connected(False)
+                logger.info("连接已关闭")
 
     @Slot(int)
     def setMaxMessageSize(self, size: int):
@@ -146,25 +162,39 @@ class QmlSocketClientBridge(QObject):
 
     @Slot(str, result=str)
     def runShell(self, command: str) -> str:
+        logger.debug(f"runShell (同步): {command}")
         try:
             self._ensure_connected()
             out = self._client.run_shell(command)
             if out is None:
+                logger.warning("runShell: 连接中断或超时")
                 self.errorOccurred.emit("连接中断或超时")
                 return ""
             return str(out)
+        except RuntimeError as e:
+            # 未连接等预期错误
+            logger.warning(f"runShell 失败: {e}")
+            self.errorOccurred.emit(str(e))
+            return ""
         except Exception as e:
+            logger.error(f"runShell 异常: {e}", exc_info=True)
             self.errorOccurred.emit(str(e))
             return ""
 
     @Slot(str, str, result=list)
     def getFile(self, remote_path: str, dest_root: str = "") -> List[str]:
+        logger.debug(f"getFile (同步): {remote_path} -> {dest_root or '.'}")
         try:
             self._ensure_connected()
             dest = dest_root or None
             paths = self._client.get_file(remote_path, dest)
             return list(paths or [])
+        except RuntimeError as e:
+            logger.warning(f"getFile 失败: {e}")
+            self.errorOccurred.emit(str(e))
+            return []
         except Exception as e:
+            logger.error(f"getFile 异常: {e}", exc_info=True)
             self.errorOccurred.emit(str(e))
             return []
 

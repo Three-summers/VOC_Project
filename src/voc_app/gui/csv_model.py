@@ -16,6 +16,10 @@ from PySide6.QtCore import (
 import random
 import csv
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 # 暴露列名和数据
 class ColumnData(QObject):
@@ -384,6 +388,7 @@ class CsvFileManager(QObject):
 
     def list_csv_files(self):
         if not self._log_dir.exists():
+            logger.debug(f"创建日志目录: {self._log_dir}")
             self._log_dir.mkdir()
 
         files = []
@@ -393,6 +398,7 @@ class CsvFileManager(QObject):
         files.sort()
         # 更新文件列表并发出信号
         if self._csv_files != files:
+            logger.debug(f"发现 {len(files)} 个 CSV 文件")
             self._csv_files = files
             self.csvFilesChanged.emit()
 
@@ -401,8 +407,11 @@ class CsvFileManager(QObject):
         relative_path = Path(filename)
         file_path = self._log_dir / relative_path
         if not file_path.exists():
+            logger.warning(f"CSV 文件不存在: {file_path}")
             self._data_model.resetModelData([])
             return
+
+        logger.info(f"解析 CSV 文件: {file_path}")
 
         def to_milliseconds(value: float) -> float:
             """将时间值归一化为毫秒时间戳，支持秒/毫秒或相对秒。"""

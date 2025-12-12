@@ -103,6 +103,10 @@ from numpy.typing import NDArray
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class SpectrumDataModel(QObject):
     """
@@ -140,6 +144,7 @@ class SpectrumDataModel(QObject):
         """
         super().__init__(parent)
         self._bin_count = bin_count
+        logger.debug(f"SpectrumDataModel 初始化: bin_count={bin_count}")
 
         # 使用 NumPy 数组存储数据，提升计算性能
         # 频谱数据：归一化到 0.0~1.0

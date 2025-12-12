@@ -1,0 +1,9 @@
+{
+    "levels": {
+        "voc_app": "INFO",
+        "voc_app.gui": "WARNING",
+        "voc_app.gui.foup_acquisition": "DEBUG",
+        "voc_app.loadport": "INFO"
+    },
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+}

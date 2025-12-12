@@ -256,13 +256,14 @@ Rectangle {
     // reflectionEnabled: 绘制倒影 Canvas，开销中等 (~25%)
     // scanLineEnabled: CRT 风格扫描线，开销较小 (~10%)
     // borderGlowEnabled: 边框发光，开销最小 (~5%)
-    property bool glowEnabled: true               // 启用发光效果
+    // 注意: 默认值会被 spectrumPerfConfig (如果存在) 覆盖
+    property bool glowEnabled: (typeof spectrumPerfConfig !== "undefined" && spectrumPerfConfig) ? spectrumPerfConfig.glowEnabled : true
     property real glowIntensity: 0.6              // 发光强度 (0.0 ~ 1.0)
-    property bool reflectionEnabled: true         // 启用倒影效果
+    property bool reflectionEnabled: (typeof spectrumPerfConfig !== "undefined" && spectrumPerfConfig) ? spectrumPerfConfig.reflectionEnabled : true
     property real reflectionOpacity: 0.15         // 倒影透明度
-    property bool scanLineEnabled: false          // 启用扫描线效果
+    property bool scanLineEnabled: (typeof spectrumPerfConfig !== "undefined" && spectrumPerfConfig) ? spectrumPerfConfig.scanLineEnabled : false
     property real scanLineOpacity: 0.03           // 扫描线透明度
-    property bool borderGlowEnabled: true         // 图表边框发光
+    property bool borderGlowEnabled: (typeof spectrumPerfConfig !== "undefined" && spectrumPerfConfig) ? spectrumPerfConfig.borderGlowEnabled : true
     property bool animateChanges: true            // 动画过渡效果（预留）
 
     // ==================== 内部状态 ====================

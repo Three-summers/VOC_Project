@@ -4,15 +4,19 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+# 性能配置必须在导入 PySide6 之前应用
+from voc_app.gui.performance_config import apply_performance_settings, get_spectrum_config_for_env
+apply_performance_settings()
+
 from PySide6.QtCore import QObject, QTimer, Slot
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 
 from PySide6.QtCharts import QChartView, QAbstractSeries
-
-from voc_app.logging_config import get_logger
-
-logger = get_logger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parents[2]
@@ -148,8 +152,6 @@ class LoadportBridge(QObject):
         if self._foup_controller:
             self._foup_controller.startAcquisition() # type: ignore
 
-os.environ["QSG_RHI_BACKEND"] = "opengl"
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     # 当最后一个窗口被关闭时，不要自动退出应用程序，以在 qml 动态调用 quit 退出
@@ -207,6 +209,10 @@ if __name__ == "__main__":
     spectrum_simulator.start()  # 自动启动模拟器
     engine.rootContext().setContextProperty("spectrumModel", spectrum_model)
     engine.rootContext().setContextProperty("spectrumSimulator", spectrum_simulator)
+
+    # 将性能配置传递给 QML，让频谱图组件根据环境调整效果
+    spectrum_perf_config = get_spectrum_config_for_env()
+    engine.rootContext().setContextProperty("spectrumPerfConfig", spectrum_perf_config)
 
     alarm_store = AlarmStore()
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")

@@ -107,8 +107,8 @@ Rectangle {
             animationOptions: ChartView.NoAnimation
             backgroundColor: "transparent"
 
-            // 图例设置
-            legend.visible: true
+            // 图例设置 - 初始隐藏，等 Python 处理完特定项后再显示
+            legend.visible: false
             legend.alignment: Qt.AlignTop
             legend.labelColor: Components.UiTheme.color("textPrimary")
             legend.font.pixelSize: Components.UiTheme.fontSize("body")
@@ -120,11 +120,13 @@ Rectangle {
 
             Timer {
                 id: legendRefresher
-                interval: 100 // 延迟 100ms，给底层渲染一点时间生成图例
-                running: true // 组件加载完成后自动启动一次
+                interval: 50 // 缩短延迟
+                running: true
                 repeat: false
                 onTriggered: {
                     chartLegendHelper.hideSeriesInLegend(chartView, [lineSeries, pointSeries, oosLowerSeries, oocLowerSeries]);
+                    // 隐藏完特定项后，显示图例
+                    chartView.legend.visible = true;
                 }
             }
             //

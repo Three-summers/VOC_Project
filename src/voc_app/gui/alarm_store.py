@@ -10,6 +10,10 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class AlarmModel(QAbstractListModel):
     TimestampRole = Qt.ItemDataRole.UserRole + 1
@@ -53,6 +57,7 @@ class AlarmModel(QAbstractListModel):
         }
 
     def add_alarm(self, timestamp: str, message: str):
+        logger.info(f"添加告警: [{timestamp}] {message}")
         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
         self._items.append({"timestamp": timestamp, "message": message})
         self.countChanged.emit()
@@ -61,6 +66,7 @@ class AlarmModel(QAbstractListModel):
     def clear(self):
         if not self._items:
             return
+        logger.debug(f"清空告警列表 (共 {len(self._items)} 条)")
         self.beginResetModel()
         self._items = []
         self.countChanged.emit()
