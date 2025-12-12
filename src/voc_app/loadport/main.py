@@ -4,6 +4,10 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, QCoreApplication
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 LOADPORT_DIR = Path(__file__).resolve().parent
 SRC_DIR = LOADPORT_DIR.parents[2]
 if str(SRC_DIR) not in sys.path:
@@ -19,13 +23,13 @@ class ConsoleBridge(QObject):
         super().__init__(parent)
 
     def on_state_changed(self, state: str) -> None:
-        print(f"[主线程] 状态更新: {state}")
+        logger.info(f"状态更新: {state}")
 
     def on_warning(self, message: str) -> None:
-        print(f"[主线程] 警告: {message}")
+        logger.warning(f"警告: {message}")
 
     def on_error(self, message: str) -> None:
-        print(f"[主线程] 线程错误: {message}")
+        logger.error(f"线程错误: {message}")
 
 
 def main():
@@ -37,8 +41,8 @@ def main():
     console = ConsoleBridge()
     worker = E84ControllerThread()
 
-    worker.started_controller.connect(lambda: print("[主线程] E84 线程已启动"))
-    worker.stopped_controller.connect(lambda: print("[主线程] E84 线程已停止"))
+    worker.started_controller.connect(lambda: logger.info("E84 线程已启动"))
+    worker.stopped_controller.connect(lambda: logger.info("E84 线程已停止"))
     worker.error.connect(console.on_error)
     worker.e84_state_changed.connect(console.on_state_changed)
     worker.e84_warning.connect(console.on_warning)

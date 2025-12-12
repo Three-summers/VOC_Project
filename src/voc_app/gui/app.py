@@ -10,6 +10,9 @@ from PySide6.QtWidgets import QApplication
 
 from PySide6.QtCharts import QChartView, QAbstractSeries
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parents[2]
@@ -28,6 +31,7 @@ from voc_app.gui.csv_model import (
     SeriesTableModel,
 )
 from voc_app.gui.alarm_store import AlarmStore
+from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.file_tree_browser import FilePreviewController
 from voc_app.gui.foup_acquisition import FoupAcquisitionController
 
@@ -61,7 +65,7 @@ class ChartLegendHelper(QObject):
 
         # 再次判空（如果 Series 还没被添加到图表，这里可能是 None）
         if not chart:
-            print("Warning: Series is not attached to any chart yet.")
+            logger.warning("Series is not attached to any chart yet.")
             return
 
         for series in series_list:
@@ -196,6 +200,14 @@ if __name__ == "__main__":
     foup_acquisition = FoupAcquisitionController(foup_series_models)
     engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
+    # 频谱分析模型和模拟器
+    spectrum_model = SpectrumDataModel(bin_count=256)
+    spectrum_simulator = SpectrumSimulator(spectrum_model)
+    spectrum_simulator.intervalMs = 50  # 20 Hz 更新率
+    spectrum_simulator.start()  # 自动启动模拟器
+    engine.rootContext().setContextProperty("spectrumModel", spectrum_model)
+    engine.rootContext().setContextProperty("spectrumSimulator", spectrum_simulator)
+
     alarm_store = AlarmStore()
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
     # alarm_store.addAlarm("2025-11-10 18:25:30", "Pressure sensor offline")
@@ -232,7 +244,7 @@ if __name__ == "__main__":
             )
             loadport_bridge.start()
         except Exception as exc:  # noqa: BLE001
-            print(f"[WARN] 未启动 E84 桥接: {exc}")
+            logger.warning(f"未启动 E84 桥接: {exc}")
 
     qml_file = APP_DIR / "qml" / "main.qml"
     engine.load(str(qml_file))
@@ -251,6 +263,7 @@ if __name__ == "__main__":
     #     csv_file_manager.parse_csv_file(csv_file_manager.csvFiles[0])
 
     app.aboutToQuit.connect(foup_acquisition.stopAcquisition)
+    app.aboutToQuit.connect(spectrum_simulator.stop)
     if loadport_bridge:
         app.aboutToQuit.connect(loadport_bridge.shutdown)
 

@@ -1,6 +1,10 @@
 from typing import Optional, Callable, Dict
 from serial_device import GenericSerialDevice, GenericSerialCommand
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 class AsciiSerialClient:
     """
@@ -66,11 +70,11 @@ class AsciiSerialClient:
     def _handle_valid_line(self, line: str) -> None:
         """处理完整的业务行"""
         # 简单打印日志
-        print(f"[STM32] << {line}")
+        logger.debug(f"[STM32] << {line}")
 
         # 可以在这里处理特定协议，比如 "Unknown"
         if line.startswith("Unknown:"):
-            print(f"⚠️ 协议错误: {line}")
+            logger.warning(f"协议错误: {line}")
 
         # 通知上层应用
         if self._message_callback:

@@ -4,6 +4,9 @@ import time
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from voc_app.loadport.gpio_controller import GPIOController
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 SIG_ON = False
@@ -141,7 +144,7 @@ class E84Controller(QObject):
 
     def _process_state(self):
         if self.prev_state != self.state:
-            print(f"当前状态:{self.state.value}")
+            logger.debug(f"当前状态:{self.state.value}")
             self.state_changed.emit(self.state.value)
             self.prev_state = self.state
 
@@ -153,7 +156,7 @@ class E84Controller(QObject):
             wait_status = self.E84_wait_TR_REQ()
             if wait_status == 1:
                 message = "等待 TR_REQ 信号超时，状态重置为 IDLE"
-                print(message)
+                logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
@@ -163,7 +166,7 @@ class E84Controller(QObject):
             wait_status = self.E84_wait_BUSY()
             if wait_status == 1:
                 message = "等待 BUSY 信号超时，状态重置为 IDLE"
-                print(message)
+                logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
@@ -175,7 +178,7 @@ class E84Controller(QObject):
             wait_status = self.E84_wait_L_REQ()
             if wait_status == 1:
                 message = "L_REQ 阶段检测到信号中断，状态重置为 IDLE"
-                print(message)
+                logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
@@ -185,7 +188,7 @@ class E84Controller(QObject):
             wait_status = self.E84_wait_U_REQ()
             if wait_status == 1:
                 message = "U_REQ 阶段检测到信号中断，状态重置为 IDLE"
-                print(message)
+                logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
@@ -195,7 +198,7 @@ class E84Controller(QObject):
             wait_status = self.E84_wait_COMPT()
             if wait_status == 1:
                 message = "等待 COMPT 信号超时，状态重置为 IDLE"
-                print(message)
+                logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
@@ -205,7 +208,7 @@ class E84Controller(QObject):
             wait_status = self.E84_wait_DONE()
             if wait_status == 1:
                 message = "等待 DONE 判定超时，状态重置为 IDLE"
-                print(message)
+                logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
@@ -273,15 +276,15 @@ class E84Controller(QObject):
         if self.FOUP_status != self.FOUP_old_status:
             self.FOUP_old_status = self.FOUP_status
             if self.FOUP_old_status:
-                print("FOUP 落回")
+                logger.info("FOUP 落回")
             else:
-                print("FOUP 移走")
+                logger.info("FOUP 移走")
 
         if self.E84_InSig_Value["GO"]:
             self.E84_InfoPin.set_output("SENSOR_LED", LED_ON)
         else:
             message = "GO 信号为低，SENSOR_LED 熄灭"
-            print(message)
+            logger.debug(message)
             self.warning.emit(message)
             self.E84_InfoPin.set_output("SENSOR_LED", LED_OFF)
 
@@ -318,15 +321,15 @@ class E84Controller(QObject):
             and self.E84_InSig_Value["CS_0"]
             and self.E84_InSig_Value["VALID"]
         ):
-            print("检测到握手请求")
+            logger.debug("检测到握手请求")
             if self.FOUP_status:
                 self.E84_SigPin.set_output("U_REQ", SIG_ON)
                 self.E84_InfoPin.set_output("UNLOAD_LED", LED_ON)
-                print("set U_REQ ON")
+                logger.debug("set U_REQ ON")
             else:
                 self.E84_SigPin.set_output("L_REQ", SIG_ON)
                 self.E84_InfoPin.set_output("LOAD_LED", LED_ON)
-                print("set L_REQ ON")
+                logger.debug("set L_REQ ON")
 
             self.E84_ResetTimer(ShortTimer)
             return 1
@@ -338,7 +341,7 @@ class E84Controller(QObject):
             return 1
         if self.E84_InSig_Value["TR_REQ"]:
             self.E84_SigPin.set_output("READY", SIG_ON)
-            print("set READY ON")
+            logger.debug("set READY ON")
             self.E84_ResetTimer(ShortTimer)
             return 2
         return 0
@@ -349,7 +352,7 @@ class E84Controller(QObject):
             return 1
         if self.E84_InSig_Value["BUSY"]:
             self.E84_ResetTimer(LongTimer)
-            print("GET BUSY")
+            logger.debug("GET BUSY")
             return 2
         return 0
 
@@ -365,7 +368,7 @@ class E84Controller(QObject):
         if self.FOUP_status:
             self.E84_SigPin.set_output("L_REQ", SIG_OFF)
             self.E84_ResetTimer(LongTimer)
-            print("set L_REQ OFF")
+            logger.debug("set L_REQ OFF")
             return 2
         return 0
 
@@ -381,7 +384,7 @@ class E84Controller(QObject):
         if not self.FOUP_status:
             self.E84_SigPin.set_output("U_REQ", SIG_OFF)
             self.E84_ResetTimer(LongTimer)
-            print("set U_REQ OFF")
+            logger.debug("set U_REQ OFF")
             return 2
         return 0
 
@@ -392,7 +395,7 @@ class E84Controller(QObject):
         if self.E84_InSig_Value["COMPT"]:
             self.E84_SigPin.set_output("READY", SIG_OFF)
             self.E84_ResetTimer(ShortTimer)
-            print("set READY OFF")
+            logger.debug("set READY OFF")
             return 2
         return 0
 
@@ -410,7 +413,7 @@ class E84Controller(QObject):
             self.E84_InfoPin.set_output("LOAD_LED", LED_OFF)
             self.E84_InfoPin.set_output("UNLOAD_LED", LED_OFF)
             current_time = time.strftime("%H:%M:%S", time.localtime())
-            print(f"{current_time} TRANS OVER:")
+            logger.info(f"{current_time} TRANS OVER")
             return 2
         return 0
 

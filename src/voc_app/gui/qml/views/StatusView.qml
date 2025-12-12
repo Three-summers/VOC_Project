@@ -14,6 +14,10 @@ Rectangle {
     property url loadportImageSource: Qt.resolvedUrl("../../resources/loadport_.png")
     property url foupImageSource: Qt.resolvedUrl("../../resources/foup_.png")
 
+    // 频谱模型引用（避免与组件属性命名冲突）
+    readonly property var globalSpectrumModel: (typeof spectrumModel !== "undefined") ? spectrumModel : null
+    readonly property var globalSpectrumSimulator: (typeof spectrumSimulator !== "undefined") ? spectrumSimulator : null
+
     // Loadport 子页面使用的实时曲线配置
     readonly property var loadportCharts: [
         { title: "电压", currentValue: "3.8 V", index: 0 },
@@ -48,7 +52,11 @@ Rectangle {
 
     Loader {
         anchors.fill: parent
-        sourceComponent: currentSubPage === "foup" ? foupComponent : loadportComponent
+        sourceComponent: {
+            if (currentSubPage === "foup") return foupComponent
+            if (currentSubPage === "spectrum") return spectrumComponent
+            return loadportComponent
+        }
     }
 
     Component {
@@ -410,6 +418,207 @@ Rectangle {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    Component {
+        id: spectrumComponent
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: Components.UiTheme.spacing("xl")
+            spacing: Components.UiTheme.spacing("xl")
+
+            // 左侧控制面板
+            Rectangle {
+                Layout.preferredWidth: Components.UiTheme.controlWidth(280)
+                Layout.maximumWidth: Components.UiTheme.controlWidth(320)
+                Layout.minimumWidth: Components.UiTheme.controlWidth(240)
+                Layout.fillHeight: true
+                radius: Components.UiTheme.radius(20)
+                color: Components.UiTheme.color("panel")
+                border.color: Components.UiTheme.color("outline")
+
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Components.UiTheme.spacing("lg")
+                    spacing: Components.UiTheme.spacing("md")
+
+                    Text {
+                        text: "频谱分析"
+                        font.pixelSize: Components.UiTheme.fontSize(24)
+                        font.bold: true
+                        color: Components.UiTheme.color("textPrimary")
+                    }
+
+                    Text {
+                        text: "实时频谱可视化"
+                        color: Components.UiTheme.color("textSecondary")
+                        font.pixelSize: Components.UiTheme.fontSize("body")
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Components.UiTheme.color("outline")
+                    }
+
+                    // 模拟器控制
+                    Text {
+                        text: "模拟器控制"
+                        font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                        font.bold: true
+                        color: Components.UiTheme.color("textPrimary")
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("sm")
+
+                        Button {
+                            text: (statusRoot.globalSpectrumSimulator && statusRoot.globalSpectrumSimulator.running) ? "停止" : "启动"
+                            Layout.fillWidth: true
+                            onClicked: {
+                                if (statusRoot.globalSpectrumSimulator) {
+                                    if (statusRoot.globalSpectrumSimulator.running) {
+                                        statusRoot.globalSpectrumSimulator.stop()
+                                    } else {
+                                        statusRoot.globalSpectrumSimulator.start()
+                                    }
+                                }
+                            }
+                        }
+
+                        Button {
+                            text: "清空"
+                            Layout.fillWidth: true
+                            onClicked: {
+                                if (statusRoot.globalSpectrumModel) {
+                                    statusRoot.globalSpectrumModel.clear()
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: Components.UiTheme.color("outline")
+                    }
+
+                    // 图表类型选择
+                    Text {
+                        text: "图表类型"
+                        font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                        font.bold: true
+                        color: Components.UiTheme.color("textPrimary")
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("sm")
+
+                        Button {
+                            text: "柱状图"
+                            Layout.fillWidth: true
+                            highlighted: spectrumChartView.chartType === "bar"
+                            onClicked: spectrumChartView.chartType = "bar"
+                        }
+
+                        Button {
+                            text: "折线图"
+                            Layout.fillWidth: true
+                            highlighted: spectrumChartView.chartType === "line"
+                            onClicked: spectrumChartView.chartType = "line"
+                        }
+                    }
+
+                    // 配色方案选择
+                    Text {
+                        text: "配色方案"
+                        font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                        font.bold: true
+                        color: Components.UiTheme.color("textPrimary")
+                    }
+
+                    GridLayout {
+                        Layout.fillWidth: true
+                        columns: 3
+                        rowSpacing: Components.UiTheme.spacing("xs")
+                        columnSpacing: Components.UiTheme.spacing("xs")
+
+                        Repeater {
+                            model: ["spectrum", "green", "blue", "fire", "purple", "ocean"]
+                            delegate: Button {
+                                text: modelData
+                                Layout.fillWidth: true
+                                highlighted: spectrumChartView.colorScheme === modelData
+                                onClicked: spectrumChartView.colorScheme = modelData
+                            }
+                        }
+                    }
+
+                    // 视觉效果开关
+                    Text {
+                        text: "视觉效果"
+                        font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                        font.bold: true
+                        color: Components.UiTheme.color("textPrimary")
+                    }
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: Components.UiTheme.spacing("xs")
+
+                        CheckBox {
+                            text: "发光效果"
+                            checked: spectrumChartView.glowEnabled
+                            onCheckedChanged: spectrumChartView.glowEnabled = checked
+                        }
+
+                        CheckBox {
+                            text: "倒影效果"
+                            checked: spectrumChartView.reflectionEnabled
+                            onCheckedChanged: spectrumChartView.reflectionEnabled = checked
+                        }
+
+                        CheckBox {
+                            text: "扫描线"
+                            checked: spectrumChartView.scanLineEnabled
+                            onCheckedChanged: spectrumChartView.scanLineEnabled = checked
+                        }
+
+                        CheckBox {
+                            text: "峰值保持"
+                            checked: spectrumChartView.showPeakHold
+                            onCheckedChanged: spectrumChartView.showPeakHold = checked
+                        }
+                    }
+
+                    Item { Layout.fillHeight: true }
+                }
+            }
+
+            // 右侧频谱图
+            Components.SpectrumChart {
+                id: spectrumChartView
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spectrumModel: statusRoot.globalSpectrumModel
+                chartTitle: "实时频谱分析"
+                showTitle: true
+                chartType: "bar"
+                colorScheme: "spectrum"
+                glowEnabled: true
+                reflectionEnabled: true
+                scanLineEnabled: false
+                showPeakHold: true
+                minDb: -80
+                maxDb: 0
+                minFreq: 0
+                maxFreq: 22
+                xAxisUnit: "kHz"
             }
         }
     }

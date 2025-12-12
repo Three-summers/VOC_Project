@@ -3,7 +3,7 @@ import os
 import struct
 import serial
 import abc
-from typing import Optional, Iterable, Union, List
+from typing import Any, Optional, Iterable, Union, List
 
 
 # --- 1. 通信层抽象 ---
@@ -13,7 +13,7 @@ class Communicator(abc.ABC):
     """通信接口抽象基类."""
 
     @abc.abstractmethod
-    def send(self, data: bytes):
+    def send(self, data: bytes) -> None:
         pass
 
     @abc.abstractmethod
@@ -21,20 +21,25 @@ class Communicator(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         pass
 
-    def __enter__(self):
+    def __enter__(self) -> "Communicator":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         self.close()
 
 
 class SocketCommunicator(Communicator):
     """使用 Socket 进行通信的实现."""
 
-    def __init__(self, host: str, port: int, timeout: float | None = 5.0):
+    def __init__(self, host: str, port: int, timeout: float | None = 5.0) -> None:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # 设置超时，避免阻塞导致线程无法退出
         if timeout is not None:
@@ -44,7 +49,7 @@ class SocketCommunicator(Communicator):
         except ConnectionRefusedError as e:
             raise
 
-    def send(self, data: bytes):
+    def send(self, data: bytes) -> None:
         self.sock.sendall(data)
 
     def recv(self, size: int) -> bytes:
@@ -54,7 +59,7 @@ class SocketCommunicator(Communicator):
             # 超时返回空字节，交由上层判定为断开/中断
             return b""
 
-    def close(self):
+    def close(self) -> None:
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
         except Exception:
@@ -65,19 +70,19 @@ class SocketCommunicator(Communicator):
 class SerialCommunicator(Communicator):
     """使用串口进行通信的实现."""
 
-    def __init__(self, port: str, baudrate: int, timeout: float = 2.0):
+    def __init__(self, port: str, baudrate: int, timeout: float = 2.0) -> None:
         try:
             self.ser = serial.Serial(port, baudrate, timeout=timeout)
         except serial.SerialException as e:
             raise
 
-    def send(self, data: bytes):
+    def send(self, data: bytes) -> None:
         self.ser.write(data)
 
     def recv(self, size: int) -> bytes:
         return self.ser.read(size)
 
-    def close(self):
+    def close(self) -> None:
         try:
             self.ser.flush()
         except Exception:
@@ -96,7 +101,7 @@ class Client:
     - 返回结果或抛出异常，无控制台打印
     """
 
-    def __init__(self, communicator: Communicator, max_message_size: int = 1024 * 1024):
+    def __init__(self, communicator: Communicator, max_message_size: int = 1024 * 1024) -> None:
         self.comm = communicator
         self.max_message_size = max_message_size
         self._closed = False
@@ -239,15 +244,20 @@ class Client:
             else:
                 raise RuntimeError(f"未知的服务端响应: {msg}")
 
-    def close(self):
+    def close(self) -> None:
         """关闭底层通信。若合适会尝试先发送 exit。"""
         if self._closed:
             return
         self.comm.close()
         self._closed = True
 
-    def __enter__(self):
+    def __enter__(self) -> "Client":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
         self.close()

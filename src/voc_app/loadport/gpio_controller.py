@@ -1,25 +1,36 @@
 import RPi.GPIO as GPIO
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
 class GPIOController:
-    def __init__(self, input_pins_config, output_pins_config, PUL_Status, default_state):
+    def __init__(
+        self,
+        input_pins_config: dict[str, int],
+        output_pins_config: dict[str, int],
+        PUL_Status: int,
+        default_state: bool,
+    ) -> None:
         """
         初始化GPIO控制器
         :param input_pins_config: 输入引脚配置字典 {名称: BCM编号}
         :param output_pins_config: 输出引脚配置字典 {名称: BCM编号}
         """
         GPIO.setmode(GPIO.BCM)
-        
+
         # 保存引脚配置
-        self.input_pins = input_pins_config
-        self.output_pins = output_pins_config
-        
+        self.input_pins: dict[str, int] = input_pins_config
+        self.output_pins: dict[str, int] = output_pins_config
+
         # 初始化输入引脚
         for pin_name, pin_num in self.input_pins.items():
             if PUL_Status == 1:
                 GPIO.setup(pin_num, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             else:
                 GPIO.setup(pin_num, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        
+
         # 初始化输出引脚
         for pin_name, pin_num in self.output_pins.items():
             GPIO.setup(pin_num, GPIO.OUT)
@@ -27,8 +38,8 @@ class GPIOController:
                 GPIO.output(pin_num, GPIO.HIGH)
             else:
                 GPIO.output(pin_num, GPIO.LOW)
-    
-    def read_input(self, pin_name):
+
+    def read_input(self, pin_name: str) -> int:
         """
         读取指定输入引脚状态
         :param pin_name: 输入引脚名称
@@ -37,12 +48,12 @@ class GPIOController:
         if pin_name not in self.input_pins:
             raise ValueError(f"未知输入引脚: {pin_name}")
         return GPIO.input(self.input_pins[pin_name])
-    
-    def read_all_inputs(self):
+
+    def read_all_inputs(self) -> dict[str, bool]:
         """读取所有输入引脚状态"""
         return {name: not self.read_input(name) for name in self.input_pins}
-    
-    def set_output(self, pin_name, state):
+
+    def set_output(self, pin_name: str, state: bool) -> None:
         """
         设置单个输出引脚状态
         :param pin_num: BCM编号
@@ -51,8 +62,8 @@ class GPIOController:
         if pin_name not in self.output_pins:
             raise ValueError(f"未知输出引脚: {pin_name}")
         GPIO.output(self.output_pins[pin_name], state)
-    
-    def set_all_outputs(self, state):
+
+    def set_all_outputs(self, state: bool) -> None:
         """设置所有输出引脚状态"""
         for pin in self.output_pins:
             self.set_output(pin, state)
@@ -68,7 +79,7 @@ class GPIOController:
             self.toggle_output(pin)
     '''
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """释放GPIO资源"""
         GPIO.cleanup()
-        print("GPIO资源已释放")
+        logger.info("GPIO资源已释放")

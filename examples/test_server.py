@@ -7,10 +7,10 @@ import time
 from pathlib import Path
 
 # 简易测试服务器，使用与客户端一致的 4 字节大端长度前缀协议。
-# 支持命令：
-# - get_function_version_info -> 返回 VOC_Version 或 Noise_Humility 版本号
-# - voc_sample_type_normal/test、Noise_Hmulity_sample_type_normal/test -> ACK
-# - voc_data_coll_ctrl_start/stop、Noise_Hmulity_data_coll_ctrl_start/stop -> 开始/停止推送数据
+# 支持命令（动态前缀格式）：
+# - get_function_version_info -> 返回 "{prefix},{version}"
+# - {prefix}_sample_type_normal/test -> ACK
+# - {prefix}_data_coll_ctrl_start/stop -> 开始/停止推送数据
 # - get <path> -> 发送单文件目录结构，兼容 Client.get_file
 # 其他命令默认返回 ACK。
 
@@ -36,6 +36,13 @@ def recv_exact(sock: socket.socket, size: int) -> bytes | None:
 class TestServer:
     """简单的多线程测试服务器"""
 
+    # 服务器类型配置：prefix (大写), channel_count
+    SERVER_TYPES = {
+        "voc": ("VOC", 1),
+        "noise": ("NOISE_HUMILITY", 3),
+        "test": ("TEST", 5),
+    }
+
     def __init__(
         self,
         host: str = "0.0.0.0",
@@ -45,6 +52,9 @@ class TestServer:
         self.host = host
         self.port = port
         self.server_type = server_type.lower()
+        self.prefix, self.channel_count = self.SERVER_TYPES.get(
+            self.server_type, ("VOC", 1)
+        )
         self._running = False
         self._threads: list[threading.Thread] = []
         self._send_lock = threading.Lock()
@@ -56,7 +66,7 @@ class TestServer:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((self.host, self.port))
             s.listen()
-            print(f"[SERVER] Listening on {self.host}:{self.port} (type={self.server_type})")
+            print(f"[SERVER] Listening on {self.host}:{self.port} (type={self.server_type}, prefix={self.prefix})")
             while self._running:
                 conn, addr = s.accept()
                 print(f"[SERVER] Accepted {addr}")
@@ -74,18 +84,13 @@ class TestServer:
         send_flag = threading.Event()
 
         def sender_loop():
-            """根据类型推送数据"""
+            """根据通道数推送数据"""
             while send_flag.is_set():
-                if self.server_type == "noise":
-                    values = [
-                        round(random.uniform(40, 70), 2),
-                        round(random.uniform(18, 28), 2),
-                        round(random.uniform(30, 60), 2),
-                    ]
-                    line = ",".join(str(v) for v in values)
+                if self.channel_count == 1:
+                    line = str(round(random.uniform(100, 200), 2))
                 else:
-                    value = round(random.uniform(100, 200), 2)
-                    line = str(value)
+                    values = [round(random.uniform(40, 70), 2) for _ in range(self.channel_count)]
+                    line = ",".join(str(v) for v in values)
                 with self._send_lock:
                     send_prefixed(conn, line)
                 time.sleep(0.5)
@@ -111,10 +116,7 @@ class TestServer:
 
                 if cmd == "get_function_version_info":
                     version = "V1.0.0"
-                    if self.server_type == "noise":
-                        send_prefixed(conn, f"Noise_Humility,{version}")
-                    else:
-                        send_prefixed(conn, f"VOC,{version}")
+                    send_prefixed(conn, f"{self.prefix},{version}")
                     continue
 
                 if "sample_type" in cmd:
@@ -169,7 +171,7 @@ class TestServer:
 if __name__ == "__main__":
     host = os.environ.get("TEST_SERVER_HOST", "0.0.0.0")
     port = int(os.environ.get("TEST_SERVER_PORT", "65432"))
-    server_type = os.environ.get("TEST_SERVER_TYPE", "voc")
+    server_type = os.environ.get("TEST_SERVER_TYPE", "test")
     server = TestServer(host=host, port=port, server_type=server_type)
     try:
         server.start()

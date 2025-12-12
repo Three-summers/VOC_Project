@@ -14,37 +14,26 @@ from typing import Any, Dict, Iterable, List
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
 from voc_app.gui.channel_config import (
-    ServerType,
-    ServerTypeRegistry,
+    PrefixRegistry,
+    DEFAULT_PREFIX_BY_CHANNEL,
     ChannelConfig,
     ChannelConfigManager,
 )
 from voc_app.gui.socket_client import SocketCommunicator, Client
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class FoupAcquisitionController(QObject):
-    """管理 FOUP 采集通道的 TCP 连接与数据分发。"""
+    """管理 FOUP 采集通道的 TCP 连接与数据分发。
 
-    _COMMAND_SETS: Dict[ServerType, Dict[str, str]] = {
-        ServerType.NOISE: {
-            "sample_normal": "Noise_Hmulity_sample_type_normal",
-            "sample_test": "Noise_Hmulity_sample_type_test",
-            "start": "Noise_Hmulity_data_coll_ctrl_start",
-            "stop": "Noise_Hmulity_data_coll_ctrl_stop",
-        },
-        ServerType.VOC: {
-            "sample_normal": "voc_sample_type_normal",
-            "sample_test": "voc_sample_type_test",
-            "start": "voc_data_coll_ctrl_start",
-            "stop": "voc_data_coll_ctrl_stop",
-        },
-    }
-    _DEFAULT_COMMANDS: Dict[str, str] = {
-        "sample_normal": "voc_sample_type_normal",
-        "sample_test": "voc_sample_type_test",
-        "start": "voc_data_coll_ctrl_start",
-        "stop": "voc_data_coll_ctrl_stop",
-    }
+    命令动态生成规则：{prefix}_{action}
+    - sample_test: {prefix}_sample_type_test
+    - sample_normal: {prefix}_sample_type_normal
+    - start: {prefix}_data_coll_ctrl_start
+    - stop: {prefix}_data_coll_ctrl_stop
+    """
 
     # Signals
     runningChanged = Signal()
@@ -60,7 +49,7 @@ class FoupAcquisitionController(QObject):
     operationModeChanged = Signal()
     normalModeRemotePathChanged = Signal()
     dataPointReceived = Signal(float, list)
-    _serverTypeDetected = Signal(int)
+    _channelCountDetected = Signal(int)
 
     def __init__(
         self,
@@ -85,8 +74,8 @@ class FoupAcquisitionController(QObject):
         self._last_value: float | None = None
         self._channel_values: List[float] = []
         self._channel_count: int = 0
-        self._server_type: ServerType = ServerType.UNKNOWN
         self._server_version: str = ""
+        self._command_prefix: str = ""  # 从服务器响应解析的命令前缀（大写）
         self._operation_mode: str = "test"
         self._normal_mode_remote_path: str = "Log"
 
@@ -96,13 +85,12 @@ class FoupAcquisitionController(QObject):
         self._communicator: SocketCommunicator | None = None
         self._sample_index: int = 0
         self._last_timestamp_ms: float = 0.0
-        self._server_type_detected: bool = False
         self._detected_channel_count: int = 0
 
         self._config_manager = ChannelConfigManager()
 
         self.dataPointReceived.connect(self._append_point_to_model)
-        self._serverTypeDetected.connect(self._on_server_type_detected)
+        self._channelCountDetected.connect(self._on_channel_count_detected)
 
     # ---- Thread-safe property accessors ----
 
@@ -196,14 +184,21 @@ class FoupAcquisitionController(QObject):
 
     @Property(str, notify=serverTypeChanged)
     def serverType(self) -> str:
+        """返回服务器类型（大写前缀）"""
         with self._lock:
-            return self._server_type.value
+            return self._command_prefix
 
     @Property(str, notify=serverTypeChanged)
     def serverTypeDisplayName(self) -> str:
         with self._lock:
-            preset = ServerTypeRegistry.get_preset(self._server_type)
-            return preset.display_name
+            prefix = self._command_prefix
+        if not prefix:
+            return "未知类型"
+        preset = PrefixRegistry.get_preset(prefix)
+        # 如果是默认预设（未注册的前缀），直接显示前缀名
+        if preset.prefix == "UNKNOWN":
+            return prefix
+        return preset.display_name
 
     # ---- Slots ----
 
@@ -231,15 +226,14 @@ class FoupAcquisitionController(QObject):
                     if callable(clear_fn):
                         clear_fn()
                 except Exception as exc:
-                    print(f"[WARN] foup_acquisition: clear series failed: {exc!r}")
+                    logger.warning(f"clear series failed: {exc!r}")
             self._sample_index = 0
             self._last_timestamp_ms = 0.0
 
         self._stop_event.clear()
         with self._lock:
-            self._server_type_detected = False
-            self._server_type = ServerType.UNKNOWN
             self._server_version = ""
+            self._command_prefix = ""
             self._channel_count = 0
             self._detected_channel_count = 0
 
@@ -366,58 +360,70 @@ class FoupAcquisitionController(QObject):
             if response.strip().lower() == "ack":
                 self._set_status("收到 ACK")
                 continue
-            detected_type, version = self._parse_version_response(response)
-            if detected_type != ServerType.UNKNOWN or version:
-                self._apply_server_identity(detected_type, version)
+            version, prefix = self._parse_version_response(response)
+            if version or prefix:
+                self._apply_server_identity(version, prefix)
                 break
 
-    def _parse_version_response(self, response: str) -> tuple[ServerType, str]:
+    def _parse_version_response(self, response: str) -> tuple[str, str]:
+        """解析版本响应，返回 (version, prefix)，prefix 统一大写"""
         cleaned = (response or "").strip()
         if not cleaned or not any(ch.isalpha() for ch in cleaned):
-            return ServerType.UNKNOWN, ""
+            return "", ""
         parts = [part.strip() for part in cleaned.split(",") if part.strip()]
         type_token = parts[0] if parts else cleaned
         version = parts[1] if len(parts) > 1 else ""
-        lower_token = type_token.lower()
-        if "voc" in lower_token:
-            return ServerType.VOC, version
-        if "noise" in lower_token:
-            return ServerType.NOISE, version
-        return ServerType.UNKNOWN, version
+        # prefix 统一转大写
+        prefix = type_token.upper()
+        return version, prefix
 
-    def _apply_server_identity(self, server_type: ServerType, version: str | None = None) -> None:
+    def _apply_server_identity(self, version: str | None = None, prefix: str | None = None) -> None:
         emit_type = False
-        emit_count = False
         emit_version = False
-        preset_count = 0
         with self._lock:
-            if server_type != ServerType.UNKNOWN and self._server_type != server_type:
-                self._server_type = server_type
-                preset = ServerTypeRegistry.get_preset(server_type)
-                preset_count = preset.channel_count
-                self._config_manager.set_server_type(server_type)
-                if self._channel_count != preset_count:
-                    self._channel_count = preset_count
-                    emit_count = True
+            if prefix and prefix != self._command_prefix:
+                self._command_prefix = prefix
                 emit_type = True
             if version is not None and version != self._server_version:
                 self._server_version = version
                 emit_version = True
+        # 配置初始化延迟到通道数确定时，见 _init_config_if_ready
+        self._init_config_if_ready()
         if emit_type:
-            self._apply_preset_config(server_type, preset_count)
             self.serverTypeChanged.emit()
-        if emit_count:
-            self.channelCountChanged.emit()
         if emit_version:
             self.serverVersionChanged.emit()
 
-    def _select_command(self, key: str) -> str | None:
+    def _init_config_if_ready(self) -> None:
+        """当 prefix 和 channel_count 都确定时，初始化或加载配置"""
         with self._lock:
-            server_type = self._server_type
-        commands = self._COMMAND_SETS.get(server_type)
-        if not commands:
-            commands = self._DEFAULT_COMMANDS
-        return commands.get(key) or self._DEFAULT_COMMANDS.get(key)
+            prefix = self._command_prefix
+            channel_count = self._channel_count
+        if not prefix or channel_count <= 0:
+            return
+        # 只有当配置管理器当前 prefix 不同时才切换
+        if self._config_manager.get_prefix() != prefix:
+            self._config_manager.set_prefix(prefix, channel_count)
+
+    def _select_command(self, key: str) -> str:
+        """动态生成命令: {prefix}_{action}
+
+        优先级: 服务器返回前缀 > 配置文件保存前缀 > 通道数默认前缀
+        """
+        with self._lock:
+            prefix = self._command_prefix
+            channel_count = self._channel_count
+        if not prefix:
+            prefix = self._config_manager.get_prefix()
+        if not prefix:
+            prefix = DEFAULT_PREFIX_BY_CHANNEL.get(channel_count, "VOC")
+        actions = {
+            "sample_test": "sample_type_test",
+            "sample_normal": "sample_type_normal",
+            "start": "data_coll_ctrl_start",
+            "stop": "data_coll_ctrl_stop",
+        }
+        return f"{prefix}_{actions.get(key, key)}"
 
     def _send_sample_type_command(self) -> None:
         with self._lock:
@@ -443,9 +449,9 @@ class FoupAcquisitionController(QObject):
             self._set_status("收到 ACK")
             return
 
-        parsed_type, version = self._parse_version_response(cleaned)
-        if parsed_type != ServerType.UNKNOWN or version:
-            self._apply_server_identity(parsed_type, version)
+        version, prefix = self._parse_version_response(cleaned)
+        if version or prefix:
+            self._apply_server_identity(version, prefix)
             if not all(ch in "0123456789.,-+ " for ch in cleaned):
                 return
 
@@ -468,7 +474,7 @@ class FoupAcquisitionController(QObject):
         detected_count = len(values)
         if self._detected_channel_count != detected_count:
             self._detected_channel_count = detected_count
-            self._serverTypeDetected.emit(detected_count)
+            self._channelCountDetected.emit(detected_count)
 
         emit_count = False
         with self._lock:
@@ -480,6 +486,7 @@ class FoupAcquisitionController(QObject):
 
         if emit_count:
             self.channelCountChanged.emit()
+            self._init_config_if_ready()
         self.channelValuesChanged.emit()
         self.lastValueChanged.emit()
 
@@ -491,30 +498,14 @@ class FoupAcquisitionController(QObject):
 
         self.dataPointReceived.emit(timestamp_ms, values)
 
-    def _on_server_type_detected(self, channel_count: int) -> None:
-        new_type = ServerTypeRegistry.detect_by_channel_count(channel_count)
-        emit_type = False
+    def _on_channel_count_detected(self, channel_count: int) -> None:
+        """当检测到通道数时，如果还没有 prefix，则使用默认前缀"""
         with self._lock:
-            if self._server_type != new_type:
-                self._server_type = new_type
-                self._config_manager.set_server_type(new_type)
-                emit_type = True
-        if emit_type:
-            self._apply_preset_config(new_type, channel_count)
-            self.serverTypeChanged.emit()
-            print(f"[INFO] 检测到服务端类型: {new_type.value} (通道数: {channel_count})")
-        else:
-            self._apply_preset_config(new_type, channel_count)
-
-    def _apply_preset_config(self, server_type: ServerType, channel_count: int) -> None:
-        preset = ServerTypeRegistry.get_preset(server_type)
-        self._config_manager.set_server_type(server_type)
-        total = max(channel_count, preset.channel_count)
-        for channel_idx in range(total):
-            channel_preset = preset.get_channel_preset(channel_idx)
-            config = ChannelConfig.from_preset(channel_preset)
-            self._config_manager.set(channel_idx, config)
-            self.channelConfigChanged.emit(channel_idx)
+            has_prefix = bool(self._command_prefix)
+        if not has_prefix:
+            default_prefix = PrefixRegistry.get_default_prefix(channel_count)
+            self._apply_server_identity(prefix=default_prefix)
+            logger.info(f"使用默认前缀: {default_prefix} (通道数: {channel_count})")
 
     def _append_point_to_model(self, x: float, y_values: list) -> None:
         try:
@@ -524,7 +515,7 @@ class FoupAcquisitionController(QObject):
                     if model is not None:
                         model.append_point(x, y_value)  # type: ignore
         except Exception as exc:
-            print(f"[ERROR] foup_acquisition: _append_point_to_model: {exc!r}")
+            logger.error(f"_append_point_to_model: {exc!r}")
 
     def _set_running(self, value: bool) -> None:
         changed = False
@@ -580,7 +571,7 @@ class FoupAcquisitionController(QObject):
             try:
                 chunk = self._communicator.recv(remaining)
             except Exception as exc:
-                print(f"[WARN] foup_acquisition: recv exception {exc}")
+                logger.warning(f"recv exception: {exc}")
                 return None
             if not chunk:
                 return None
@@ -596,7 +587,7 @@ class FoupAcquisitionController(QObject):
             header = struct.pack(">I", len(payload))
             self._communicator.send(header + payload)
         except Exception as exc:
-            print(f"FOUP: send_command error {exc}")
+            logger.error(f"send_command error: {exc}")
 
     # ---- Channel config slots ----
 

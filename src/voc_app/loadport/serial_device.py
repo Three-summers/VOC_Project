@@ -12,6 +12,10 @@ import threading
 import time
 from typing import Any, Callable, Dict, Optional, Protocol
 
+from voc_app.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 try:  # 可选依赖，允许在未安装 pyserial 时注入自定义工厂
     import serial  # type: ignore
 except ImportError:  # pragma: no cover - fallback 路径
@@ -152,7 +156,7 @@ class GenericSerialDevice:
     def handle_response(self, command_name: str, payload: bytes) -> None:
         command = self.command_table.get(command_name)
         if not command:
-            print(f"[Serial] 未注册命令 {command_name}, 忽略响应")
+            logger.warning(f"未注册命令 {command_name}, 忽略响应")
             return
         parsed: Any = payload
         if command.response_parser:
@@ -181,7 +185,7 @@ class GenericSerialDevice:
                     time.sleep(self.idle_sleep)
             except Exception as exc:  # noqa: BLE001
                 self._last_error = exc
-                print(f"[Serial] 读取线程异常: {exc}")
+                logger.error(f"读取线程异常: {exc}")
                 break
 
     def _dispatch_chunk(self, chunk: bytes) -> None:
@@ -191,7 +195,7 @@ class GenericSerialDevice:
 
     @staticmethod
     def _default_parser(chunk: bytes, device: "GenericSerialDevice") -> None:
-        print(f"[Serial] 接收到 {len(chunk)} 字节: {chunk.hex()}")
+        logger.debug(f"接收到 {len(chunk)} 字节: {chunk.hex()}")
 
     # ------------------------------------------------------------------
     @property

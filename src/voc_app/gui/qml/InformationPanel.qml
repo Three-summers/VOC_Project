@@ -17,7 +17,8 @@ Rectangle {
     property var subNavigationConfig: ({
         "Status": [
             { key: "loadport", title: "Loadport" },
-            { key: "foup", title: "FOUP" }
+            { key: "foup", title: "FOUP" },
+            { key: "spectrum", title: "频谱" }
         ],
         "Config": [
             { key: "loadport", title: "Loadport" },
