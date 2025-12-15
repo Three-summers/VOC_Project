@@ -19,6 +19,7 @@ from voc_app.gui.channel_config import (
     ChannelConfig,
     ChannelConfigManager,
 )
+from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.socket_client import SocketCommunicator, Client
 from voc_app.logging_config import get_logger
 
@@ -49,19 +50,25 @@ class FoupAcquisitionController(QObject):
     operationModeChanged = Signal()
     normalModeRemotePathChanged = Signal()
     dataPointReceived = Signal(float, list)
+    spectrumFrameReceived = Signal(list)
     _channelCountDetected = Signal(int)
 
     def __init__(
         self,
         series_models: Iterable[QObject],
-        # host: str = "192.168.1.53",
-        host: str = "127.0.0.1",
+        host: str = "192.168.1.53",
+        # host: str = "127.0.0.1",
         port: int = 65432,
+        spectrum_model: SpectrumDataModel | None = None,
+        spectrum_simulator: SpectrumSimulator | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._series_models: List[QObject] = [m for m in series_models if m is not None]
         self._primary_series: QObject | None = self._series_models[0] if self._series_models else None
+        self._spectrum_model = spectrum_model
+        self._spectrum_simulator = spectrum_simulator
+        self._external_spectrum_seen = False
 
         # 线程安全锁
         self._lock = threading.Lock()
@@ -90,7 +97,12 @@ class FoupAcquisitionController(QObject):
         self._config_manager = ChannelConfigManager()
 
         self.dataPointReceived.connect(self._append_point_to_model)
+        self.spectrumFrameReceived.connect(self._on_spectrum_frame_received)
         self._channelCountDetected.connect(self._on_channel_count_detected)
+
+    @staticmethod
+    def _is_spectrum_prefix(prefix: str) -> bool:
+        return prefix.upper() == "SPEC"
 
     # ---- Thread-safe property accessors ----
 
@@ -422,6 +434,29 @@ class FoupAcquisitionController(QObject):
         if self._config_manager.get_prefix() != prefix:
             self._config_manager.set_prefix(prefix, channel_count)
 
+    def _on_spectrum_frame_received(self, values: list) -> None:
+        """将频谱帧转发给 SpectrumDataModel（在 Qt 主线程执行）。"""
+        model = self._spectrum_model
+        if model is None:
+            return
+        try:
+            model.updateSpectrum(values)  # type: ignore[arg-type]
+        except Exception as exc:
+            logger.warning(f"updateSpectrum failed: {exc!r}")
+            return
+
+        if self._external_spectrum_seen:
+            return
+        self._external_spectrum_seen = True
+        simulator = self._spectrum_simulator
+        if simulator is None:
+            return
+        try:
+            if getattr(simulator, "running", False):
+                simulator.stop()
+        except Exception as exc:
+            logger.debug(f"stop spectrum simulator failed: {exc!r}")
+
     def _select_command(self, key: str) -> str:
         """动态生成命令: {prefix}_{action}
 
@@ -465,6 +500,24 @@ class FoupAcquisitionController(QObject):
         if cleaned.lower() == "ack":
             self._set_status("收到 ACK")
             return
+
+        # 频谱数据（每包带 prefix）：Noise_Spectrum,<float>,<float>...（256 点）
+        # 注意：频谱前缀不应覆盖命令前缀（serverType），避免影响 FOUP 曲线与命令生成。
+        if "," in cleaned and any(ch.isalpha() for ch in cleaned):
+            parts = [part.strip() for part in cleaned.split(",")]
+            if parts and parts[0] and self._is_spectrum_prefix(parts[0]):
+                spectrum_values: List[float] = []
+                for token in parts[1:]:
+                    if not token:
+                        continue
+                    try:
+                        spectrum_values.append(float(token))
+                    except ValueError:
+                        spectrum_values = []
+                        break
+                if spectrum_values:
+                    self.spectrumFrameReceived.emit(spectrum_values)
+                return
 
         version, prefix = self._parse_version_response(cleaned)
         if version or prefix:

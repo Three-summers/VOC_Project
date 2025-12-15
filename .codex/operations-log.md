@@ -51,3 +51,16 @@
 - 11:11:50 shrimp analyze_task: 输出初步技术方案与假设。
 - 11:12:00 shrimp reflect_task: 反思方案并形成瓶颈与改造方向。
 - 11:12:10 shrimp split_tasks: 拆分评估子任务并追加任务列表。
+
+## 2025-12-15
+
+- 09:54:50 sequential-thinking: 需求梳理（Noise_Spectrum 前缀，256 点频谱整包替换，prefix→目标图表路由）。
+- 09:55:10 shell `rg`/`sed`/`ls`: 定位数据接收与解析入口 `src/voc_app/gui/foup_acquisition.py`、频谱模型 `src/voc_app/gui/spectrum_model.py`、QML 频谱组件 `src/voc_app/gui/qml/components/SpectrumChart.qml` 与注入点 `src/voc_app/gui/app.py`。
+- 09:55:55 apply_patch: 更新 `src/voc_app/gui/foup_acquisition.py`，增加 `NOISE_SPECTRUM` 路由（256 点→`SpectrumDataModel.updateSpectrum`），并跳过 256 通道配置持久化；首帧外部频谱到达后自动停止 `SpectrumSimulator`。
+- 09:56:05 apply_patch: 更新 `src/voc_app/gui/app.py`，将 `spectrumModel/spectrumSimulator` 注入给 `FoupAcquisitionController`，用于频谱路由与自动停模拟器。
+- 09:56:15 apply_patch: 更新 `tests/test_foup_acquisition.py`，新增 Noise_Spectrum 路由单测与“跳过配置持久化”单测。
+- 09:56:25 apply_patch: 更新 `src/voc_app/gui/qml/views/StatusView.qml` 与 `src/voc_app/gui/qml/commands/Config_foupCommands.qml`，当 `dataTarget=spectrum` 时禁用 FOUP 通道 UI（避免按 channelCount=256 创建大量控件），并提示“频谱模式”。
+- 09:56:35 shell `python -m unittest discover -s tests -p "test_*.py"`: 发现 1 个用例因沙箱限制无法创建 socket（PermissionError），其余通过；见 `tests/test_socket_client.py` 的真实 server 交互用例。
+- 09:56:57 shell `python -m unittest tests.test_foup_acquisition -v`: 回归 FOUP 采集单测 41/41 通过（包含新增频谱路由用例）。
+- 10:08:10 apply_patch: 根据“FOUP 曲线与频谱同时更新”要求，修正 `Noise_Spectrum` 为“每包数据前缀”而非 serverType；回滚 QML 中对 FOUP UI 的禁用逻辑，保证 FOUP 曲线不受频谱包影响。
+- 10:10:20 apply_patch: 更新 `examples/test_server.py`，支持在推送 FOUP 数值的同时可选推送 `Noise_Spectrum,<256点...>` 频谱数据包，用于联调验证。

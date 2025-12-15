@@ -1,19 +1,22 @@
 {
-  "timestamp": "2025-12-11T03:10:58Z",
-  "scope": "高速刷新频谱图集成可行性快速扫描",
+  "timestamp": "2025-12-15T09:58:00Z",
+  "scope": "Noise_Spectrum 前缀数据路由集成扫描",
   "locations": [
     "src/voc_app/gui/foup_acquisition.py",
+    "src/voc_app/gui/spectrum_model.py",
     "src/voc_app/gui/csv_model.py",
     "src/voc_app/gui/qml/components/ChartCard.qml",
     "src/voc_app/gui/qml/views/StatusView.qml",
     "src/voc_app/gui/app.py",
-    "docs/server.c"
+    "examples/test_server.py"
   ],
   "current_state": {
-    "data_ingest": "FoupAcquisitionController 使用 SocketCommunicator 读取 4 字节长度前缀 + UTF-8 文本，_handle_line 解析逗号分隔浮点值并立即通过 dataPointReceived 信号把每个通道的单点追加到对应 SeriesTableModel；时间戳在本地生成。",
+    "data_ingest": "FoupAcquisitionController 使用 SocketCommunicator 读取 4 字节长度前缀 + UTF-8 文本，_handle_line 解析逗号分隔浮点值并分发。历史逻辑默认走 dataPointReceived：将每个通道的单点追加到对应 SeriesTableModel（FOUP 曲线）；时间戳在本地生成。",
+    "server_identity": "建连后先发送 get_function_version_info，解析返回如 \"VOC,V1.0.0\"，将首段识别为服务器 prefix（大写）并缓存。",
+    "spectrum_api": "SpectrumDataModel 提供 updateSpectrum(list[float])，可一次性替换 256 点频谱并触发 spectrumDataChanged，QML 的 SpectrumChart.qml 监听该信号重绘。",
     "buffer_render": "SeriesTableModel 保存最近 max_rows（app.py 创建时为 60）条 [ts, value]，溢出时移除首行并重算边界；ChartCard.qml 通过 VXYModelMapper 将 model 映射到 LineSeries/ScatterSeries，boundsChanged 时重新计算轴和 OOC/OOS/Target 参考线，useOpenGL 处于注释状态。",
     "ui_usage": "StatusView.qml 将 FOUP/Loadport 通道以 GridLayout + ChartCard 显示，FOUP 最多 8 通道，每个卡片独立更新；示例定时器 data_update_timer 仅以 1s 间隔生成随机点演示低频刷新。",
-    "protocol_samples": "docs/server.c 展示的示例服务器使用相同长度前缀协议，侧重 run/get 文件/目录，不包含批量波形推流。"
+    "protocol_samples": "examples/test_server.py 展示的示例服务器使用相同长度前缀协议，建连后返回 \"{prefix},{version}\"，实时推送时仅发送数值（无每包 prefix）。"
   },
   "similar_components": [
     {
@@ -27,14 +30,14 @@
   ],
   "tests": {
     "existing": [
-      "tests/test_serial_device.py"
+      "tests/test_foup_acquisition.py",
+      "tests/test_spectrum_model.py"
     ],
-    "gaps": "无覆盖采集链、Chart 渲染或高频数据吞吐；未见性能/压力测试。"
+    "gaps": "未覆盖真实 socket/server 的端到端推流与 QML 渲染，仅能通过单元测试验证路由与模型更新。"
   },
   "observations": [
-    "当前数据源每条消息仅包含单个时间点的浮点值（可多通道），缺少频谱所需的高采样窗口或原始波形，且时间戳由客户端生成，无法反推稳定采样率。",
-    "SeriesTableModel 以列表保存并在溢出时 pop(0) + 重算边界，max_rows=60 会在高频下快速丢弃数据，且每条信号都会触发 QAbstractTableModel 事件，CPU 压力大。",
-    "ChartCard 基于 QtCharts 折线绘制，频繁调用 updateAxesFromSeries/updateLimitLines 重建多条参考线，未启用 GPU 加速，难以支撑高刷新频谱渲染（二维纹理/Shader 更合适）。",
-    "UI 布局为多 ChartCard 并行刷新，通道越多开销线性放大，缺少批量更新或降采样机制。"
+    "Noise_Spectrum 的 256 点数据不适合复用 FOUP 的“按通道追加单点”模型，应该走 SpectrumDataModel.updateSpectrum 进行整体替换。",
+    "ChannelConfigManager.set_prefix 会为未知前缀按 channel_count 创建并持久化每通道配置；对 256 点频谱会产生大量无意义配置，应在频谱路由下跳过该初始化。",
+    "频谱页已有 Python 模型与 QML 组件，只需要把解析后的数值序列路由过去即可完成集成。"
   ]
 }

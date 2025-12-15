@@ -182,6 +182,52 @@ class TestFoupAcquisitionController(unittest.TestCase):
         self.assertEqual(self.controller.channelCount, 3)
         self.assertAlmostEqual(self.controller.lastValue, 100.0, places=2)
 
+    def test_handle_line_noise_spectrum_routes_to_spectrum_model(self) -> None:
+        """测试 Noise_Spectrum 前缀将 256 点数据路由到频谱模型"""
+        spectrum_model = MagicMock()
+        spectrum_simulator = MagicMock()
+        spectrum_simulator.running = True
+
+        controller = FoupAcquisitionController(
+            series_models=self.series_models,
+            host="127.0.0.1",
+            port=65432,
+            spectrum_model=spectrum_model,
+            spectrum_simulator=spectrum_simulator,
+        )
+
+        payload = ",".join(str(i) for i in range(256))
+        controller._handle_line("Noise_Spectrum," + payload)
+
+        spectrum_model.updateSpectrum.assert_called_once()
+        called_values = spectrum_model.updateSpectrum.call_args[0][0]
+        self.assertEqual(len(called_values), 256)
+        self.assertEqual(len(self.series_models[0].points), 0)
+        spectrum_simulator.stop.assert_called_once()
+        self.assertEqual(controller.serverType, "")
+
+        # 第二次更新不会重复 stop（避免频繁控制模拟器）
+        controller._handle_line("Noise_Spectrum," + payload)
+        self.assertEqual(spectrum_simulator.stop.call_count, 1)
+
+    def test_handle_line_noise_spectrum_prefixed_payload(self) -> None:
+        """测试每包带 prefix 的 Noise_Spectrum 数据格式"""
+        spectrum_model = MagicMock()
+        controller = FoupAcquisitionController(
+            series_models=self.series_models,
+            host="127.0.0.1",
+            port=65432,
+            spectrum_model=spectrum_model,
+        )
+
+        payload = "Noise_Spectrum," + ",".join(str(i) for i in range(256))
+        controller._handle_line(payload)
+
+        spectrum_model.updateSpectrum.assert_called_once()
+        called_values = spectrum_model.updateSpectrum.call_args[0][0]
+        self.assertEqual(len(called_values), 256)
+        self.assertEqual(controller.serverType, "")
+
     def test_handle_line_empty(self) -> None:
         """测试处理空行"""
         self.controller._handle_line("")  # 不应该崩溃

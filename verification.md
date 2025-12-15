@@ -217,3 +217,15 @@
   3) 测试模式下 start/stop 发送类型化命令，ACK 返回不影响数据解析；断流或停止后 socket 正常关闭。
   4) Config 命令面板模式切换/目录输入与后端属性同步，服务器类型与版本在页面显示正确。
 - Risk Assessment: 高（缺少真实服务器和 E84 硬件验证）。需在目标设备上实机验证自动建连、日志下载、ACK 行为与 UI 状态。 
+
+## Verification - 2025-12-15T09:59:00+08:00
+- Executor: Codex
+- Scope: Noise_Spectrum 前缀下的 256 点频谱数据解析与路由（更新频谱页，不创建/追加 FOUP 图表）
+- Command: `python -m unittest tests.test_foup_acquisition -v`
+- Result: ✅ Passed
+- Details: 新增路由逻辑：识别每包前缀为 `Noise_Spectrum` 的频谱包，将后续 256 点数据直接调用 `SpectrumDataModel.updateSpectrum()` 整包替换；频谱前缀不覆盖 `serverType`（命令前缀），因此 FOUP 曲线可与频谱同时更新；首帧外部频谱到达后自动停止 `SpectrumSimulator`，避免模拟数据覆盖真实数据。
+- Hand-check (需真实服务端与 GUI 环境):
+  1) 实时数据流中同时包含 FOUP 数值包与 `Noise_Spectrum,<256点...>` 频谱包时：FOUP 曲线与频谱页同时更新；
+  2) `Noise_Spectrum` 包不会影响 FOUP 的通道数/配置（不会误触发 256 通道 UI 或持久化配置）；
+  3) 若 GUI 启动时模拟器默认在跑，首次收到真实频谱后模拟器自动停止，频谱图保持使用真实数据。
+- Risk Assessment: 中。单测覆盖路由与模型调用，但未在受限沙箱环境中跑通真实 socket 推流与 QML 渲染，需要实机联调确认协议细节（分隔符/浮点格式/更新频率）。 

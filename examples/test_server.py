@@ -11,6 +11,7 @@ from pathlib import Path
 # - get_function_version_info -> 返回 "{prefix},{version}"
 # - {prefix}_sample_type_normal/test -> ACK
 # - {prefix}_data_coll_ctrl_start/stop -> 开始/停止推送数据
+# - （可选）推送 Noise_Spectrum, <256点...> 的频谱数据，与 FOUP 数值同时发送
 # - get <path> -> 发送单文件目录结构，兼容 Client.get_file
 # 其他命令默认返回 ACK。
 
@@ -48,6 +49,9 @@ class TestServer:
         host: str = "0.0.0.0",
         port: int = 65432,
         server_type: str = "voc",  # voc 或 noise
+        spectrum_enabled: bool = False,
+        spectrum_bin_count: int = 256,
+        spectrum_interval_s: float = 0.5,
     ):
         self.host = host
         self.port = port
@@ -58,6 +62,9 @@ class TestServer:
         self._running = False
         self._threads: list[threading.Thread] = []
         self._send_lock = threading.Lock()
+        self.spectrum_enabled = bool(spectrum_enabled)
+        self.spectrum_bin_count = int(spectrum_bin_count) if int(spectrum_bin_count) > 0 else 256
+        self.spectrum_interval_s = float(spectrum_interval_s) if float(spectrum_interval_s) > 0 else 0.5
 
     def start(self) -> None:
         """启动监听，阻塞主线程"""
@@ -85,6 +92,7 @@ class TestServer:
 
         def sender_loop():
             """根据通道数推送数据"""
+            last_spectrum_ts = 0.0
             while send_flag.is_set():
                 if self.channel_count == 1:
                     line = str(round(random.uniform(100, 200), 2))
@@ -93,6 +101,16 @@ class TestServer:
                     line = ",".join(str(v) for v in values)
                 with self._send_lock:
                     send_prefixed(conn, line)
+
+                    # 可选：同时发送频谱数据包（每包带 prefix）
+                    if self.spectrum_enabled:
+                        now = time.time()
+                        if (now - last_spectrum_ts) >= self.spectrum_interval_s:
+                            # 归一化 0.0~1.0 的 256 点频谱
+                            spectrum = [round(random.random(), 6) for _ in range(self.spectrum_bin_count)]
+                            spectrum_line = "Noise_Spectrum," + ",".join(str(v) for v in spectrum)
+                            send_prefixed(conn, spectrum_line)
+                            last_spectrum_ts = now
                 time.sleep(0.5)
 
         try:
@@ -172,7 +190,17 @@ if __name__ == "__main__":
     host = os.environ.get("TEST_SERVER_HOST", "0.0.0.0")
     port = int(os.environ.get("TEST_SERVER_PORT", "65432"))
     server_type = os.environ.get("TEST_SERVER_TYPE", "test")
-    server = TestServer(host=host, port=port, server_type=server_type)
+    spectrum_enabled = os.environ.get("TEST_SERVER_SPECTRUM", "").strip().lower() in {"1", "true", "yes", "on"}
+    spectrum_bin_count = int(os.environ.get("TEST_SERVER_SPECTRUM_BINS", "256"))
+    spectrum_interval_s = float(os.environ.get("TEST_SERVER_SPECTRUM_INTERVAL", "0.5"))
+    server = TestServer(
+        host=host,
+        port=port,
+        server_type=server_type,
+        spectrum_enabled=True,
+        spectrum_bin_count=spectrum_bin_count,
+        spectrum_interval_s=spectrum_interval_s,
+    )
     try:
         server.start()
     except KeyboardInterrupt:

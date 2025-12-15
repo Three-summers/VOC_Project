@@ -87,9 +87,6 @@ API 参考
 信号 (Signal):
     - spectrumDataChanged - 频谱数据更新时发出
     - binCountChanged - bin 数量变化时发出
-
-作者: Claude Code
-版本: 1.0.0
 """
 
 from __future__ import annotations

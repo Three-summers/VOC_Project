@@ -65,53 +65,6 @@
       "show_target": true
     }
   },
-  "UNKNOWN COMMAND: SPEC100_DATA_COLL_CTRL_STOP": {
-    "_meta": {
-      "channel_count": 3
-    },
-    "channel_0": {
-      "title": "通道 1",
-      "unit": "",
-      "ooc_upper": 80.0,
-      "ooc_lower": 20.0,
-      "oos_upper": 90.0,
-      "oos_lower": 10.0,
-      "target": 50.0,
-      "show_ooc_upper": true,
-      "show_ooc_lower": true,
-      "show_oos_upper": true,
-      "show_oos_lower": true,
-      "show_target": true
-    },
-    "channel_1": {
-      "title": "通道 1",
-      "unit": "",
-      "ooc_upper": 80.0,
-      "ooc_lower": 20.0,
-      "oos_upper": 90.0,
-      "oos_lower": 10.0,
-      "target": 50.0,
-      "show_ooc_upper": true,
-      "show_ooc_lower": true,
-      "show_oos_upper": true,
-      "show_oos_lower": true,
-      "show_target": true
-    },
-    "channel_2": {
-      "title": "通道 1",
-      "unit": "",
-      "ooc_upper": 80.0,
-      "ooc_lower": 20.0,
-      "oos_upper": 90.0,
-      "oos_lower": 10.0,
-      "target": 50.0,
-      "show_ooc_upper": true,
-      "show_ooc_lower": true,
-      "show_oos_upper": true,
-      "show_oos_lower": true,
-      "show_target": true
-    }
-  },
   "SPEC100": {
     "_meta": {
       "channel_count": 3

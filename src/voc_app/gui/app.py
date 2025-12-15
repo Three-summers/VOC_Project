@@ -200,9 +200,6 @@ if __name__ == "__main__":
 
     engine.rootContext().setContextProperty("chartListModel", chart_list_model)
 
-    foup_acquisition = FoupAcquisitionController(foup_series_models)
-    engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
-
     # 频谱分析模型和模拟器
     spectrum_model = SpectrumDataModel(bin_count=256)
     spectrum_simulator = SpectrumSimulator(spectrum_model)
@@ -210,6 +207,13 @@ if __name__ == "__main__":
     spectrum_simulator.start()  # 自动启动模拟器
     engine.rootContext().setContextProperty("spectrumModel", spectrum_model)
     engine.rootContext().setContextProperty("spectrumSimulator", spectrum_simulator)
+
+    foup_acquisition = FoupAcquisitionController(
+        foup_series_models,
+        spectrum_model=spectrum_model,
+        spectrum_simulator=None,
+    )
+    engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
     # 将性能配置传递给 QML，让频谱图组件根据环境调整效果
     spectrum_perf_config = get_spectrum_config_for_env()
@@ -270,7 +274,7 @@ if __name__ == "__main__":
     #     csv_file_manager.parse_csv_file(csv_file_manager.csvFiles[0])
 
     app.aboutToQuit.connect(foup_acquisition.stopAcquisition)
-    app.aboutToQuit.connect(spectrum_simulator.stop)
+    # app.aboutToQuit.connect(spectrum_simulator.stop)
     if loadport_bridge:
         app.aboutToQuit.connect(loadport_bridge.shutdown)
 
