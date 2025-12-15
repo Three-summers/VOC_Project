@@ -248,16 +248,17 @@ if __name__ == "__main__":
     enable_e84_bridge = not disable_e84_bridge
     if enable_e84_bridge:
         try:
-            from voc_app.loadport.e84_thread import E84ControllerThread
-
-            worker = E84ControllerThread()
-            loadport_bridge = LoadportBridge(
-                worker=worker,
-                alarm_store=alarm_store,
-                title_panel=None,
-                foup_controller=foup_acquisition,
-            )
-            loadport_bridge.start()
+            # from voc_app.loadport.e84_thread import E84ControllerThread
+            #
+            # worker = E84ControllerThread()
+            # loadport_bridge = LoadportBridge(
+            #     worker=worker,
+            #     alarm_store=alarm_store,
+            #     title_panel=None,
+            #     foup_controller=foup_acquisition,
+            # )
+            # loadport_bridge.start()
+            pass
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"未启动 E84 桥接: {exc}")
 
