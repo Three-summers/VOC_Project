@@ -65,7 +65,9 @@ class FoupAcquisitionController(QObject):
     ) -> None:
         super().__init__(parent)
         self._series_models: List[QObject] = [m for m in series_models if m is not None]
-        self._primary_series: QObject | None = self._series_models[0] if self._series_models else None
+        self._primary_series: QObject | None = (
+            self._series_models[0] if self._series_models else None
+        )
         self._spectrum_model = spectrum_model
         self._spectrum_simulator = spectrum_simulator
         self._external_spectrum_seen = False
@@ -102,7 +104,17 @@ class FoupAcquisitionController(QObject):
 
     @staticmethod
     def _is_spectrum_prefix(prefix: str) -> bool:
-        return prefix.upper() == "SPEC"
+        return prefix.upper() in {"SPEC"}
+
+    @staticmethod
+    def _normalize_spectrum_bins(values: list[float]) -> list[float]:
+        """将频谱数据归一化到 0.0~1.0（适配 uint32 等大整数输入）。"""
+        if not values:
+            return []
+        max_v = max(values)
+        if max_v <= 0:
+            return [0.0 for _ in values]
+        return [max(0.0, float(v) / float(max_v)) for v in values]
 
     # ---- Thread-safe property accessors ----
 
@@ -123,7 +135,11 @@ class FoupAcquisitionController(QObject):
     @Property(float, notify=lastValueChanged)
     def lastValue(self) -> float:
         with self._lock:
-            return float(self._last_value) if self._last_value is not None else float("nan")
+            return (
+                float(self._last_value)
+                if self._last_value is not None
+                else float("nan")
+            )
 
     @Property(int, notify=channelCountChanged)
     def channelCount(self) -> int:
@@ -131,7 +147,7 @@ class FoupAcquisitionController(QObject):
             return self._channel_count
 
     @Property(str, notify=hostChanged)
-    def host(self) -> str:
+    def host(self) -> str:  # pyright: ignore
         with self._lock:
             return self._host
 
@@ -156,7 +172,7 @@ class FoupAcquisitionController(QObject):
             self.hostChanged.emit()
 
     @Property(str, notify=operationModeChanged)
-    def operationMode(self) -> str:
+    def operationMode(self) -> str:  # pyright: ignore
         with self._lock:
             return self._operation_mode
 
@@ -174,7 +190,7 @@ class FoupAcquisitionController(QObject):
             self.operationModeChanged.emit()
 
     @Property(str, notify=normalModeRemotePathChanged)
-    def normalModeRemotePath(self) -> str:
+    def normalModeRemotePath(self) -> str:  # pyright: ignore
         with self._lock:
             return self._normal_mode_remote_path
 
@@ -406,7 +422,9 @@ class FoupAcquisitionController(QObject):
         prefix = type_token.upper()
         return version, prefix
 
-    def _apply_server_identity(self, version: str | None = None, prefix: str | None = None) -> None:
+    def _apply_server_identity(
+        self, version: str | None = None, prefix: str | None = None
+    ) -> None:
         emit_type = False
         emit_version = False
         with self._lock:
@@ -516,7 +534,16 @@ class FoupAcquisitionController(QObject):
                         spectrum_values = []
                         break
                 if spectrum_values:
-                    self.spectrumFrameReceived.emit(spectrum_values)
+                    # 兼容：SPEC,<timestamp>,<256 bins...>
+                    bins = spectrum_values
+                    if len(bins) == 257 and bins[0] > 1_000_000:
+                        bins = bins[1:]
+
+                    # 频谱图组件期望 0.0~1.0；如果输入是 uint32 等大数，做每帧归一化避免爆表。
+                    if bins and (max(bins) > 1.0 or min(bins) < 0.0):
+                        bins = self._normalize_spectrum_bins(bins)
+
+                    self.spectrumFrameReceived.emit(bins)
                 return
 
         version, prefix = self._parse_version_response(cleaned)
@@ -641,6 +668,9 @@ class FoupAcquisitionController(QObject):
             return None
 
     def _recv_exact(self, size: int) -> bytes | None:
+        """
+        接收 size 字节的数据
+        """
         if not self._communicator:
             return None
         chunks: List[bytes] = []

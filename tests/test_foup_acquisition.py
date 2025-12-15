@@ -228,6 +228,26 @@ class TestFoupAcquisitionController(unittest.TestCase):
         self.assertEqual(len(called_values), 256)
         self.assertEqual(controller.serverType, "")
 
+    def test_handle_line_spec_with_timestamp_normalizes_uint32(self) -> None:
+        """测试 SPEC,ts,uint32... 会丢弃 ts 并归一化到 0~1"""
+        spectrum_model = MagicMock()
+        controller = FoupAcquisitionController(
+            series_models=self.series_models,
+            host="127.0.0.1",
+            port=65432,
+            spectrum_model=spectrum_model,
+        )
+
+        # 256 个 bin，最大值应归一化为 1.0
+        bins = [0, 10, 2**32 - 1] + [1] * 253
+        payload = "SPEC,566167600," + ",".join(str(v) for v in bins)
+        controller._handle_line(payload)
+
+        spectrum_model.updateSpectrum.assert_called_once()
+        called_values = spectrum_model.updateSpectrum.call_args[0][0]
+        self.assertEqual(len(called_values), 256)
+        self.assertAlmostEqual(max(called_values), 1.0, places=6)
+
     def test_handle_line_empty(self) -> None:
         """测试处理空行"""
         self.controller._handle_line("")  # 不应该崩溃

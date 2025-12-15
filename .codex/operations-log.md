@@ -64,3 +64,4 @@
 - 09:56:57 shell `python -m unittest tests.test_foup_acquisition -v`: 回归 FOUP 采集单测 41/41 通过（包含新增频谱路由用例）。
 - 10:08:10 apply_patch: 根据“FOUP 曲线与频谱同时更新”要求，修正 `Noise_Spectrum` 为“每包数据前缀”而非 serverType；回滚 QML 中对 FOUP UI 的禁用逻辑，保证 FOUP 曲线不受频谱包影响。
 - 10:10:20 apply_patch: 更新 `examples/test_server.py`，支持在推送 FOUP 数值的同时可选推送 `Noise_Spectrum,<256点...>` 频谱数据包，用于联调验证。
+- 11:15:10 apply_patch: 适配真实频谱包 `SPEC,<timestamp>,<uint32...>`：前缀支持 `SPEC/NOISE_SPECTRUM`，丢弃时间戳字段并将大整数按每帧最大值归一化到 0~1，避免频谱图爆表；同步更新示例服务器与单测。

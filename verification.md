@@ -223,7 +223,7 @@
 - Scope: Noise_Spectrum 前缀下的 256 点频谱数据解析与路由（更新频谱页，不创建/追加 FOUP 图表）
 - Command: `python -m unittest tests.test_foup_acquisition -v`
 - Result: ✅ Passed
-- Details: 新增路由逻辑：识别每包前缀为 `Noise_Spectrum` 的频谱包，将后续 256 点数据直接调用 `SpectrumDataModel.updateSpectrum()` 整包替换；频谱前缀不覆盖 `serverType`（命令前缀），因此 FOUP 曲线可与频谱同时更新；首帧外部频谱到达后自动停止 `SpectrumSimulator`，避免模拟数据覆盖真实数据。
+- Details: 新增路由逻辑：识别每包前缀为 `Noise_Spectrum`/`SPEC` 的频谱包，支持 `SPEC,<timestamp>,<256 bins...>`，并在输入为 uint32 大整数时按每帧最大值归一化到 0~1 后再调用 `SpectrumDataModel.updateSpectrum()` 整包替换；频谱前缀不覆盖 `serverType`（命令前缀），因此 FOUP 曲线可与频谱同时更新；首帧外部频谱到达后自动停止 `SpectrumSimulator`，避免模拟数据覆盖真实数据。
 - Hand-check (需真实服务端与 GUI 环境):
   1) 实时数据流中同时包含 FOUP 数值包与 `Noise_Spectrum,<256点...>` 频谱包时：FOUP 曲线与频谱页同时更新；
   2) `Noise_Spectrum` 包不会影响 FOUP 的通道数/配置（不会误触发 256 通道 UI 或持久化配置）；

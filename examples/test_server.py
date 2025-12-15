@@ -11,7 +11,7 @@ from pathlib import Path
 # - get_function_version_info -> 返回 "{prefix},{version}"
 # - {prefix}_sample_type_normal/test -> ACK
 # - {prefix}_data_coll_ctrl_start/stop -> 开始/停止推送数据
-# - （可选）推送 Noise_Spectrum, <256点...> 的频谱数据，与 FOUP 数值同时发送
+# - （可选）推送 SPEC/Noise_Spectrum,<256点...> 的频谱数据，与 FOUP 数值同时发送
 # - get <path> -> 发送单文件目录结构，兼容 Client.get_file
 # 其他命令默认返回 ACK。
 
@@ -50,7 +50,9 @@ class TestServer:
         port: int = 65432,
         server_type: str = "voc",  # voc 或 noise
         spectrum_enabled: bool = False,
+        spectrum_prefix: str = "SPEC",
         spectrum_bin_count: int = 256,
+        spectrum_include_timestamp: bool = False,
         spectrum_interval_s: float = 0.5,
     ):
         self.host = host
@@ -63,7 +65,9 @@ class TestServer:
         self._threads: list[threading.Thread] = []
         self._send_lock = threading.Lock()
         self.spectrum_enabled = bool(spectrum_enabled)
+        self.spectrum_prefix = (spectrum_prefix or "Noise_Spectrum").strip() or "Noise_Spectrum"
         self.spectrum_bin_count = int(spectrum_bin_count) if int(spectrum_bin_count) > 0 else 256
+        self.spectrum_include_timestamp = bool(spectrum_include_timestamp)
         self.spectrum_interval_s = float(spectrum_interval_s) if float(spectrum_interval_s) > 0 else 0.5
 
     def start(self) -> None:
@@ -108,7 +112,12 @@ class TestServer:
                         if (now - last_spectrum_ts) >= self.spectrum_interval_s:
                             # 归一化 0.0~1.0 的 256 点频谱
                             spectrum = [round(random.random(), 6) for _ in range(self.spectrum_bin_count)]
-                            spectrum_line = "Noise_Spectrum," + ",".join(str(v) for v in spectrum)
+                            header = self.spectrum_prefix
+                            if self.spectrum_include_timestamp:
+                                # 用 ms 时间戳模拟“SPEC,<ts>,<bins...>”格式
+                                ts_ms = int(now * 1000)
+                                header = f"{header},{ts_ms}"
+                            spectrum_line = header + "," + ",".join(str(v) for v in spectrum)
                             send_prefixed(conn, spectrum_line)
                             last_spectrum_ts = now
                 time.sleep(0.5)
@@ -191,14 +200,18 @@ if __name__ == "__main__":
     port = int(os.environ.get("TEST_SERVER_PORT", "65432"))
     server_type = os.environ.get("TEST_SERVER_TYPE", "test")
     spectrum_enabled = os.environ.get("TEST_SERVER_SPECTRUM", "").strip().lower() in {"1", "true", "yes", "on"}
+    spectrum_prefix = os.environ.get("TEST_SERVER_SPECTRUM_PREFIX", "Noise_Spectrum").strip() or "Noise_Spectrum"
     spectrum_bin_count = int(os.environ.get("TEST_SERVER_SPECTRUM_BINS", "256"))
+    spectrum_include_timestamp = os.environ.get("TEST_SERVER_SPECTRUM_TS", "").strip().lower() in {"1", "true", "yes", "on"}
     spectrum_interval_s = float(os.environ.get("TEST_SERVER_SPECTRUM_INTERVAL", "0.5"))
     server = TestServer(
         host=host,
         port=port,
         server_type=server_type,
-        spectrum_enabled=True,
+        spectrum_enabled=spectrum_enabled,
+        spectrum_prefix=spectrum_prefix,
         spectrum_bin_count=spectrum_bin_count,
+        spectrum_include_timestamp=spectrum_include_timestamp,
         spectrum_interval_s=spectrum_interval_s,
     )
     try:

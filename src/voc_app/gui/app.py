@@ -16,7 +16,11 @@ from voc_app.logging_config import get_logger
 logger = get_logger(__name__)
 
 # 性能配置必须在导入 PySide6 之前应用
-from voc_app.gui.performance_config import apply_performance_settings, get_spectrum_config_for_env
+from voc_app.gui.performance_config import (
+    apply_performance_settings,
+    get_spectrum_config_for_env,
+)
+
 apply_performance_settings()
 
 from PySide6.QtCore import QObject, QTimer, Slot
@@ -151,7 +155,8 @@ class LoadportBridge(QObject):
     def _on_all_keys_set(self):
         self._set_title_message("E84 三键已落下，自动启动采集")
         if self._foup_controller:
-            self._foup_controller.startAcquisition() # type: ignore
+            self._foup_controller.startAcquisition()  # type: ignore
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -202,16 +207,15 @@ if __name__ == "__main__":
 
     # 频谱分析模型和模拟器
     spectrum_model = SpectrumDataModel(bin_count=256)
-    spectrum_simulator = SpectrumSimulator(spectrum_model)
-    spectrum_simulator.intervalMs = 50  # 20 Hz 更新率
-    spectrum_simulator.start()  # 自动启动模拟器
+    # spectrum_simulator = SpectrumSimulator(spectrum_model)
+    # spectrum_simulator.intervalMs = 50  # 20 Hz 更新率
+    # spectrum_simulator.start()  # 自动启动模拟器
     engine.rootContext().setContextProperty("spectrumModel", spectrum_model)
-    engine.rootContext().setContextProperty("spectrumSimulator", spectrum_simulator)
+    # engine.rootContext().setContextProperty("spectrumSimulator", spectrum_simulator)
 
     foup_acquisition = FoupAcquisitionController(
         foup_series_models,
         spectrum_model=spectrum_model,
-        spectrum_simulator=None,
     )
     engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
