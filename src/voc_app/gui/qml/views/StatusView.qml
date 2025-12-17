@@ -14,6 +14,10 @@ Rectangle {
     property url loadportImageSource: Qt.resolvedUrl("../../resources/loadport_.png")
     property url foupImageSource: Qt.resolvedUrl("../../resources/foup_.png")
 
+    // 缓存 foupAcquisition 全局对象引用，避免重复 typeof 检查
+    readonly property var _foupAcq: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+    readonly property bool _hasFoupAcq: _foupAcq !== null
+
     // 频谱模型引用（避免与组件属性命名冲突）
     readonly property var globalSpectrumModel: (typeof spectrumModel !== "undefined") ? spectrumModel : null
     readonly property var globalSpectrumSimulator: (typeof spectrumSimulator !== "undefined") ? spectrumSimulator : null
@@ -266,10 +270,10 @@ Rectangle {
                         spacing: Components.UiTheme.spacing("lg")
 
                         property var charts: {
-                            if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
+                            if (!statusRoot._hasFoupAcq) {
                                 return [{ title: "FOUP 通道 1", index: statusRoot.foupChartIndex, channelIndex: 0 }]
                             }
-                            const count = Math.max(1, foupAcquisition.channelCount)
+                            const count = Math.max(1, statusRoot._foupAcq.channelCount)
                             const list = []
                             for (let i = 0; i < count; i++) {
                                 list.push({
@@ -328,45 +332,45 @@ Rectangle {
                                     showLimits: true
                                     scaleFactor: statusRoot.scaleFactor
 
-                                    chartTitle: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getChannelTitle(channelIdx)
+                                    chartTitle: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getChannelTitle(channelIdx)
                                         : modelData.title
-                                    yAxisUnit: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getUnit(channelIdx)
+                                    yAxisUnit: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getUnit(channelIdx)
                                         : ""
-                                    currentValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getChannelValue(channelIdx)
+                                    currentValue: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getChannelValue(channelIdx)
                                         : Number.NaN
-                                    oocLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getOocUpper(channelIdx)
-                                        : 80
-                                    oocLowerLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getOocLower(channelIdx)
-                                        : 20
-                                    oosLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getOosUpper(channelIdx)
-                                        : 90
-                                    oosLowerLimitValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getOosLower(channelIdx)
-                                        : 10
-                                    targetValue: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getTarget(channelIdx)
-                                        : 50
-                                    showOocUpper: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getShowOocUpper(channelIdx)
-                                        : true
-                                    showOocLower: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getShowOocLower(channelIdx)
-                                        : true
-                                    showOosUpper: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getShowOosUpper(channelIdx)
-                                        : true
-                                    showOosLower: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getShowOosLower(channelIdx)
-                                        : true
-                                    showTarget: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                                        ? foupAcquisition.getShowTarget(channelIdx)
-                                        : true
+                                    oocLimitValue: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getOocUpper(channelIdx)
+                                        : Components.UiConstants.defaultOocUpper
+                                    oocLowerLimitValue: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getOocLower(channelIdx)
+                                        : Components.UiConstants.defaultOocLower
+                                    oosLimitValue: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getOosUpper(channelIdx)
+                                        : Components.UiConstants.defaultOosUpper
+                                    oosLowerLimitValue: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getOosLower(channelIdx)
+                                        : Components.UiConstants.defaultOosLower
+                                    targetValue: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getTarget(channelIdx)
+                                        : Components.UiConstants.defaultTarget
+                                    showOocUpper: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getShowOocUpper(channelIdx)
+                                        : Components.UiConstants.defaultShowOocUpper
+                                    showOocLower: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getShowOocLower(channelIdx)
+                                        : Components.UiConstants.defaultShowOocLower
+                                    showOosUpper: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getShowOosUpper(channelIdx)
+                                        : Components.UiConstants.defaultShowOosUpper
+                                    showOosLower: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getShowOosLower(channelIdx)
+                                        : Components.UiConstants.defaultShowOosLower
+                                    showTarget: statusRoot._hasFoupAcq
+                                        ? statusRoot._foupAcq.getShowTarget(channelIdx)
+                                        : Components.UiConstants.defaultShowTarget
 
                                     Text {
                                         visible: !seriesModel
@@ -377,26 +381,26 @@ Rectangle {
                                     }
 
                                     Connections {
-                                        target: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
-                                        enabled: typeof foupAcquisition !== "undefined" && foupAcquisition
+                                        target: statusRoot._foupAcq
+                                        enabled: statusRoot._hasFoupAcq
                                         function onChannelConfigChanged(idx) {
                                             if (idx === chartCard.channelIdx) {
-                                                chartCard.chartTitle = foupAcquisition.getChannelTitle(chartCard.channelIdx)
-                                                chartCard.yAxisUnit = foupAcquisition.getUnit(chartCard.channelIdx)
-                                                chartCard.oocLimitValue = foupAcquisition.getOocUpper(chartCard.channelIdx)
-                                                chartCard.oocLowerLimitValue = foupAcquisition.getOocLower(chartCard.channelIdx)
-                                                chartCard.oosLimitValue = foupAcquisition.getOosUpper(chartCard.channelIdx)
-                                                chartCard.oosLowerLimitValue = foupAcquisition.getOosLower(chartCard.channelIdx)
-                                                chartCard.targetValue = foupAcquisition.getTarget(chartCard.channelIdx)
-                                                chartCard.showOocUpper = foupAcquisition.getShowOocUpper(chartCard.channelIdx)
-                                                chartCard.showOocLower = foupAcquisition.getShowOocLower(chartCard.channelIdx)
-                                                chartCard.showOosUpper = foupAcquisition.getShowOosUpper(chartCard.channelIdx)
-                                                chartCard.showOosLower = foupAcquisition.getShowOosLower(chartCard.channelIdx)
-                                                chartCard.showTarget = foupAcquisition.getShowTarget(chartCard.channelIdx)
+                                                chartCard.chartTitle = statusRoot._foupAcq.getChannelTitle(chartCard.channelIdx)
+                                                chartCard.yAxisUnit = statusRoot._foupAcq.getUnit(chartCard.channelIdx)
+                                                chartCard.oocLimitValue = statusRoot._foupAcq.getOocUpper(chartCard.channelIdx)
+                                                chartCard.oocLowerLimitValue = statusRoot._foupAcq.getOocLower(chartCard.channelIdx)
+                                                chartCard.oosLimitValue = statusRoot._foupAcq.getOosUpper(chartCard.channelIdx)
+                                                chartCard.oosLowerLimitValue = statusRoot._foupAcq.getOosLower(chartCard.channelIdx)
+                                                chartCard.targetValue = statusRoot._foupAcq.getTarget(chartCard.channelIdx)
+                                                chartCard.showOocUpper = statusRoot._foupAcq.getShowOocUpper(chartCard.channelIdx)
+                                                chartCard.showOocLower = statusRoot._foupAcq.getShowOocLower(chartCard.channelIdx)
+                                                chartCard.showOosUpper = statusRoot._foupAcq.getShowOosUpper(chartCard.channelIdx)
+                                                chartCard.showOosLower = statusRoot._foupAcq.getShowOosLower(chartCard.channelIdx)
+                                                chartCard.showTarget = statusRoot._foupAcq.getShowTarget(chartCard.channelIdx)
                                             }
                                         }
                                         function onChannelValuesChanged() {
-                                            chartCard.currentValue = foupAcquisition.getChannelValue(chartCard.channelIdx)
+                                            chartCard.currentValue = statusRoot._foupAcq.getChannelValue(chartCard.channelIdx)
                                         }
                                     }
                                 }
@@ -406,11 +410,11 @@ Rectangle {
                         Text {
                             Layout.fillWidth: true
                             text: {
-                                if (typeof foupAcquisition === "undefined" || !foupAcquisition) {
+                                if (!statusRoot._hasFoupAcq) {
                                     return "通道数量: 1"
                                 }
-                                var serverInfo = foupAcquisition.serverTypeDisplayName || "未知"
-                                var channelInfo = "通道: " + foupAcquisition.channelCount
+                                var serverInfo = statusRoot._foupAcq.serverTypeDisplayName || "未知"
+                                var channelInfo = "通道: " + statusRoot._foupAcq.channelCount
                                 return serverInfo + " | " + channelInfo
                             }
                             color: Components.UiTheme.color("textSecondary")

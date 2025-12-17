@@ -22,6 +22,7 @@ Column {
 
     Connections {
         target: acquisitionController
+        enabled: acquisitionController !== null
         function onHostChanged() {
             ipText = acquisitionController.host
         }
@@ -124,11 +125,11 @@ Column {
         popupAnchorItem: informationPanelRef ? informationPanelRef : Qt.application.activeWindow
         property int selectedChannel: 0
         property string tempUnit: ""
-        property real tempOOCUpper: 80
-        property real tempOOCLower: 20
-        property real tempOOSUpper: 90
-        property real tempOOSLower: 10
-        property real tempTarget: 50
+        property real tempOOCUpper: Components.UiConstants.defaultOocUpper
+        property real tempOOCLower: Components.UiConstants.defaultOocLower
+        property real tempOOSUpper: Components.UiConstants.defaultOosUpper
+        property real tempOOSLower: Components.UiConstants.defaultOosLower
+        property real tempTarget: Components.UiConstants.defaultTarget
         property var unitFieldRef: null
         property var oosUpperFieldRef: null
         property var oosLowerFieldRef: null

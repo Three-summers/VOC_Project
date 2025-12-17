@@ -986,6 +986,34 @@ Rectangle {
         onTriggered: spectrumCard.requestAllPaint()
     }
 
+    // 防抖定时器：用于尺寸变化时的延迟重绘
+    Timer {
+        id: resizeDebounceTimer
+        interval: Components.UiConstants.resizeDebounceInterval
+        repeat: false
+        onTriggered: {
+            gridCanvas.requestPaint()
+            spectrumCard.requestAllPaint()
+            scanLines.requestPaint()
+        }
+    }
+
+    // 防抖定时器：用于网格属性变化时的延迟重绘
+    Timer {
+        id: gridDebounceTimer
+        interval: 16
+        repeat: false
+        onTriggered: gridCanvas.requestPaint()
+    }
+
+    // 防抖定时器：用于扫描线属性变化时的延迟重绘
+    Timer {
+        id: scanLineDebounceTimer
+        interval: 16
+        repeat: false
+        onTriggered: scanLines.requestPaint()
+    }
+
     /**
      * 统一重绘函数
      * 请求所有相关 Canvas 重绘（主图、发光层、倒影层）
@@ -1036,12 +1064,12 @@ Rectangle {
     onPeakHoldColorChanged: requestStyleRepaint()
     onPeakHoldLineWidthChanged: requestStyleRepaint()
 
-    // 网格配置变化时仅重绘网格 Canvas
-    onShowGridChanged: gridCanvas.requestPaint()
-    onHorizontalGridLinesChanged: gridCanvas.requestPaint()
-    onVerticalGridLinesChanged: gridCanvas.requestPaint()
-    onGridColorChanged: gridCanvas.requestPaint()
-    onGridLineWidthChanged: gridCanvas.requestPaint()
+    // 网格配置变化时仅重绘网格 Canvas（使用防抖）
+    onShowGridChanged: gridDebounceTimer.restart()
+    onHorizontalGridLinesChanged: gridDebounceTimer.restart()
+    onVerticalGridLinesChanged: gridDebounceTimer.restart()
+    onGridColorChanged: gridDebounceTimer.restart()
+    onGridLineWidthChanged: gridDebounceTimer.restart()
 
     // 背景和效果变化（使用延迟重绘）
     onChartBackgroundChanged: requestStyleRepaint()
@@ -1049,10 +1077,10 @@ Rectangle {
     onGlowIntensityChanged: requestStyleRepaint()
     onReflectionEnabledChanged: requestStyleRepaint()
     onReflectionOpacityChanged: requestStyleRepaint()
-    onScanLineEnabledChanged: scanLines.requestPaint()
-    onScanLineOpacityChanged: scanLines.requestPaint()
+    onScanLineEnabledChanged: scanLineDebounceTimer.restart()
+    onScanLineOpacityChanged: scanLineDebounceTimer.restart()
 
-    // 尺寸变化时重绘所有 Canvas
-    onWidthChanged: { gridCanvas.requestPaint(); requestAllPaint(); scanLines.requestPaint(); }
-    onHeightChanged: { gridCanvas.requestPaint(); requestAllPaint(); scanLines.requestPaint(); }
+    // 尺寸变化时重绘所有 Canvas（使用防抖定时器）
+    onWidthChanged: resizeDebounceTimer.restart()
+    onHeightChanged: resizeDebounceTimer.restart()
 }

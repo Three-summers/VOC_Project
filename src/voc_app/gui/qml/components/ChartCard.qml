@@ -20,17 +20,17 @@ Rectangle {
     property real currentValue: Number.NaN  // 当前值
 
     // 规格界限 (OOS) 和 控制界限 (OOC) 的值
-    property real oosLimitValue: 90.0
+    property real oosLimitValue: Components.UiConstants.defaultOosUpper
     property real oosLowerLimitValue: Number.NaN
-    property real oocLimitValue: 80.0
+    property real oocLimitValue: Components.UiConstants.defaultOocUpper
     property real oocLowerLimitValue: Number.NaN
     property real targetValue: Number.NaN
     property bool showLimits: true
-    property bool showOocUpper: true   // 是否显示OOC上界
-    property bool showOocLower: true   // 是否显示OOC下界
-    property bool showOosUpper: true   // 是否显示OOS上界
-    property bool showOosLower: true   // 是否显示OOS下界
-    property bool showTarget: true     // 是否显示Target线
+    property bool showOocUpper: Components.UiConstants.defaultShowOocUpper
+    property bool showOocLower: Components.UiConstants.defaultShowOocLower
+    property bool showOosUpper: Components.UiConstants.defaultShowOosUpper
+    property bool showOosLower: Components.UiConstants.defaultShowOosLower
+    property bool showTarget: Components.UiConstants.defaultShowTarget
 
     property var chartStyle: {
         "v1": {

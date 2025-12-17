@@ -14,6 +14,10 @@ Item {
     })
     readonly property int foupChartIndex: 2
 
+    // 缓存 foupAcquisition 全局对象引用，避免重复 typeof 检查
+    readonly property var _foupAcq: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
+    readonly property bool _hasFoupAcq: _foupAcq !== null
+
     function chartEntry(rowIndex, fallbackTitle) {
         const fallback = {
             title: fallbackTitle || "",
@@ -96,14 +100,14 @@ Item {
                         width: Components.UiTheme.spacing("lg")
                         height: Components.UiTheme.spacing("lg")
                         radius: Components.UiTheme.radius("pill")
-                        color: (typeof foupAcquisition !== "undefined" && foupAcquisition && foupAcquisition.running)
+                        color: (root._hasFoupAcq && root._foupAcq.running)
                             ? Components.UiTheme.color("accentSuccess")
                             : Components.UiTheme.color("accentAlarm")
                     }
 
                     Text {
-                        text: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                            ? foupAcquisition.statusMessage
+                        text: root._hasFoupAcq
+                            ? root._foupAcq.statusMessage
                             : root.displayValue(root.foupInfo.acquisitionStatus)
                         font.pixelSize: Components.UiTheme.fontSize("subtitle")
                         font.bold: true
@@ -118,8 +122,8 @@ Item {
                 }
 
                 Text {
-                    text: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                          ? (foupAcquisition.operationMode === "normal" ? "正常模式（下载）" : "测试模式（实时）")
+                    text: root._hasFoupAcq
+                          ? (root._foupAcq.operationMode === "normal" ? "正常模式（下载）" : "测试模式（实时）")
                           : "--"
                     font.pixelSize: Components.UiTheme.fontSize("subtitle")
                     font.bold: true
@@ -133,8 +137,8 @@ Item {
                 }
 
                 Text {
-                    text: (typeof foupAcquisition !== "undefined" && foupAcquisition)
-                          ? foupAcquisition.serverTypeDisplayName
+                    text: root._hasFoupAcq
+                          ? root._foupAcq.serverTypeDisplayName
                           : "未知"
                     font.pixelSize: Components.UiTheme.fontSize("subtitle")
                     font.bold: true
@@ -148,8 +152,8 @@ Item {
                 }
 
                 Text {
-                    text: (typeof foupAcquisition !== "undefined" && foupAcquisition && foupAcquisition.serverVersion.length > 0)
-                          ? foupAcquisition.serverVersion
+                    text: (root._hasFoupAcq && root._foupAcq.serverVersion.length > 0)
+                          ? root._foupAcq.serverVersion
                           : "--"
                     font.pixelSize: Components.UiTheme.fontSize("subtitle")
                     font.bold: true

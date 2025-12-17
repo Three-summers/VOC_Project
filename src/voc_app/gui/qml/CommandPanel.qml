@@ -12,8 +12,17 @@ Rectangle {
     property var alarmStoreRef: null
     property string currentSubPage: ""
     property Component _activeComponent: null
+    property Component _pendingComponent: null  // 追踪异步加载中的组件
     property real scaleFactor: Components.UiTheme.controlScale
     property var foupLimitRef: null
+
+    // 清理待加载的组件，避免内存泄漏
+    function _cleanupPendingComponent() {
+        if (_pendingComponent) {
+            _pendingComponent.destroy();
+            _pendingComponent = null;
+        }
+    }
 
     Loader {
         id: commandLoader
@@ -38,6 +47,10 @@ Rectangle {
 
     function loadCommandsFor(viewName, subKey) {
         const basePath = "commands/" + viewName + "Commands.qml";
+
+        // 清理之前未完成的异步加载
+        _cleanupPendingComponent();
+
         commandPanel._activeComponent = null;
         commandLoader.sourceComponent = null;
         commandLoader.source = "";
@@ -61,13 +74,21 @@ Rectangle {
             commandLoader.sourceComponent = null;
             commandLoader.setSource(basePath);
         } else {
+            // 异步加载：保存引用以便后续清理
+            _pendingComponent = component;
             component.statusChanged.connect(function(status) {
+                // 检查是否仍是当前待加载的组件（避免处理已被清理的旧组件）
+                if (component !== _pendingComponent) {
+                    return;
+                }
                 if (status === Component.Ready) {
+                    _pendingComponent = null;
                     commandPanel._activeComponent = component;
                     commandLoader.source = "";
                     commandLoader.sourceComponent = component;
                 } else if (status === Component.Error) {
                     console.warn("子页面命令加载失败, 回退:", candidatePath);
+                    _pendingComponent = null;
                     component.destroy();
                     commandPanel._activeComponent = null;
                     commandLoader.sourceComponent = null;

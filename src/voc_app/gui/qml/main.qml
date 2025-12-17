@@ -45,13 +45,7 @@ ApplicationWindow {
         signal limitsChanged()
 
         function defaultLimits() {
-            return {
-                oocUpper: 80,
-                oocLower: 20,
-                oosUpper: 90,
-                oosLower: 10,
-                target: 50
-            }
+            return Components.UiConstants.defaultLimits()
         }
 
         function getLimits(channelIndex) {
@@ -77,31 +71,6 @@ ApplicationWindow {
         property: "baseScale"
         value: root.uiScale
     }
-
-    // QtObject {
-    //     id: alarmStore
-    //     property bool acknowledged: false
-    //     property ListModel alarmModel: ListModel {
-    //         ListElement { timestamp: "2025-11-10 18:24:00"; message: "Temperature above threshold" }
-    //         ListElement { timestamp: "2025-11-10 18:25:30"; message: "Pressure sensor offline" }
-    //     }
-    //     property bool hasActiveAlarm: alarmModel.count > 0 && !acknowledged
-    //
-    //     function addAlarm(timestamp, message) {
-    //         alarmModel.append({ timestamp: timestamp, message: message });
-    //         acknowledged = false;
-    //     }
-    //
-    //     function closeAlarms() {
-    //         if (alarmModel.count > 0)
-    //             acknowledged = true;
-    //     }
-    //
-    //     function clearAlarms() {
-    //         alarmModel.clear();
-    //         acknowledged = false;
-    //     }
-    // }
 
     ColumnLayout {
         anchors.fill: parent
