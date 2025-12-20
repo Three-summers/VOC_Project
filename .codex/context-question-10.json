@@ -1,8 +1,0 @@
-{
-  "timestamp": "2025-11-19T17:05:45+08:00",
-  "questions": [
-    {"id": "Q1", "question": "采用何种包结构？例如 src/voc_app/gui、src/voc_app/loadport", "priority": "high", "status": "open"},
-    {"id": "Q2", "question": "QML/资源如何定位？是否随包移动并通过 __file__ 计算", "priority": "high", "status": "open"},
-    {"id": "Q3", "question": "tests/web/脚本需要哪些 import 更新？", "priority": "medium", "status": "open"}
-  ]
-}

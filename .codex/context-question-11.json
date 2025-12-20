@@ -1,9 +1,0 @@
-{
-  "timestamp": "2025-11-24T10:11:42+08:00",
-  "questions": [
-    {"id": "Q1", "question": "项目预期效果是否是“GUI + E84 控制 + 通用通信库”，以及交互流程如何衡量成功？", "priority": "high", "status": "open"},
-    {"id": "Q2", "question": "当前依赖（PySide6、RPi.GPIO、硬件 loadport）缺失时能否模拟或降级运行？", "priority": "high", "status": "open"},
-    {"id": "Q3", "question": "loadport/E84 控制逻辑在没有串口的情况下真实功能到什么程度？", "priority": "medium", "status": "open"},
-    {"id": "Q4", "question": "现有测试与文档能否覆盖关键场景，如果不能需要补什么？", "priority": "medium", "status": "open"}
-  ]
-}

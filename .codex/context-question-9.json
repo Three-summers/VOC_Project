@@ -1,7 +1,0 @@
-{
-  "timestamp": "2025-11-19T16:04:45+08:00",
-  "questionId": "Q2",
-  "question": "命令定义方式？",
-  "analysis": "用户要求“里面可以自定义发送命令和接收，需要传入不同的命令表和定义不同的接收逻辑”。因此需要结构化命令定义以包含 opcode/bytes 构造与响应解析描述。计划使用 dataclass GenericSerialCommand，字段包含 name、build_frame 回调、response_handler 回调。命令表可为 dict[str, GenericSerialCommand]。",
-  "status": "resolved",
-  "resolution": "实现 GenericSerialCommand dataclass + GenericSerialDevice 接口，通过 register_commands() 或构造参数注入命令表。"}
