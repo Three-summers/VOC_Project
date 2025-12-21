@@ -9,9 +9,12 @@ import struct
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, TYPE_CHECKING
 
-from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
+try:  # pragma: no cover - PySide6 在部分验证环境可能不存在
+    from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
+except ModuleNotFoundError:  # pragma: no cover
+    from voc_app.utils.qt_stubs import QObject, Property, Signal, Slot, QTimer  # type: ignore
 
 from voc_app.gui.channel_config import (
     PrefixRegistry,
@@ -19,9 +22,11 @@ from voc_app.gui.channel_config import (
     ChannelConfig,
     ChannelConfigManager,
 )
-from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.socket_client import SocketCommunicator, Client
 from voc_app.logging_config import get_logger
+
+if TYPE_CHECKING:  # pragma: no cover - 仅用于类型检查，避免无 NumPy/PySide6 环境导入失败
+    from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 
 logger = get_logger(__name__)
 
@@ -34,6 +39,11 @@ class FoupAcquisitionController(QObject):
     - sample_normal: {prefix}_sample_type_normal
     - start: {prefix}_data_coll_ctrl_start
     - stop: {prefix}_data_coll_ctrl_stop
+
+    线程安全说明：
+    - 控制器同时被 Qt 主线程（属性/Slot 调用）与后台采集线程并发访问
+    - 所有跨线程共享状态（含 `_communicator`/`_worker`/`_channel_values` 等）必须通过 `with self._lock` 访问
+    - 避免在持锁状态下执行 socket I/O 或发射 Qt 信号，防止死锁与 UI 卡顿
     """
 
     # Signals
@@ -61,6 +71,7 @@ class FoupAcquisitionController(QObject):
         port: int = 65432,
         spectrum_model: SpectrumDataModel | None = None,
         spectrum_simulator: SpectrumSimulator | None = None,
+        channel_config_path: Path | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -96,7 +107,7 @@ class FoupAcquisitionController(QObject):
         self._last_timestamp_ms: float = 0.0
         self._detected_channel_count: int = 0
 
-        self._config_manager = ChannelConfigManager()
+        self._config_manager = ChannelConfigManager(config_path=channel_config_path)
 
         self.dataPointReceived.connect(self._append_point_to_model)
         self.spectrumFrameReceived.connect(self._on_spectrum_frame_received)
@@ -104,7 +115,7 @@ class FoupAcquisitionController(QObject):
 
     @staticmethod
     def _is_spectrum_prefix(prefix: str) -> bool:
-        return prefix.upper() in {"SPEC"}
+        return prefix.upper() in {"SPEC", "NOISE_SPECTRUM"}
 
     @staticmethod
     def _normalize_spectrum_bins(values: list[float]) -> list[float]:
@@ -253,10 +264,8 @@ class FoupAcquisitionController(QObject):
                     clear_fn = getattr(model, "clear", None)
                     if callable(clear_fn):
                         clear_fn()
-                except Exception as exc:
-                    logger.warning(f"clear series failed: {exc!r}")
-            self._sample_index = 0
-            self._last_timestamp_ms = 0.0
+                except Exception as exc:  # noqa: BLE001 - 第三方 Qt 模型实现不可控
+                    logger.warning(f"clear series failed: {exc!r}", exc_info=True)
 
         self._stop_event.clear()
         with self._lock:
@@ -264,11 +273,16 @@ class FoupAcquisitionController(QObject):
             self._command_prefix = ""
             self._channel_count = 0
             self._detected_channel_count = 0
+            if op_mode == "test":
+                self._sample_index = 0
+                self._last_timestamp_ms = 0.0
 
         target = self._run_normal_mode if op_mode == "normal" else self._run_test_mode
         self._set_status("准备下载日志" if op_mode == "normal" else "正在连接...")
-        self._worker = threading.Thread(target=target, daemon=True)
-        self._worker.start()
+        worker = threading.Thread(target=target, daemon=True)
+        with self._lock:
+            self._worker = worker
+        worker.start()
 
     @Slot()
     def stopAcquisition(self) -> None:
@@ -280,10 +294,11 @@ class FoupAcquisitionController(QObject):
     def _cleanup(self) -> None:
         """清理资源：关闭 socket 并等待线程结束"""
         self._close_socket()
-        worker = self._worker
+        with self._lock:
+            worker = self._worker
+            self._worker = None
         if worker and worker.is_alive():
             worker.join(timeout=2.0)
-        self._worker = None
 
     # ---- Internal implementation ----
 
@@ -291,7 +306,9 @@ class FoupAcquisitionController(QObject):
         try:
             with self._lock:
                 host, port = self._host, self._port
-            self._communicator = SocketCommunicator(host, port)
+            communicator = SocketCommunicator(host, port)
+            with self._lock:
+                self._communicator = communicator
             self._set_running(True)
             self._set_status("采集中")
             self._perform_version_query()
@@ -330,7 +347,9 @@ class FoupAcquisitionController(QObject):
         try:
             with self._lock:
                 host, port = self._host, self._port
-            self._communicator = SocketCommunicator(host, port)
+            communicator = SocketCommunicator(host, port)
+            with self._lock:
+                self._communicator = communicator
             self._set_running(True)
             self._set_status("查询版本...")
             self._perform_version_query()
@@ -394,10 +413,7 @@ class FoupAcquisitionController(QObject):
                     logger.debug(f"关闭 communicator 时异常: {e}")
 
     def _perform_version_query(self) -> None:
-        try:
-            self._send_command("get_function_version_info")
-        except Exception:
-            return
+        self._send_command("get_function_version_info")
         for _ in range(3):
             response = self._recv_message()
             if not response:
@@ -463,9 +479,10 @@ class FoupAcquisitionController(QObject):
             logger.warning(f"updateSpectrum failed: {exc!r}")
             return
 
-        if self._external_spectrum_seen:
-            return
-        self._external_spectrum_seen = True
+        with self._lock:
+            if self._external_spectrum_seen:
+                return
+            self._external_spectrum_seen = True
         simulator = self._spectrum_simulator
         if simulator is None:
             return
@@ -504,7 +521,7 @@ class FoupAcquisitionController(QObject):
             self._send_command(cmd)
 
     def _send_stop_command(self) -> None:
-        if not self._communicator:
+        if self._get_communicator() is None:
             return
         cmd = self._select_command("stop")
         if cmd:
@@ -569,8 +586,12 @@ class FoupAcquisitionController(QObject):
             return
 
         detected_count = len(values)
-        if self._detected_channel_count != detected_count:
-            self._detected_channel_count = detected_count
+        emit_detected = False
+        with self._lock:
+            if self._detected_channel_count != detected_count:
+                self._detected_channel_count = detected_count
+                emit_detected = True
+        if emit_detected:
             self._channelCountDetected.emit(detected_count)
 
         emit_count = False
@@ -587,11 +608,12 @@ class FoupAcquisitionController(QObject):
         self.channelValuesChanged.emit()
         self.lastValueChanged.emit()
 
-        self._sample_index += 1
-        timestamp_ms = time.time() * 1000.0
-        if timestamp_ms <= self._last_timestamp_ms:
-            timestamp_ms = self._last_timestamp_ms + 1.0
-        self._last_timestamp_ms = timestamp_ms
+        with self._lock:
+            self._sample_index += 1
+            timestamp_ms = time.time() * 1000.0
+            if timestamp_ms <= self._last_timestamp_ms:
+                timestamp_ms = self._last_timestamp_ms + 1.0
+            self._last_timestamp_ms = timestamp_ms
 
         self.dataPointReceived.emit(timestamp_ms, values)
 
@@ -612,7 +634,7 @@ class FoupAcquisitionController(QObject):
                     if model is not None:
                         model.append_point(x, y_value)  # type: ignore
         except Exception as exc:
-            logger.error(f"_append_point_to_model: {exc!r}")
+            logger.error(f"_append_point_to_model: {exc!r}", exc_info=True)
 
     def _set_running(self, value: bool) -> None:
         changed = False
@@ -641,25 +663,32 @@ class FoupAcquisitionController(QObject):
                 pass
 
     def _close_socket(self) -> None:
-        comm = self._communicator
-        self._communicator = None
+        with self._lock:
+            comm = self._communicator
+            self._communicator = None
         if comm is None:
             return
         try:
             comm.close()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - close() 需 best-effort
+            logger.debug(f"close socket failed: {exc!r}", exc_info=True)
+
+    def _get_communicator(self) -> SocketCommunicator | None:
+        """获取当前 communicator（线程安全）。"""
+        with self._lock:
+            return self._communicator
 
     def _recv_message(self) -> str | None:
-        if not self._communicator:
+        comm = self._get_communicator()
+        if comm is None:
             return None
-        header = self._recv_exact(4)
+        header = self._recv_exact(comm, 4)
         if not header:
             return None
         (length,) = struct.unpack(">I", header)
         if length == 0:
             return ""
-        payload = self._recv_exact(length)
+        payload = self._recv_exact(comm, length)
         if payload is None:
             return None
         try:
@@ -667,19 +696,15 @@ class FoupAcquisitionController(QObject):
         except UnicodeDecodeError:
             return None
 
-    def _recv_exact(self, size: int) -> bytes | None:
-        """
-        接收 size 字节的数据
-        """
-        if not self._communicator:
-            return None
+    def _recv_exact(self, comm: SocketCommunicator, size: int) -> bytes | None:
+        """接收 size 字节的数据（不持有 self._lock，避免阻塞 UI）。"""
         chunks: List[bytes] = []
         remaining = size
         while remaining > 0:
             try:
-                chunk = self._communicator.recv(remaining)
-            except Exception as exc:
-                logger.warning(f"recv exception: {exc}")
+                chunk = comm.recv(remaining)
+            except Exception as exc:  # noqa: BLE001 - 底层 socket 异常类型多样
+                logger.warning(f"recv exception: {exc}", exc_info=True)
                 return None
             if not chunk:
                 return None
@@ -688,14 +713,15 @@ class FoupAcquisitionController(QObject):
         return b"".join(chunks)
 
     def _send_command(self, text: str) -> None:
-        if not self._communicator:
+        comm = self._get_communicator()
+        if comm is None:
             return
         try:
             payload = text.encode("utf-8")
             header = struct.pack(">I", len(payload))
-            self._communicator.send(header + payload)
-        except Exception as exc:
-            logger.error(f"send_command error: {exc}")
+            comm.send(header + payload)
+        except Exception as exc:  # noqa: BLE001 - 网络发送异常类型多样
+            logger.error(f"send_command error: {exc}", exc_info=True)
 
     # ---- Channel config slots ----
 

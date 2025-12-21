@@ -38,9 +38,15 @@ from typing import Dict, Optional, Union
 
 
 # 默认日志格式
-_DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# 说明：默认格式包含结构化字段（timestamp/module/function），便于线上定位问题与聚合分析。
+_STRUCTURED_FORMAT = (
+    "%(asctime)s | %(levelname)s | %(name)s | %(module)s:%(funcName)s:%(lineno)d | %(message)s"
+)
+_DEFAULT_FORMAT = _STRUCTURED_FORMAT
 _SIMPLE_FORMAT = "%(levelname)s - %(message)s"
-_DETAILED_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] %(message)s"
+_DETAILED_FORMAT = (
+    "%(asctime)s | %(levelname)s | %(name)s | [%(filename)s:%(lineno)d] %(message)s"
+)
 
 # 全局日志器缓存
 _loggers: dict[str, logging.Logger] = {}
@@ -299,7 +305,7 @@ def configure_from_env() -> None:
     支持的环境变量:
         VOC_LOG_LEVEL: 全局日志级别 (DEBUG, INFO, WARNING, ERROR)
         VOC_LOG_FILE: 日志文件路径
-        VOC_LOG_FORMAT: 日志格式 (default, simple, detailed)
+        VOC_LOG_FORMAT: 日志格式 (default, simple, detailed, structured)
     """
     # 全局级别
     env_level = os.environ.get("VOC_LOG_LEVEL")
@@ -323,6 +329,7 @@ def configure_from_env() -> None:
         "simple": _SIMPLE_FORMAT,
         "detailed": _DETAILED_FORMAT,
         "default": _DEFAULT_FORMAT,
+        "structured": _STRUCTURED_FORMAT,
     }
     if env_format in format_map and _initialized:
         root_logger = logging.getLogger("voc_app")
@@ -358,7 +365,13 @@ def reset() -> None:
     global _initialized, _module_levels, _loggers
 
     root_logger = logging.getLogger("voc_app")
-    root_logger.handlers.clear()
+    # 关闭并移除 handler，避免 FileHandler 等资源泄漏（测试环境会触发 ResourceWarning）
+    for handler in list(root_logger.handlers):
+        try:
+            root_logger.removeHandler(handler)
+            handler.close()
+        except Exception:  # noqa: BLE001 - reset 为 best-effort
+            continue
     root_logger.setLevel(logging.WARNING)
 
     _initialized = False
@@ -377,3 +390,4 @@ CRITICAL = logging.CRITICAL
 FORMAT_DEFAULT = _DEFAULT_FORMAT
 FORMAT_SIMPLE = _SIMPLE_FORMAT
 FORMAT_DETAILED = _DETAILED_FORMAT
+FORMAT_STRUCTURED = _STRUCTURED_FORMAT

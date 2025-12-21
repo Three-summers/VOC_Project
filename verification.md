@@ -1,5 +1,15 @@
 # Verification Report
 
+## Verification - 2025-12-21T22:40:00+08:00
+- Executor: Codex
+- Scope: hardware-abstraction（硬件抽象层 + loadport 迁移 + GUI 依赖注入）
+- Command: `PYTHONPATH=src python3 -m unittest tests.test_hardware tests.test_hardware_integration -v`
+- Result: ✅ Passed
+- Details: 24 tests, 0 failures。覆盖 E84Controller 接口方法、工厂注册/创建、GPIO 可选导入、GUI 构造注入（Mock）。
+- Coverage (trace): 通过 `python3 -m trace --count --missing --summary ...` 生成摘要，hardware 相关模块覆盖率为：controller 93%、factory 97%、e84_controller 91%、e84_thread 90%、gpio_controller 95%。详见 `.codex/hardware-abstraction-trace-summary.txt` 与 `.codex/trace_hardware_filtered/`。
+- Note: 当前环境缺少 `pytest/pytest-cov` 且网络受限，无法执行用户给定 `pytest ... --cov` 命令；测试用例为 unittest 风格，仍可被 pytest 直接执行（目标环境具备依赖时复现即可）。
+- Risk Assessment: 低。硬件真实 GPIO 仍需在树莓派 + RPi.GPIO 环境做实机验证。
+
 - Date: 2025-11-25T10:50:06+08:00
 - Executor: Codex
 - Scope: GUI 调试（禁用 loadport 硬件依赖）
@@ -229,3 +239,25 @@
   2) `Noise_Spectrum` 包不会影响 FOUP 的通道数/配置（不会误触发 256 通道 UI 或持久化配置）；
   3) 若 GUI 启动时模拟器默认在跑，首次收到真实频谱后模拟器自动停止，频谱图保持使用真实数据。
 - Risk Assessment: 中。单测覆盖路由与模型调用，但未在受限沙箱环境中跑通真实 socket 推流与 QML 渲染，需要实机联调确认协议细节（分隔符/浮点格式/更新频率）。 
+
+## Verification - 2025-12-21T22:45:00+08:00
+- Executor: Codex
+- Scope: code-quality-improvement（线程安全/资源管理/错误处理/日志优化 + 新增测试）
+- Command: `. .venv/bin/activate && python -m unittest -v tests/test_quality.py tests/test_thread_safety.py tests/test_resource_leak.py`
+- Result: ✅ Passed
+- Details:
+  - 新增测试文件均通过：线程安全压力（多线程并发访问）、资源泄漏检测（socket/GPIO cleanup）与质量闸门（回归子集）。
+  - 受沙箱限制无法创建真实 socket（PermissionError），回归子集中已跳过依赖真实 socket 的用例；socket 相关验证通过 mock 替代。
+  - 当前环境缺少 `pytest/pytest-cov` 且网络受限，无法执行规格中的 `pytest ... --cov`；已用标准库 `trace` 生成替代覆盖率摘要（见 `.codex/trace-quality-summary.txt`）。
+- Risk Assessment: 中。逻辑与单测覆盖已补齐，但最终覆盖率阈值需在具备 pytest-cov 与完整依赖（PySide6/RPi.GPIO 等）的环境执行验收命令确认。 
+
+## Verification - 2025-12-21T23:30:49+08:00
+- Executor: Codex
+- Scope: code-quality-improvement（覆盖率补齐与稳定性回归）
+- Command: `. .venv/bin/activate && python -m unittest -v tests/test_quality.py tests/test_thread_safety.py tests/test_resource_leak.py`
+- Result: ✅ Passed
+- Details:
+  - 35 tests, 0 failures；包含线程安全压力、资源泄漏检测、Socket/串口/协议分支、E84 状态机/超时/清理分支、日志配置 env/file/format 分支等。
+  - 覆盖率（trace 口径）: voc_app.* 加权平均约 91.88%，详见 `.codex/trace-quality-summary.txt` 与 `.codex/code-quality-coverage.txt`。
+  - 当前环境缺少 `pytest/pytest-cov` 且网络受限，无法执行规格中的 `pytest ... --cov`；测试保持 pytest 兼容，建议在完整依赖环境复跑验收命令确认最终覆盖率。
+- Risk Assessment: 中。核心逻辑与资源释放路径已有较高覆盖；真实 socket/真实 GPIO 仍需在目标设备/网络环境做实机验证。

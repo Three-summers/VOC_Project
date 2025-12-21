@@ -1,13 +1,19 @@
 import socket
 import os
 import struct
-import serial
 import abc
 from typing import Any, Optional, Iterable, Union, List
 
 from voc_app.logging_config import get_logger
+from voc_app.utils.error_handler import ResourceError
+from voc_app.utils.resource_manager import SocketResourceManager
 
 logger = get_logger(__name__)
+
+try:  # 可选依赖：允许在测试/最小环境中缺少 pyserial
+    import serial  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    serial = None
 
 
 # --- 1. 通信层抽象 ---
@@ -44,15 +50,17 @@ class SocketCommunicator(Communicator):
     """使用 Socket 进行通信的实现."""
 
     def __init__(self, host: str, port: int, timeout: float | None = 5.0) -> None:
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # 设置超时，避免阻塞导致线程无法退出
-        if timeout is not None:
-            self.sock.settimeout(timeout)
         try:
-            self.sock.connect((host, port))
+            self._manager = SocketResourceManager(host, port, timeout=timeout)
+            self.sock = self._manager.acquire()
             logger.debug(f"Socket 已连接: {host}:{port}")
-        except (ConnectionRefusedError, TimeoutError, OSError) as e:
-            logger.warning(f"Socket 连接失败 {host}:{port}: {e}")
+        except ResourceError as exc:
+            # BaseResourceManager 会将底层异常包装为 ResourceError；这里按历史行为回退为常见 socket 异常类型
+            cause = exc.__cause__
+            if isinstance(cause, (ConnectionRefusedError, TimeoutError, OSError)):
+                logger.warning(f"Socket 连接失败 {host}:{port}: {cause}")
+                raise cause from exc
+            logger.error(f"Socket 初始化失败 {host}:{port}: {exc}", exc_info=True)
             raise
 
     def send(self, data: bytes) -> None:
@@ -68,27 +76,23 @@ class SocketCommunicator(Communicator):
 
     def close(self) -> None:
         try:
-            self.sock.shutdown(socket.SHUT_RDWR)
-        except (OSError, socket.error):
-            # shutdown 失败是正常的（连接已关闭等）
-            pass
-        except Exception as e:
-            logger.debug(f"Socket shutdown 异常: {e}")
-        try:
-            self.sock.close()
+            self._manager.release()
             logger.debug("Socket 已关闭")
-        except Exception as e:
-            logger.warning(f"Socket close 异常: {e}")
+        except ResourceError as exc:
+            # close 为 best-effort：记录日志但不向上抛出，避免影响退出流程
+            logger.warning(f"Socket close 异常: {exc}", exc_info=True)
 
 
 class SerialCommunicator(Communicator):
     """使用串口进行通信的实现."""
 
     def __init__(self, port: str, baudrate: int, timeout: float = 2.0) -> None:
+        if serial is None:
+            raise RuntimeError("pyserial 未安装，无法创建串口通信器")
         try:
             self.ser = serial.Serial(port, baudrate, timeout=timeout)
             logger.debug(f"串口已打开: {port} @ {baudrate}")
-        except serial.SerialException as e:
+        except getattr(serial, "SerialException", Exception) as e:
             logger.warning(f"串口打开失败 {port}: {e}")
             raise
 

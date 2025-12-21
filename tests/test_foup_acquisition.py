@@ -1,5 +1,6 @@
 """测试 foup_acquisition 模块"""
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, PropertyMock
@@ -31,17 +32,21 @@ class TestFoupAcquisitionController(unittest.TestCase):
     """测试 FoupAcquisitionController 类"""
 
     def setUp(self) -> None:
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._config_path = Path(self._tmpdir.name) / "channel_config.json"
         self.series_models = [MockSeriesModel() for _ in range(3)]
         self.controller = FoupAcquisitionController(
             series_models=self.series_models,
             host="127.0.0.1",
             port=65432,
+            channel_config_path=self._config_path,
         )
 
     def tearDown(self) -> None:
         # 确保停止任何运行中的采集
         if self.controller.running:
             self.controller.stopAcquisition()
+        self._tmpdir.cleanup()
 
     def test_initial_state(self) -> None:
         """测试初始状态"""
@@ -194,6 +199,7 @@ class TestFoupAcquisitionController(unittest.TestCase):
             port=65432,
             spectrum_model=spectrum_model,
             spectrum_simulator=spectrum_simulator,
+            channel_config_path=self._config_path,
         )
 
         payload = ",".join(str(i) for i in range(256))
@@ -218,6 +224,7 @@ class TestFoupAcquisitionController(unittest.TestCase):
             host="127.0.0.1",
             port=65432,
             spectrum_model=spectrum_model,
+            channel_config_path=self._config_path,
         )
 
         payload = "Noise_Spectrum," + ",".join(str(i) for i in range(256))
@@ -236,6 +243,7 @@ class TestFoupAcquisitionController(unittest.TestCase):
             host="127.0.0.1",
             port=65432,
             spectrum_model=spectrum_model,
+            channel_config_path=self._config_path,
         )
 
         # 256 个 bin，最大值应归一化为 1.0
@@ -355,21 +363,25 @@ class TestFoupAcquisitionControllerNoSeries(unittest.TestCase):
 
     def test_init_empty_series(self) -> None:
         """测试空曲线模型列表"""
-        controller = FoupAcquisitionController(
-            series_models=[],
-            host="127.0.0.1",
-            port=65432,
-        )
-        self.assertIsNone(controller.seriesModel)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            controller = FoupAcquisitionController(
+                series_models=[],
+                host="127.0.0.1",
+                port=65432,
+                channel_config_path=Path(tmpdir) / "channel_config.json",
+            )
+            self.assertIsNone(controller.seriesModel)
 
     def test_init_none_series(self) -> None:
         """测试 None 曲线模型"""
-        controller = FoupAcquisitionController(
-            series_models=[None, None],
-            host="127.0.0.1",
-            port=65432,
-        )
-        self.assertEqual(len(controller._series_models), 0)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            controller = FoupAcquisitionController(
+                series_models=[None, None],
+                host="127.0.0.1",
+                port=65432,
+                channel_config_path=Path(tmpdir) / "channel_config.json",
+            )
+            self.assertEqual(len(controller._series_models), 0)
 
 
 if __name__ == "__main__":

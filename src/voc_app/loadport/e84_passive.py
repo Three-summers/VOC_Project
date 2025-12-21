@@ -1,10 +1,17 @@
+from __future__ import annotations
+
+from contextlib import ExitStack
 from enum import StrEnum
 import time
 
-from PySide6.QtCore import QObject, QTimer, Signal
+try:  # pragma: no cover - PySide6 在部分验证环境可能不存在
+    from PySide6.QtCore import QObject, QTimer, Signal
+except ModuleNotFoundError:  # pragma: no cover
+    from voc_app.utils.qt_stubs import QObject, QTimer, Signal  # type: ignore
 
 from voc_app.loadport.gpio_controller import GPIOController
 from voc_app.logging_config import get_logger
+from voc_app.utils.error_handler import VOCError, handle_errors
 
 logger = get_logger(__name__)
 
@@ -44,10 +51,18 @@ class E84Controller(QObject):
     data_collection_stop = Signal()  # Load 完成时发出，通知停止采集
 
     def __init__(self, refresh_interval: float = 0.2):
-        """使用PySide6定时逻辑的E84控制器"""
+        """使用 PySide6 定时逻辑的 E84 控制器。
+
+        资源管理与异常处理：
+        - GPIO 资源通过 ExitStack 统一托管，close() 时释放，避免资源泄漏
+        - QTimer 在 stop()/close() 中保证停止，防止对象销毁后仍触发回调
+        - 定时回调异常会记录详细日志，并通过 fatal_error 信号上报，同时主动停止循环
+        """
 
         super().__init__()
         self.refresh_interval = refresh_interval
+        self._resource_stack = ExitStack()
+        self._closed = False
 
         self.E84_InSig = {
             "GO": 22,
@@ -107,15 +122,24 @@ class E84Controller(QObject):
         self.prev_state = None
         self.led_cnt = 0
 
-        self.E84_SigPin = GPIOController(
-            self.E84_InSig, self.E84_OutSig, IN_PUL_UP, SIG_OFF
-        )
-        self.E84_InfoPin = GPIOController(
-            self.E84_FoupKey, self.E84_InfoLED, IN_PUL_DOWN, LED_OFF
-        )
-        self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
-        self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
-        self.E84_Key_Old_Value = self.E84_Key_Value.copy()
+        try:
+            self.E84_SigPin = GPIOController(
+                self.E84_InSig, self.E84_OutSig, IN_PUL_UP, SIG_OFF
+            )
+            self._resource_stack.callback(self.E84_SigPin.cleanup)
+            self.E84_InfoPin = GPIOController(
+                self.E84_FoupKey, self.E84_InfoLED, IN_PUL_DOWN, LED_OFF
+            )
+            self._resource_stack.callback(self.E84_InfoPin.cleanup)
+            self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
+            self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
+            self.E84_Key_Old_Value = self.E84_Key_Value.copy()
+        except (VOCError, OSError, ValueError) as exc:
+            logger.error(f"GPIO 初始化失败: {exc}", exc_info=True)
+            # 初始化失败时已无法保证对象完整构建，标记为 closed 避免 __del__ 再次触发 close()
+            self._closed = True
+            self._resource_stack.close()
+            raise
 
         self.timeout_timer = QTimer(self)
         self.timeout_timer.setSingleShot(True)
@@ -126,14 +150,22 @@ class E84Controller(QObject):
         self.refresh_timer.setInterval(int(self.refresh_interval * 1000))
         self.refresh_timer.timeout.connect(self._run_cycle)
 
-        self.Refresh_Input()
+        try:
+            self.Refresh_Input()
+        except (VOCError, OSError, ValueError) as exc:
+            logger.error(f"初始化刷新输入失败: {exc}", exc_info=True)
+            self._closed = True
+            self._resource_stack.close()
+            raise
 
+    @handle_errors(logger_instance=logger, reraise=False)
     def start(self):
         """启动周期性刷新与状态机运行"""
 
         if not self.refresh_timer.isActive():
             self.refresh_timer.start()
 
+    @handle_errors(logger_instance=logger, reraise=False)
     def stop(self):
         """停止定时器并清理状态"""
 
@@ -142,8 +174,26 @@ class E84Controller(QObject):
         self._stop_timeout()
 
     def _run_cycle(self):
+        try:
+            self._run_cycle_impl()
+        except VOCError as exc:
+            self._handle_fatal_error(f"E84 运行异常: {exc}", exc)
+
+    @handle_errors(logger_instance=logger)
+    def _run_cycle_impl(self) -> None:
+        """周期性循环的核心逻辑（带统一错误处理与日志）。"""
         self.Refresh_Input()
         self._process_state()
+
+    def _handle_fatal_error(self, message: str, exc: BaseException | None = None) -> None:
+        """处理不可恢复错误：记录日志、发出 fatal_error、停止循环并释放资源。"""
+        logger.error(message, exc_info=exc is not None)
+        try:
+            self.fatal_error.emit(message)
+        except RuntimeError:
+            pass
+        self.stop()
+        self.close()
 
     def _process_state(self):
         if self.prev_state != self.state:
@@ -434,3 +484,63 @@ class E84Controller(QObject):
         """兼容旧入口，直接启动循环"""
 
         self.start()
+
+    @handle_errors(logger_instance=logger, reraise=False)
+    def close(self) -> None:
+        """释放资源（幂等）。"""
+        if self._closed:
+            return
+        self._closed = True
+
+        # 先停定时器，避免资源释放后仍触发回调
+        try:
+            refresh_timer = getattr(self, "refresh_timer", None)
+            if refresh_timer is not None and refresh_timer.isActive():
+                refresh_timer.stop()
+        except RuntimeError:
+            pass
+        try:
+            timeout_timer = getattr(self, "timeout_timer", None)
+            if timeout_timer is not None and timeout_timer.isActive():
+                timeout_timer.stop()
+        except RuntimeError:
+            pass
+
+        # 尝试断开回调，避免 deleteLater 后仍触发
+        try:
+            if refresh_timer is not None:
+                refresh_timer.timeout.disconnect(self._run_cycle)
+        except (TypeError, RuntimeError):
+            pass
+        try:
+            if timeout_timer is not None:
+                timeout_timer.timeout.disconnect(self._on_timeout)
+        except (TypeError, RuntimeError):
+            pass
+
+        # 释放 GPIO 等资源
+        try:
+            stack = getattr(self, "_resource_stack", None)
+            if stack is not None:
+                stack.close()
+        finally:
+            logger.debug("E84Controller 资源已释放")
+
+    def __enter__(self) -> "E84Controller":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        self.close()
+        return False
+
+    def __del__(self) -> None:  # pragma: no cover - 仅做泄漏提示
+        if getattr(self, "_closed", True):
+            return
+        try:
+            logger.warning("检测到 E84Controller 未显式 close()，已尝试自动释放资源")
+        except Exception:
+            return
+        try:
+            self.close()
+        except Exception:
+            pass

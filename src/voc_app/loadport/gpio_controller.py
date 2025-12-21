@@ -1,6 +1,18 @@
-import RPi.GPIO as GPIO
+"""GPIO 控制器封装。
+
+说明：
+- RPi.GPIO 属于可选依赖（仅树莓派环境需要）。为保证开发/测试环境可导入，本模块会在缺少依赖时延迟报错。
+"""
+
+from __future__ import annotations
+
+try:  # 可选依赖：仅树莓派环境需要
+    import RPi.GPIO as GPIO  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    GPIO = None  # type: ignore[assignment]
 
 from voc_app.logging_config import get_logger
+from voc_app.utils.error_handler import ResourceError
 
 logger = get_logger(__name__)
 
@@ -18,6 +30,10 @@ class GPIOController:
         :param input_pins_config: 输入引脚配置字典 {名称: BCM编号}
         :param output_pins_config: 输出引脚配置字典 {名称: BCM编号}
         """
+        if GPIO is None:
+            raise ResourceError("RPi.GPIO 未安装，无法初始化 GPIOController")
+
+        self._cleaned = False
         GPIO.setmode(GPIO.BCM)
 
         # 保存引脚配置
@@ -81,5 +97,17 @@ class GPIOController:
 
     def cleanup(self) -> None:
         """释放GPIO资源"""
+        if GPIO is None:
+            return
+        if self._cleaned:
+            return
+        self._cleaned = True
         GPIO.cleanup()
         logger.info("GPIO资源已释放")
+
+    def __enter__(self) -> "GPIOController":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        self.cleanup()
+        return False
