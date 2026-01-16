@@ -41,7 +41,8 @@ Column {
     }
 
     CustomButton {
-        text: "切换模式（当前: " + (operationMode === "normal" ? "正常" : "测试") + "）"
+        // text: "切换模式（当前: " + (operationMode === "normal" ? "正常" : "测试") + "）"
+        text: "切换模式"
         width: parent.width
         onClicked: {
             if (!acquisitionController) {
@@ -82,7 +83,7 @@ Column {
     }
 
     CustomButton {
-        text: acquisitionController && acquisitionController.running ? "采集中" : "开始采集（测试模式）"
+        text: acquisitionController && acquisitionController.running ? "采集中" : "开始采集"
         width: parent.width
         enabled: acquisitionController && !acquisitionController.running && operationMode === "test"
         status: acquisitionController && acquisitionController.running ? "processing" : "normal"

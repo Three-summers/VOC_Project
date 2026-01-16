@@ -25,14 +25,14 @@ class GPIOController:
         self.output_pins: dict[str, int] = output_pins_config
 
         # 初始化输入引脚
-        for pin_name, pin_num in self.input_pins.items():
+        for _, pin_num in self.input_pins.items():
             if PUL_Status == 1:
                 GPIO.setup(pin_num, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             else:
                 GPIO.setup(pin_num, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
         # 初始化输出引脚
-        for pin_name, pin_num in self.output_pins.items():
+        for _, pin_num in self.output_pins.items():
             GPIO.setup(pin_num, GPIO.OUT)
             if default_state:
                 GPIO.output(pin_num, GPIO.HIGH)

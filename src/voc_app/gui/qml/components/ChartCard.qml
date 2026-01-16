@@ -129,29 +129,13 @@ Rectangle {
                     chartView.legend.visible = true;
                 }
             }
-            //
-            // function updateLegendVisibility() {
-            //     if (!chartView.legend || !chartView.legend.markers) {
-            //         return;
-            //     }
-            //
-            //     var markers = chartView.legend.markers;
-            //
-            //     for (var i = 0; i < markers.length; i++) {
-            //         var marker = markers[i];
-            //
-            //         if (marker.series === lineSeries || marker.series === pointSeries) {
-            //             marker.visible = false;
-            //         }
-            //     }
-            // }
 
             DateTimeAxis {
                 id: xAxis
                 min: new Date(Date.now() - 30000)
                 max: new Date(Date.now() + 30000)
                 format: "HH:mm:ss"
-                tickCount: 6
+                tickCount: 4
                 labelsFont.pixelSize: Components.UiTheme.fontSize("caption")
                 titleFont.pixelSize: Components.UiTheme.fontSize("caption")
                 labelsColor: Components.UiTheme.color("textSecondary")
@@ -280,8 +264,6 @@ Rectangle {
                 id: pointMapper
             }
 
-
-            // onSeriesAdded: Qt.callLater(updateLegendVisibility);
         }
     }
 
@@ -390,7 +372,8 @@ Rectangle {
 
         xAxis.min = new Date(minX - paddingX);
         xAxis.max = new Date(maxX + paddingX);
-        yAxis.min = minY - paddingY;
+        // yAxis.min = minY - paddingY;
+        yAxis.min = Math.max(0, minY - paddingY);
         yAxis.max = maxY + paddingY;
         updateLimitLines();
     }
@@ -508,7 +491,8 @@ Rectangle {
         var paddingY = Math.max(0.5, Math.abs(maxY - minY) * 0.1);
         xAxis.min = new Date(minX - paddingX);
         xAxis.max = new Date(maxX + paddingX);
-        yAxis.min = minY - paddingY;
+        // yAxis.min = minY - paddingY;
+        yAxis.min = Math.max(0, minY - paddingY);
         yAxis.max = maxY + paddingY;
         updateLimitLines();
     }
