@@ -229,3 +229,41 @@
   2) `Noise_Spectrum` 包不会影响 FOUP 的通道数/配置（不会误触发 256 通道 UI 或持久化配置）；
   3) 若 GUI 启动时模拟器默认在跑，首次收到真实频谱后模拟器自动停止，频谱图保持使用真实数据。
 - Risk Assessment: 中。单测覆盖路由与模型调用，但未在受限沙箱环境中跑通真实 socket 推流与 QML 渲染，需要实机联调确认协议细节（分隔符/浮点格式/更新频率）。 
+
+## Verification - 2026-01-16T10:45:00+08:00
+- Executor: Codex
+- Scope: GUI_Template 模板目录沉淀（QML 布局外壳 + 单点配置 + 占位页面/命令）与冒烟加载测试
+- Command: `python -m pytest -q tests/test_gui_template_qml.py`
+- Result: ✅ Passed
+- Details:
+  - 新增 `GUI_Template/qml/`：复用现有 `components/`，并提供 `TemplateConfig.qml` 单点配置（导航/子页/子命令开关）与四区布局 `main.qml`。
+  - 补齐 `views/` 与 `commands/` 占位文件，保证模板在无 Python context properties 时也可加载创建根对象。
+  - 新增 `GUI_Template/demo.py`：模板 Python 展示入口（加载 main.qml，并注入最小 `authManager` 用于登录按钮演示）。
+  - 新增 `tests/test_gui_template_qml.py`：offscreen 下加载 `GUI_Template/qml/main.qml` 并断言可创建根对象。
+  - 完整测试输出记录于 `.codex/testing.md`（包含全量 pytest 运行的已知失败项与环境限制说明）。
+- Risk Assessment: 低。模板为新增目录，不影响现有 `src/voc_app/gui/qml`；跨项目复用仍需按目标项目注入所需 context properties（如需要登录/报警等能力）。
+
+## Verification - 2026-01-16T16:32:00+08:00
+- Executor: Codex
+- Scope: 基于 GUI_Template 新建 `vibration_wafer_bt_gui/` 子项目，拷贝 vibration_wafer_bt BLE 接收端并在模板上实时绘制 AX 三轴曲线
+- Command: `python -m pytest -q tests/test_vibration_wafer_bt_gui_simulation.py`
+- Result: ✅ Passed
+- Details:
+  - 新增完整子项目目录 `vibration_wafer_bt_gui/`：包含 `qml/`（模板派生 UI）、`demo.py`（入口）、`src/vibration_wafer_bt_gui/`（控制器/模型）与 `bluetooth_receiver/`（拷贝的 BLE 接收端源码）。
+  - `StatusView.qml` 使用 `ChartCard.qml` 绘制 AX X/Y/Z 三张实时曲线卡片；`StatusCommands.qml` 提供 `Start BLE / Start Simulation / Stop` 控制。
+  - 新增 `tests/test_vibration_wafer_bt_gui_simulation.py`：不依赖 bleak/真实 BLE，验证 simulation 模式可驱动模型产生数据点。
+  - `demo.py --offscreen --exit-after-load` 支持 headless 下的 QML 编译检查（不实例化 QtCharts ChartView，以规避当前环境下的 offscreen 崩溃）。
+- Risk Assessment: 中。GUI 实际渲染与 BLE 实机连接需在具备显示与蓝牙适配器的目标环境验证；当前仅在本机完成 QML 编译检查与 simulation 单测。
+
+## Verification - 2026-01-16T16:40:00+08:00
+- Executor: Codex
+- Scope: 修复 QtCharts/ChartCard 运行时报错（QApplication 依赖、chartLegendHelper 空引用、force_rebuild 缺失）并统一命令栏布局为 VOC 风格
+- Command: `python -m pytest -q tests/test_gui_template_qml.py tests/test_vibration_wafer_bt_gui_simulation.py`
+- Result: ✅ Passed
+- Details:
+  - `vibration_wafer_bt_gui/demo.py` 改为使用 `QApplication`，并在 Python 侧持有 `authManager/chartLegendHelper` 引用，避免 QML 侧变为 null。
+  - `vibration_wafer_bt_gui/demo.py` 显式导入 `PySide6.QtCharts.QAbstractSeries`，确保 QML 的 `LineSeries/ScatterSeries` 传入 Python Slot 时被正确转换（避免退化成 `QObject` 导致缺少 `chart()`）。
+  - `GUI_Template/qml/components/ChartCard.qml` 与 `vibration_wafer_bt_gui/qml/components/ChartCard.qml` 增加 chartLegendHelper 判空保护，避免未注入时直接报错。
+  - `vibration_wafer_bt_gui/src/vibration_wafer_bt_gui/series_model.py` 补齐 `force_rebuild()` 以匹配 ChartCard 调用。
+  - `GUI_Template/qml/commands/*.qml` 与 `vibration_wafer_bt_gui/qml/commands/*.qml` 从 `ColumnLayout` 调整为 `Column + anchors`（按钮全宽），与 VOC 项目命令栏排布一致。
+- Risk Assessment: 低。冒烟测试通过；GUI 实机仍需在目标桌面环境确认图例隐藏效果与按钮布局观感。

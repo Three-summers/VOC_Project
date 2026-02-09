@@ -46,3 +46,7 @@ Thumbs.db
 
 # Runtime logs / generated data
 *.log
+
+verification.md
+GUI_Template/
+vibration_wafer_bt_gui/

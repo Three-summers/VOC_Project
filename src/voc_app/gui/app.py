@@ -159,6 +159,11 @@ class LoadportBridge(QObject):
 
 
 if __name__ == "__main__":
+    # import RPi.GPIO as GPIO
+    # GPIO.setmode(GPIO.BCM)
+    # GPIO.setup(25, GPIO.OUT)
+    # GPIO.output(25, GPIO.HIGH)
+
     app = QApplication(sys.argv)
     # 当最后一个窗口被关闭时，不要自动退出应用程序，以在 qml 动态调用 quit 退出
     app.setQuitOnLastWindowClosed(False)
