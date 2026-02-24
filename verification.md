@@ -267,3 +267,17 @@
   - `vibration_wafer_bt_gui/src/vibration_wafer_bt_gui/series_model.py` 补齐 `force_rebuild()` 以匹配 ChartCard 调用。
   - `GUI_Template/qml/commands/*.qml` 与 `vibration_wafer_bt_gui/qml/commands/*.qml` 从 `ColumnLayout` 调整为 `Column + anchors`（按钮全宽），与 VOC 项目命令栏排布一致。
 - Risk Assessment: 低。冒烟测试通过；GUI 实机仍需在目标桌面环境确认图例隐藏效果与按钮布局观感。
+
+## Verification - 2026-02-09T17:25:00+08:00
+- Executor: Codex
+- Scope: E84（Load/Unload 触发）与串口模块健壮性检查 + 确定性 bug 修复回归
+- Command:
+  - `PYTHONPATH=src python3 -m unittest tests/test_serial_device.py`
+  - `PYTHONPATH=src python3 -c "from voc_app.loadport.ascii_serial import AsciiSerialClient; print('import_ok')"`
+  - `python3 -m compileall -q src/voc_app/loadport/e84_passive.py src/voc_app/loadport/ascii_serial.py`
+- Result: ✅ Passed
+- Details:
+  - 修复 `src/voc_app/loadport/e84_passive.py`：data_collection_stop 改为仅在 Load 完成且 FOUP 在位时触发（避免在 Unload 完成误触发）。
+  - 修复 `src/voc_app/loadport/ascii_serial.py`：包内导入改为 `voc_app.loadport.serial_device`；`set_unconnect()` 改为发送已注册命令 `disconnect`，不再触发 KeyError。
+  - 串口通用层单测 `tests/test_serial_device.py` 通过（1 test, 0 failures）。
+- Risk Assessment: 低-中。串口层回归通过；E84 仍需在具备 RPi.GPIO 与真实接线/AMHS 的环境实机验证信号时序与引脚映射（LOAD/UNLOAD LED 与 L_REQ/U_REQ 等）。

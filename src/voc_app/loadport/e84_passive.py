@@ -212,7 +212,7 @@ class E84Controller(QObject):
             elif wait_status == 2:
                 self.state = E84State.WAIT_DONE
                 # Load 流程完成时发出 STOP 信号（COMPT=1 之后）
-                if not self.FOUP_status:
+                if self.FOUP_status:
                     logger.info("Load 流程完成，发出数据采集 STOP 信号")
                     self.data_collection_stop.emit()
                     # TODO: 这里可以添加具体的数据采集停止和数据读取操作
@@ -247,6 +247,7 @@ class E84Controller(QObject):
     def Refresh_Input(self):
         self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
         self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
+        # 只有在按键状态发生变化时才进行处理，避免频繁处理相同状态，同时增加延时来消抖
         if self.E84_Key_Old_Value != self.E84_Key_Value:
             time.sleep(0.2)
             self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()

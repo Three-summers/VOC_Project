@@ -1,5 +1,5 @@
 from typing import Optional, Callable, Dict
-from serial_device import GenericSerialDevice, GenericSerialCommand
+from voc_app.loadport.serial_device import GenericSerialDevice, GenericSerialCommand
 
 from voc_app.logging_config import get_logger
 
@@ -144,4 +144,4 @@ class AsciiSerialClient:
         self.device.send_command("connect")
 
     def set_unconnect(self) -> None:
-        self.device.send_command("unconnect")
+        self.device.send_command("disconnect")
