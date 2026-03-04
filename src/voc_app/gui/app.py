@@ -16,6 +16,17 @@ from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# 可选依赖：仅在树莓派环境存在 RPi.GPIO 时启用
+try:
+    import RPi.GPIO as GPIO  # type: ignore
+
+    _HAS_RPI_GPIO = True
+    _RPI_GPIO_IMPORT_ERROR = None
+except Exception as exc:  # noqa: BLE001
+    GPIO = None  # type: ignore[assignment]
+    _HAS_RPI_GPIO = False
+    _RPI_GPIO_IMPORT_ERROR = exc
+
 # 性能配置必须在导入 PySide6 之前应用
 from voc_app.gui.performance_config import (
     apply_performance_settings,
@@ -551,10 +562,15 @@ class LoadportBridge(QObject):
 
 
 if __name__ == "__main__":
-    # import RPi.GPIO as GPIO
-    # GPIO.setmode(GPIO.BCM)
-    # GPIO.setup(25, GPIO.OUT)
-    # GPIO.output(25, GPIO.HIGH)
+    if _HAS_RPI_GPIO and GPIO is not None:
+        try:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(25, GPIO.OUT)
+            GPIO.output(25, GPIO.HIGH)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"RPi.GPIO 初始化失败，跳过 GPIO 置位: {exc}")
+    elif _RPI_GPIO_IMPORT_ERROR is not None:
+        logger.info(f"未检测到 RPi.GPIO，跳过 GPIO 置位: {_RPI_GPIO_IMPORT_ERROR}")
 
     app = QApplication(sys.argv)
     # 当最后一个窗口被关闭时，不要自动退出应用程序，以在 qml 动态调用 quit 退出
