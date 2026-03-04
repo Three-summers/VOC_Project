@@ -10,6 +10,8 @@ from PySide6.QtCore import (
     Slot,
 )
 
+import time
+
 from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -77,10 +79,12 @@ class AlarmStore(QObject):
     # 用于响应式，当信号被触发会直接引起 QML 响应
     hasActiveAlarmChanged = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, duplicate_window_seconds: float = 60.0):
         super().__init__(parent)
         self._model = AlarmModel(self)
         self._acknowledged = False
+        self._duplicate_window_seconds = max(0.0, float(duplicate_window_seconds))
+        self._last_alarm_report_time_by_message: dict[str, float] = {}
 
     @Property(QObject, constant=True)
     def alarmModel(self):
@@ -93,7 +97,20 @@ class AlarmStore(QObject):
 
     @Slot(str, str)
     def addAlarm(self, timestamp: str, message: str):
+        now_monotonic = time.monotonic()
+        last_report_time = self._last_alarm_report_time_by_message.get(message)
+        if last_report_time is not None:
+            elapsed = now_monotonic - last_report_time
+            if elapsed < self._duplicate_window_seconds:
+                logger.debug(
+                    "抑制重复告警: message=%s, elapsed=%.2fs, window=%.2fs",
+                    message,
+                    elapsed,
+                    self._duplicate_window_seconds,
+                )
+                return
         self._model.add_alarm(timestamp, message)
+        self._last_alarm_report_time_by_message[message] = now_monotonic
         self._acknowledged = False
         self.hasActiveAlarmChanged.emit()
 
@@ -107,8 +124,12 @@ class AlarmStore(QObject):
 
     @Slot()
     def clearAlarms(self):
-        if self._model.rowCount() == 0 and not self._acknowledged:
+        has_items = self._model.rowCount() > 0
+        has_dedup_cache = bool(self._last_alarm_report_time_by_message)
+        if not has_items and not self._acknowledged and not has_dedup_cache:
             return
-        self._model.clear()
+        if has_items:
+            self._model.clear()
+        self._last_alarm_report_time_by_message.clear()
         self._acknowledged = False
         self.hasActiveAlarmChanged.emit()

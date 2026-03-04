@@ -92,6 +92,8 @@ class FoupAcquisitionController(QObject):
         self._worker: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._communicator: SocketCommunicator | None = None
+        self._e84_communicator: SocketCommunicator | None = None
+        self._e84_io_lock = threading.Lock()
         self._sample_index: int = 0
         self._last_timestamp_ms: float = 0.0
         self._detected_channel_count: int = 0
@@ -275,7 +277,46 @@ class FoupAcquisitionController(QObject):
         self._stop_event.set()
         self._set_status("正在停止...")
         self._send_stop_command()
+        self._close_e84_socket()
         QTimer.singleShot(500, self._cleanup)
+
+    @Slot(result=bool)
+    def e84StartDataCollectionForUnload(self) -> bool:
+        """E84 Unload 阶段：查询类型/版本后发送采集启动命令。"""
+        with self._e84_io_lock:
+            try:
+                self._set_status("E84 Unload：查询版本并启动采集")
+                self._e84_query_server_identity()
+                start_cmd = self._select_command("start")
+                self._e84_send_command(start_cmd)
+                self._set_status(f"E84 Unload 已发送: {start_cmd}")
+                return True
+            except Exception as exc:
+                self._close_e84_socket()
+                message = f"E84 Unload 启动采集失败: {exc}"
+                logger.error(message)
+                self.errorOccurred.emit(message)
+                self._set_status(message)
+                return False
+
+    @Slot(result=bool)
+    def e84StopDataCollectionForLoad(self) -> bool:
+        """E84 Load 阶段：发送采集停止命令并下载日志。"""
+        with self._e84_io_lock:
+            try:
+                self._set_status("E84 Load：停止采集并下载日志")
+                stop_cmd = self._select_command("stop")
+                self._e84_send_command(stop_cmd)
+                saved_files = self._download_logs()
+                self._set_status(f"E84 Load 日志下载完成: {len(saved_files)} 个文件")
+                return True
+            except Exception as exc:
+                self._close_e84_socket()
+                message = f"E84 Load 停止采集失败: {exc}"
+                logger.error(message)
+                self.errorOccurred.emit(message)
+                self._set_status(message)
+                return False
 
     def _cleanup(self) -> None:
         """清理资源：关闭 socket 并等待线程结束"""
@@ -650,16 +691,105 @@ class FoupAcquisitionController(QObject):
         except Exception:
             pass
 
-    def _recv_message(self) -> str | None:
-        if not self._communicator:
-            return None
-        header = self._recv_exact(4)
+    def _close_e84_socket(self) -> None:
+        comm = self._e84_communicator
+        self._e84_communicator = None
+        if comm is None:
+            return
+        try:
+            comm.close()
+        except Exception:
+            pass
+
+    def _ensure_e84_connected(self) -> SocketCommunicator:
+        if self._e84_communicator is not None:
+            return self._e84_communicator
+        with self._lock:
+            host, port = self._host, self._port
+        self._e84_communicator = SocketCommunicator(host, port)
+        return self._e84_communicator
+
+    def _send_command_with_communicator(
+        self, communicator: SocketCommunicator, text: str
+    ) -> None:
+        payload = text.encode("utf-8")
+        header = struct.pack(">I", len(payload))
+        communicator.send(header + payload)
+
+    def _recv_exact_from_communicator(
+        self, communicator: SocketCommunicator, size: int
+    ) -> bytes | None:
+        chunks: List[bytes] = []
+        remaining = size
+        while remaining > 0:
+            try:
+                chunk = communicator.recv(remaining)
+            except Exception as exc:
+                logger.warning(f"recv exception: {exc}")
+                return None
+            if not chunk:
+                return None
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+
+    def _recv_message_from_communicator(
+        self, communicator: SocketCommunicator
+    ) -> str | None:
+        header = self._recv_exact_from_communicator(communicator, 4)
         if not header:
             return None
         (length,) = struct.unpack(">I", header)
         if length == 0:
             return ""
-        payload = self._recv_exact(length)
+        payload = self._recv_exact_from_communicator(communicator, length)
+        if payload is None:
+            return None
+        try:
+            return payload.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+
+    def _e84_send_command(self, text: str) -> None:
+        try:
+            communicator = self._ensure_e84_connected()
+            self._send_command_with_communicator(communicator, text)
+        except Exception:
+            # 发送异常时清理旧连接并重连重试一次
+            self._close_e84_socket()
+            communicator = self._ensure_e84_connected()
+            self._send_command_with_communicator(communicator, text)
+
+    def _e84_recv_message(self) -> str | None:
+        communicator = self._ensure_e84_connected()
+        message = self._recv_message_from_communicator(communicator)
+        if message is None:
+            self._close_e84_socket()
+        return message
+
+    def _e84_query_server_identity(self) -> None:
+        self._e84_send_command("get_function_version_info")
+        for _ in range(3):
+            response = self._e84_recv_message()
+            if not response:
+                break
+            if response.strip().lower() == "ack":
+                continue
+            version, prefix = self._parse_version_response(response)
+            if version or prefix:
+                self._apply_server_identity(version, prefix)
+                break
+
+    def _recv_message(self) -> str | None:
+        if not self._communicator:
+            return None
+        header = self._recv_exact_from_communicator(self._communicator, 4)
+        if not header:
+            return None
+        (length,) = struct.unpack(">I", header)
+        if length == 0:
+            return ""
+        payload = self._recv_exact_from_communicator(self._communicator, length)
         if payload is None:
             return None
         try:
@@ -673,19 +803,7 @@ class FoupAcquisitionController(QObject):
         """
         if not self._communicator:
             return None
-        chunks: List[bytes] = []
-        remaining = size
-        while remaining > 0:
-            try:
-                chunk = self._communicator.recv(remaining)
-            except Exception as exc:
-                logger.warning(f"recv exception: {exc}")
-                return None
-            if not chunk:
-                return None
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        return b"".join(chunks)
+        return self._recv_exact_from_communicator(self._communicator, size)
 
     def _send_command(self, text: str) -> None:
         if not self._communicator:

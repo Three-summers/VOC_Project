@@ -1,7 +1,7 @@
 from enum import StrEnum
 import time
 
-from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtCore import QObject, QTimer, Signal, Slot
 
 from voc_app.loadport.gpio_controller import GPIOController
 from voc_app.logging_config import get_logger
@@ -17,6 +17,8 @@ LED_OFF = True
 
 ShortTimer = 2.0
 LongTimer = 60.0
+
+KeyDebounceSec = 0.2
 
 IN_PUL_UP = 1
 IN_PUL_DOWN = 2
@@ -48,6 +50,7 @@ class E84Controller(QObject):
 
         super().__init__()
         self.refresh_interval = refresh_interval
+        self._key_debounce_ms = int(KeyDebounceSec * 1000)
 
         self.E84_InSig = {
             "GO": 22,
@@ -97,8 +100,9 @@ class E84Controller(QObject):
             "KEY_2": False,
         }
 
-        self.E84_Key_Old_Value = self.E84_Key_Value.copy()
         self._keys_all_set: bool = False
+        self.E84_Key_Raw_Value = self.E84_Key_Value.copy()
+        self._pending_key_value: dict[str, bool] | None = None
 
         self.FOUP_status = True
         self.FOUP_old_status = True
@@ -106,6 +110,8 @@ class E84Controller(QObject):
         self.state = E84State.IDLE
         self.prev_state = None
         self.led_cnt = 0
+        self._actuator_error_latched = False
+        self._error_latch_reported = False
 
         self.E84_SigPin = GPIOController(
             self.E84_InSig, self.E84_OutSig, IN_PUL_UP, SIG_OFF
@@ -115,7 +121,11 @@ class E84Controller(QObject):
         )
         self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
         self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
-        self.E84_Key_Old_Value = self.E84_Key_Value.copy()
+        self.E84_Key_Raw_Value = self.E84_Key_Value.copy()
+
+        self._key_debounce_timer = QTimer(self)
+        self._key_debounce_timer.setSingleShot(True)
+        self._key_debounce_timer.timeout.connect(self._on_key_debounce_timeout)
 
         self.timeout_timer = QTimer(self)
         self.timeout_timer.setSingleShot(True)
@@ -140,12 +150,29 @@ class E84Controller(QObject):
         if self.refresh_timer.isActive():
             self.refresh_timer.stop()
         self._stop_timeout()
+        self._key_debounce_timer.stop()
+        self._pending_key_value = None
 
     def _run_cycle(self):
         self.Refresh_Input()
         self._process_state()
 
     def _process_state(self):
+        if self._actuator_error_latched:
+            if not self._error_latch_reported:
+                message = "执行机构异常锁存，E84 READY 保持低电平，等待复位"
+                logger.warning(message)
+                self.warning.emit(message)
+                self._error_latch_reported = True
+            self.state = E84State.IDLE
+            self.E84_ResetSig()
+            self.E84_InfoPin.set_output("LOAD_LED", LED_OFF)
+            self.E84_InfoPin.set_output("UNLOAD_LED", LED_OFF)
+            if self.prev_state != self.state:
+                self.state_changed.emit(self.state.value)
+                self.prev_state = self.state
+            return
+
         if self.prev_state != self.state:
             logger.debug(f"当前状态:{self.state.value}")
             self.state_changed.emit(self.state.value)
@@ -244,14 +271,30 @@ class E84Controller(QObject):
     def _key_set_callback(self):
         self.all_keys_set.emit()
 
+    def _on_key_debounce_timeout(self) -> None:
+        """非阻塞按键消抖：到期后确认输入已稳定再提交。"""
+
+        if self._pending_key_value is None:
+            return
+
+        current_key_value = self.E84_InfoPin.read_all_inputs()
+        if current_key_value == self._pending_key_value:
+            self.E84_Key_Value = current_key_value
+            self._pending_key_value = None
+            return
+
+        self._pending_key_value = current_key_value
+        self._key_debounce_timer.start(self._key_debounce_ms)
+
     def Refresh_Input(self):
         self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
-        self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
-        # 只有在按键状态发生变化时才进行处理，避免频繁处理相同状态，同时增加延时来消抖
-        if self.E84_Key_Old_Value != self.E84_Key_Value:
-            time.sleep(0.2)
-            self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()
-            self.E84_Key_Old_Value = self.E84_Key_Value.copy()
+        self.E84_Key_Raw_Value = self.E84_InfoPin.read_all_inputs()
+        # 只有在按键状态发生变化时才进行处理，避免频繁处理相同状态。
+        # 注意：不要使用 time.sleep 阻塞 Qt 事件循环；改为 QTimer 单次定时确认输入稳定后再提交。
+        if self.E84_Key_Raw_Value != self.E84_Key_Value:
+            if self._pending_key_value != self.E84_Key_Raw_Value:
+                self._pending_key_value = self.E84_Key_Raw_Value
+                self._key_debounce_timer.start(self._key_debounce_ms)
 
         any_key = (
             self.E84_Key_Value["KEY_0"]
@@ -316,6 +359,34 @@ class E84Controller(QObject):
         self.E84_SigPin.set_output("U_REQ", SIG_OFF)
         self.E84_SigPin.set_output("READY", SIG_OFF)
         self._stop_timeout()
+
+    @Slot()
+    def set_ready_low_for_error(self) -> None:
+        """执行机构上报错误时，强制拉低 READY 信号。"""
+
+        self._actuator_error_latched = True
+        self._error_latch_reported = False
+        self.state = E84State.IDLE
+        self.prev_state = None
+        self.E84_ResetSig()
+        self.E84_InfoPin.set_output("LOAD_LED", LED_OFF)
+        self.E84_InfoPin.set_output("UNLOAD_LED", LED_OFF)
+        self.E84_SigPin.set_output("READY", SIG_OFF)
+        logger.error("执行机构异常，锁存故障并强制 READY OFF")
+
+    @Slot()
+    def clear_ready_low_error_latch(self) -> None:
+        """清除执行机构错误锁存，恢复 E84 正常握手。"""
+
+        if not self._actuator_error_latched:
+            logger.info("执行机构错误锁存未激活，忽略复位请求")
+            return
+        self._actuator_error_latched = False
+        self._error_latch_reported = False
+        self.state = E84State.IDLE
+        self.prev_state = None
+        self.E84_ResetSig()
+        logger.info("执行机构错误锁存已清除，E84 可恢复握手")
 
     def E84_TestOutPin(self):
         self.E84_SigPin.set_all_outputs(SIG_OFF)

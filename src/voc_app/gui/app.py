@@ -1,5 +1,6 @@
 import sys
 import os
+import threading
 from pathlib import Path
 
 # 路径设置必须在导入 voc_app 之前，以支持 python app.py 直接运行
@@ -23,14 +24,11 @@ from voc_app.gui.performance_config import (
 
 apply_performance_settings()
 
-from PySide6.QtCore import QObject, QTimer, Slot
+from PySide6.QtCore import QObject, QMetaObject, QTimer, Qt, Signal, Slot
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 
 from PySide6.QtCharts import QChartView, QAbstractSeries
-
-# 非树莓环境调试：临时禁用 loadport 硬件线程的导入，避免 RPi.GPIO 依赖阻塞 GUI 启动
-# from voc_app.loadport.e84_thread import E84ControllerThread
 from voc_app.gui.socket_client import Client, SocketCommunicator
 from voc_app.gui.qml_socket_client_bridge import QmlSocketClientBridge
 from voc_app.gui.csv_model import (
@@ -43,6 +41,7 @@ from voc_app.gui.alarm_store import AlarmStore
 from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.file_tree_browser import FilePreviewController
 from voc_app.gui.foup_acquisition import FoupAcquisitionController
+from voc_app.loadport.ascii_serial import AsciiSerialClient
 
 
 # 验证用户密钥
@@ -84,6 +83,262 @@ class ChartLegendHelper(QObject):
                     marker.setVisible(False)
 
 
+class LoadportActuatorController(QObject):
+    """管理 lock/insert 两套串口执行机构，并提供可复用的动作函数。"""
+
+    actionSucceeded = Signal(str)
+    actionFailed = Signal(str)
+    serialErrorDetected = Signal(str, str)
+    requestE84ErrorRecovery = Signal()
+
+    def __init__(
+        self,
+        lock_client: AsciiSerialClient,
+        insert_client: AsciiSerialClient,
+        parent: QObject | None = None,
+    ):
+        super().__init__(parent)
+        self._lock_client = lock_client
+        self._insert_client = insert_client
+        self._action_lock = threading.Lock()
+        self._lock_client.set_message_callback(self._on_lock_message)
+        self._insert_client.set_message_callback(self._on_insert_message)
+
+    def _on_lock_message(self, line: str) -> None:
+        self._handle_device_message("lock", line)
+
+    def _on_insert_message(self, line: str) -> None:
+        self._handle_device_message("insert", line)
+
+    def _handle_device_message(self, source: str, line: str) -> None:
+        payload = (line or "").strip()
+        if not payload:
+            return
+        logger.debug(f"[{source}] {payload}")
+        if payload.lower().startswith("error:"):
+            self._handle_stm32_error(source, payload)
+
+    def _handle_stm32_error(self, source: str, payload: str) -> None:
+        message = f"{source} 串口上报异常: {payload}"
+        logger.error(message)
+        self.serialErrorDetected.emit(source, payload)
+        self._on_stm32_error_placeholder(source, payload)
+
+    def _on_stm32_error_placeholder(self, source: str, payload: str) -> None:
+        """占位：后续可在此补充复位、重试或急停等恢复动作。"""
+        logger.info(f"占位处理: source={source}, payload={payload}")
+
+    def _ensure_connected(self, client: AsciiSerialClient, name: str) -> None:
+        if client.is_connected:
+            return
+        logger.info(f"{name} 串口未连接，自动重连")
+        client.connect()
+
+    def run_unlock_only(self) -> bool:
+        """只执行解锁动作。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._lock_client, "lock")
+                self._lock_client.set_unlock()
+                message = "动作完成：unlock"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"解锁动作失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_lock_only(self) -> bool:
+        """只执行锁定动作。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._lock_client, "lock")
+                self._lock_client.set_lock()
+                message = "动作完成：lock"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"锁定动作失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_lock_reset(self) -> bool:
+        """只执行锁定机构 reset 动作。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._lock_client, "lock")
+                self._lock_client.reset()
+                message = "动作完成：lock reset"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"锁定机构 reset 失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_insert_reset(self) -> bool:
+        """只执行对插机构 reset 动作。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._insert_client, "insert")
+                self._insert_client.reset()
+                message = "动作完成：insert reset"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"对插机构 reset 失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_insert_for_load(self) -> bool:
+        """只执行对插动作（move_to_step 4）。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._insert_client, "insert")
+                self._insert_client.move_to_step(4)
+                message = "动作完成：move_to_step(4)"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"对插动作失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_insert_for_unload(self) -> bool:
+        """只执行取消对插动作（move_to_step 8）。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._insert_client, "insert")
+                self._insert_client.move_to_step(8)
+                message = "动作完成：move_to_step(8)"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"取消对插动作失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_unlock_for_unload(self) -> bool:
+        """Unload 阶段：先取消对插(move_to_step 8)，再解锁(unlock)。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._insert_client, "insert")
+                self._ensure_connected(self._lock_client, "lock")
+                self._insert_client.move_to_step(8)
+                self._lock_client.set_unlock()
+                message = "Unload 动作完成：move_to_step(8) -> unlock"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"Unload 动作失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    def run_lock_for_load(self) -> bool:
+        """Load 阶段：先锁定(lock)，再对插(move_to_step 4)。"""
+
+        with self._action_lock:
+            try:
+                self._ensure_connected(self._lock_client, "lock")
+                self._ensure_connected(self._insert_client, "insert")
+                self._lock_client.set_lock()
+                self._insert_client.move_to_step(4)
+                message = "Load 动作完成：lock -> move_to_step(4)"
+                logger.info(message)
+                self.actionSucceeded.emit(message)
+                return True
+            except Exception as exc:  # noqa: BLE001
+                message = f"Load 动作失败: {exc}"
+                logger.error(message)
+                self.actionFailed.emit(message)
+                return False
+
+    @Slot(result=bool)
+    def unlockForUnload(self) -> bool:
+        """供 UI 手动触发：执行 Unload 阶段解锁动作。"""
+
+        return self.run_unlock_for_unload()
+
+    @Slot(result=bool)
+    def lockForLoad(self) -> bool:
+        """供 UI 手动触发：执行 Load 阶段加锁动作。"""
+
+        return self.run_lock_for_load()
+
+    @Slot(result=bool)
+    def unlockOnly(self) -> bool:
+        """供 UI 手动触发：仅解锁。"""
+
+        return self.run_unlock_only()
+
+    @Slot(result=bool)
+    def lockOnly(self) -> bool:
+        """供 UI 手动触发：仅锁定。"""
+
+        return self.run_lock_only()
+
+    @Slot(result=bool)
+    def lockReset(self) -> bool:
+        """供 UI 手动触发：仅锁定机构 reset。"""
+
+        return self.run_lock_reset()
+
+    @Slot(result=bool)
+    def insertReset(self) -> bool:
+        """供 UI 手动触发：仅对插机构 reset。"""
+
+        return self.run_insert_reset()
+
+    @Slot(result=bool)
+    def insertForLoad(self) -> bool:
+        """供 UI 手动触发：仅对插（step 4）。"""
+
+        return self.run_insert_for_load()
+
+    @Slot(result=bool)
+    def insertForUnload(self) -> bool:
+        """供 UI 手动触发：仅取消对插（step 8）。"""
+
+        return self.run_insert_for_unload()
+
+    @Slot(result=bool)
+    def recoverE84FromError(self) -> bool:
+        """供 UI 手动触发：请求清除 E84 错误锁存并恢复握手。"""
+
+        try:
+            self.requestE84ErrorRecovery.emit()
+            message = "已发送 E84 故障复位请求"
+            logger.info(message)
+            self.actionSucceeded.emit(message)
+            return True
+        except Exception as exc:  # noqa: BLE001
+            message = f"发送 E84 故障复位请求失败: {exc}"
+            logger.error(message)
+            self.actionFailed.emit(message)
+            return False
+
+
 class LoadportBridge(QObject):
     """负责启动 loadport 线程并将错误/状态推送到 GUI"""
 
@@ -93,6 +348,7 @@ class LoadportBridge(QObject):
         alarm_store: AlarmStore,
         title_panel: QObject | None,
         foup_controller: QObject | None = None,
+        actuator_controller: LoadportActuatorController | None = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -100,6 +356,11 @@ class LoadportBridge(QObject):
         self._title_panel = title_panel
         self._worker = worker
         self._foup_controller = foup_controller
+        self._actuator_controller = actuator_controller
+        self._controller = None
+        self._pending_ready_low_due_to_error = False
+        self._pending_error_recovery_request = False
+        self._actuator_error_latched = False
 
         self._worker.started_controller.connect(self._on_started)
         self._worker.stopped_controller.connect(self._on_stopped)
@@ -107,8 +368,17 @@ class LoadportBridge(QObject):
         self._worker.e84_warning.connect(self._on_warning)
         self._worker.e84_fatal_error.connect(self._on_fatal)
         self._worker.e84_state_changed.connect(self._on_state_changed)
+        if hasattr(self._worker, "controller_ready"):
+            self._worker.controller_ready.connect(self._on_controller_ready)
         if hasattr(self._worker, "all_keys_set"):
             self._worker.all_keys_set.connect(self._on_all_keys_set)
+        if self._actuator_controller:
+            self._actuator_controller.serialErrorDetected.connect(
+                self._on_actuator_serial_error
+            )
+            self._actuator_controller.requestE84ErrorRecovery.connect(
+                self._on_request_e84_error_recovery
+            )
 
     def start(self):
         """启动后台线程"""
@@ -138,6 +408,10 @@ class LoadportBridge(QObject):
         self._set_title_message("Loadport 线程已启动")
 
     def _on_stopped(self):
+        self._disconnect_controller_data_signals()
+        self._pending_ready_low_due_to_error = False
+        self._pending_error_recovery_request = False
+        self._actuator_error_latched = False
         self._set_title_message("Loadport 线程已停止")
 
     def _on_error(self, message: str):
@@ -153,9 +427,127 @@ class LoadportBridge(QObject):
         self._set_title_message(f"E84 状态: {state}")
 
     def _on_all_keys_set(self):
-        self._set_title_message("E84 三键已落下，自动启动采集")
-        if self._foup_controller:
+        self._set_title_message("E84 三键已落下，等待 Unload 触发采集命令")
+        if self._foup_controller and not hasattr(
+            self._foup_controller, "e84StartDataCollectionForUnload"
+        ):
             self._foup_controller.startAcquisition()  # type: ignore
+
+    def _on_controller_ready(self, controller) -> None:
+        self._disconnect_controller_data_signals()
+        self._controller = controller
+        try:
+            controller.data_collection_start.connect(self._on_data_collection_start)
+            controller.data_collection_stop.connect(self._on_data_collection_stop)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"绑定 data_collection 信号失败: {exc}")
+        if self._pending_ready_low_due_to_error and self._force_e84_ready_low_for_error():
+            self._pending_ready_low_due_to_error = False
+            self._actuator_error_latched = True
+        if self._pending_error_recovery_request and self._clear_e84_error_latch():
+            self._pending_error_recovery_request = False
+            self._actuator_error_latched = False
+
+    def _disconnect_controller_data_signals(self) -> None:
+        if not self._controller:
+            return
+        try:
+            self._controller.data_collection_start.disconnect(self._on_data_collection_start)
+            self._controller.data_collection_stop.disconnect(self._on_data_collection_stop)
+        except Exception:
+            pass
+        self._controller = None
+
+    def _on_data_collection_start(self) -> None:
+        self._set_title_message("E84 Unload 开始，执行解锁与采集启动")
+        if self._actuator_controller and not self._actuator_controller.run_unlock_for_unload():
+            self._append_alarm("ERROR", "Unload 解锁动作执行失败")
+        if self._foup_controller and hasattr(
+            self._foup_controller, "e84StartDataCollectionForUnload"
+        ):
+            ok = self._foup_controller.e84StartDataCollectionForUnload()  # type: ignore[attr-defined]
+            if not ok:
+                self._append_alarm("ERROR", "Unload 采集启动命令执行失败")
+
+    def _on_data_collection_stop(self) -> None:
+        self._set_title_message("E84 Load 完成，执行加锁与采集停止")
+        if self._actuator_controller and not self._actuator_controller.run_lock_for_load():
+            self._append_alarm("ERROR", "Load 加锁动作执行失败")
+        if self._foup_controller and hasattr(
+            self._foup_controller, "e84StopDataCollectionForLoad"
+        ):
+            ok = self._foup_controller.e84StopDataCollectionForLoad()  # type: ignore[attr-defined]
+            if not ok:
+                self._append_alarm("ERROR", "Load 采集停止命令执行失败")
+
+    def _on_actuator_serial_error(self, source: str, payload: str) -> None:
+        self._append_alarm("ERROR", f"{source} 串口上报异常: {payload}")
+        self._actuator_error_latched = True
+        if self._force_e84_ready_low_for_error():
+            self._pending_ready_low_due_to_error = False
+            return
+        self._pending_ready_low_due_to_error = True
+
+    def _on_request_e84_error_recovery(self) -> None:
+        if not self._actuator_error_latched and not self._pending_ready_low_due_to_error:
+            self._set_title_message("当前无 E84 故障锁存，无需复位")
+            return
+        if self._clear_e84_error_latch():
+            self._pending_error_recovery_request = False
+            self._pending_ready_low_due_to_error = False
+            self._actuator_error_latched = False
+            self._set_title_message("已请求清除 E84 故障锁存")
+            return
+        self._pending_error_recovery_request = True
+        self._append_alarm("WARNING", "E84 控制器未就绪，故障复位请求已暂存")
+
+    def _force_e84_ready_low_for_error(self) -> bool:
+        controller = self._controller
+        if controller is None:
+            logger.warning("E84 控制器未就绪，暂存 READY 置低请求")
+            return False
+        if not hasattr(controller, "set_ready_low_for_error"):
+            logger.warning("E84 控制器不支持 set_ready_low_for_error，忽略 READY 置低请求")
+            return False
+        try:
+            invoked = QMetaObject.invokeMethod(
+                controller,
+                "set_ready_low_for_error",
+                Qt.ConnectionType.QueuedConnection,
+            )
+            if not invoked:
+                logger.warning("invoke set_ready_low_for_error 失败")
+                return False
+            logger.info("已请求 E84 READY 置低")
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"请求 E84 READY 置低失败: {exc}")
+            return False
+
+    def _clear_e84_error_latch(self) -> bool:
+        controller = self._controller
+        if controller is None:
+            logger.warning("E84 控制器未就绪，无法清除故障锁存")
+            return False
+        if not hasattr(controller, "clear_ready_low_error_latch"):
+            logger.warning(
+                "E84 控制器不支持 clear_ready_low_error_latch，忽略故障复位请求"
+            )
+            return False
+        try:
+            invoked = QMetaObject.invokeMethod(
+                controller,
+                "clear_ready_low_error_latch",
+                Qt.ConnectionType.QueuedConnection,
+            )
+            if not invoked:
+                logger.warning("invoke clear_ready_low_error_latch 失败")
+                return False
+            logger.info("已请求清除 E84 故障锁存")
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"请求清除 E84 故障锁存失败: {exc}")
+            return False
 
 
 if __name__ == "__main__":
@@ -231,10 +623,6 @@ if __name__ == "__main__":
 
     alarm_store = AlarmStore()
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
-    # alarm_store.addAlarm("2025-11-10 18:25:30", "Pressure sensor offline")
-    # alarm_store.addAlarm("2025-11-10 18:25:31", "Pressure sensor offline.")
-    # alarm_store.addAlarm("2025-11-10 18:25:32", "Pressure sensor offline..")
-    # alarm_store.addAlarm("2025-11-10 18:25:33", "Pressure sensor offline...")
     engine.rootContext().setContextProperty("alarmStore", alarm_store)
 
     data_update_timer = QTimer()
@@ -245,28 +633,62 @@ if __name__ == "__main__":
     data_update_timer.start()
 
     loadport_bridge = None
+
+    loadport_serial_lock_client = AsciiSerialClient(
+        port="/dev/ttyUSB1",
+        baudrate=115200,
+        timeout=1.0,
+    )
+    loadport_serial_insert_client = AsciiSerialClient(
+        port="/dev/ttyUSB2",
+        baudrate=115200,
+        timeout=1.0,
+    )
+    try:
+        loadport_serial_lock_client.connect()
+        loadport_serial_insert_client.connect()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Loadport 串口初始化失败: {exc}")
+    for name, serial_client in (
+        ("insert", loadport_serial_insert_client),
+        ("lock", loadport_serial_lock_client),
+    ):
+        if not serial_client.is_connected:
+            continue
+        try:
+            serial_client.home()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"{name} 串口回零失败: {exc}")
+
+    loadport_actuator_controller = LoadportActuatorController(
+        lock_client=loadport_serial_lock_client,
+        insert_client=loadport_serial_insert_client,
+    )
+
+    def on_loadport_serial_error(source: str, payload: str) -> None:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        alarm_store.addAlarm(timestamp, f"[ERROR] {source}: {payload}")
+    engine.rootContext().setContextProperty(
+        "loadportActuatorController",
+        loadport_actuator_controller,
+    )
+    engine.rootContext().setContextProperty(
+        "loadport_serial_lock_client",
+        loadport_serial_lock_client,
+    )
+    engine.rootContext().setContextProperty(
+        "loadport_serial_insert_client",
+        loadport_serial_insert_client,
+    )
+
     # 根据环境变量决定是否启用 E84 桥接（方便非树莓派环境下的调试）
     disable_e84_bridge = os.environ.get("DISABLE_E84_BRIDGE", "").lower() in {
         "1",
         "true",
         "yes",
     }
+    serial_error_handled_by_bridge = False
     enable_e84_bridge = not disable_e84_bridge
-    if enable_e84_bridge:
-        try:
-            # from voc_app.loadport.e84_thread import E84ControllerThread
-            #
-            # worker = E84ControllerThread()
-            # loadport_bridge = LoadportBridge(
-            #     worker=worker,
-            #     alarm_store=alarm_store,
-            #     title_panel=None,
-            #     foup_controller=foup_acquisition,
-            # )
-            # loadport_bridge.start()
-            pass
-        except Exception as exc:  # noqa: BLE001
-            logger.warning(f"未启动 E84 桥接: {exc}")
 
     qml_file = APP_DIR / "qml" / "main.qml"
     engine.load(str(qml_file))
@@ -274,8 +696,32 @@ if __name__ == "__main__":
     if not engine.rootObjects():
         sys.exit(-1)
 
+    root_obj = engine.rootObjects()[0]
+    title_panel = root_obj.findChild(QObject, "title_message")
+    if title_panel is None:
+        logger.warning("未找到 TitlePanel(title_message)，状态消息将仅写入日志")
+
+    if enable_e84_bridge:
+        try:
+            from voc_app.loadport.e84_thread import E84ControllerThread
+
+            worker = E84ControllerThread()
+            loadport_bridge = LoadportBridge(
+                worker=worker,
+                alarm_store=alarm_store,
+                title_panel=title_panel,
+                foup_controller=foup_acquisition,
+                actuator_controller=loadport_actuator_controller,
+            )
+            loadport_bridge.start()
+            serial_error_handled_by_bridge = True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"未启动 E84 桥接: {exc}")
+
+    if not serial_error_handled_by_bridge:
+        loadport_actuator_controller.serialErrorDetected.connect(on_loadport_serial_error)
+
     # 暴露出消息框属性
-    # root_obj = engine.rootObjects()[0]
     # main_item = root_obj.findChild(QObject, "title_message")
     # if main_item != None:
     #     main_item.setProperty("systemMessage", "Hello World")
@@ -286,6 +732,8 @@ if __name__ == "__main__":
 
     app.aboutToQuit.connect(foup_acquisition.stopAcquisition)
     # app.aboutToQuit.connect(spectrum_simulator.stop)
+    app.aboutToQuit.connect(loadport_serial_lock_client.disconnect)
+    app.aboutToQuit.connect(loadport_serial_insert_client.disconnect)
     if loadport_bridge:
         app.aboutToQuit.connect(loadport_bridge.shutdown)
 
