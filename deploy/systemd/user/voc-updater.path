@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch VOC update packages
+
+[Path]
+PathExistsGlob=/home/kasp/Project/voc_project/updates/*.tar.gz
+
+[Install]
+WantedBy=default.target

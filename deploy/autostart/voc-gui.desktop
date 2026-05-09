@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=VOC Loadport GUI
+Exec=systemctl --user start voc-gui.service
+X-GNOME-Autostart-enabled=true
+Terminal=false

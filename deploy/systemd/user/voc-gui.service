@@ -1,0 +1,14 @@
+[Unit]
+Description=VOC Loadport GUI
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/kasp/Project/voc_project/current
+ExecStart=/home/kasp/Project/voc_project/.venv/bin/python -m voc_app.gui.app
+Restart=on-failure
+RestartSec=3
+Environment=QT_QPA_PLATFORM=wayland
+
+[Install]
+WantedBy=default.target

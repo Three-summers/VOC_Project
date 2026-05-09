@@ -1,0 +1,7 @@
+[Unit]
+Description=Run VOC updater
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/kasp/Project/voc_project/updater
+ExecStart=/home/kasp/Project/voc_project/.venv/bin/python /home/kasp/Project/voc_project/updater/update.py --config /home/kasp/Project/voc_project/updater/config.yaml
