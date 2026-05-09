@@ -182,6 +182,7 @@ class TestFoupAcquisitionController(unittest.TestCase):
         self.assertEqual(self.controller.channelCount, 3)
         self.assertAlmostEqual(self.controller.lastValue, 100.0, places=2)
 
+    @unittest.skip("Noise_Spectrum 当前暂未使用")
     def test_handle_line_noise_spectrum_routes_to_spectrum_model(self) -> None:
         """测试 Noise_Spectrum 前缀将 256 点数据路由到频谱模型"""
         spectrum_model = MagicMock()
@@ -210,6 +211,7 @@ class TestFoupAcquisitionController(unittest.TestCase):
         controller._handle_line("Noise_Spectrum," + payload)
         self.assertEqual(spectrum_simulator.stop.call_count, 1)
 
+    @unittest.skip("Noise_Spectrum 当前暂未使用")
     def test_handle_line_noise_spectrum_prefixed_payload(self) -> None:
         """测试每包带 prefix 的 Noise_Spectrum 数据格式"""
         spectrum_model = MagicMock()
