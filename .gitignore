@@ -43,6 +43,7 @@ Thumbs.db
 .codex/
 .claude/
 .serena/
+.worktrees/
 
 # Runtime logs / generated data
 *.log
