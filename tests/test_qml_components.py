@@ -406,5 +406,25 @@ class TestMainQmlDefaults(unittest.TestCase):
         self.assertIn("Components.UiConstants.defaultLimits()", self.content)
 
 
+class TestTitlePanelUpdateStatus(unittest.TestCase):
+    def setUp(self):
+        self.title_panel_path = (
+            ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "TitlePanel.qml"
+        )
+        self.main_qml_path = (
+            ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "main.qml"
+        )
+        self.title_content = self.title_panel_path.read_text(encoding="utf-8")
+        self.main_content = self.main_qml_path.read_text(encoding="utf-8")
+
+    def test_title_panel_accepts_update_status_ref(self):
+        self.assertIn("property var updateStatusRef: null", self.title_content)
+        self.assertIn("updateStatusRef.displayText", self.title_content)
+
+    def test_main_passes_update_status_to_title_panel(self):
+        self.assertIn("updateStatusRef:", self.main_content)
+        self.assertIn('typeof updateStatus !== "undefined"', self.main_content)
+
+
 if __name__ == "__main__":
     unittest.main()

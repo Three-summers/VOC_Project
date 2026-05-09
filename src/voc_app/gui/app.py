@@ -49,10 +49,12 @@ from voc_app.gui.csv_model import (
     SeriesTableModel,
 )
 from voc_app.gui.alarm_store import AlarmStore
+from voc_app.gui.update_status import UpdateStatusController
 from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.file_tree_browser import FilePreviewController
 from voc_app.gui.foup_acquisition import FoupAcquisitionController
 from voc_app.loadport.ascii_serial import AsciiSerialClient
+from voc_app.version_info import get_loadport_version
 
 
 # 验证用户密钥
@@ -640,6 +642,19 @@ if __name__ == "__main__":
     alarm_store = AlarmStore()
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
     engine.rootContext().setContextProperty("alarmStore", alarm_store)
+
+    update_state_file = Path(
+        os.environ.get(
+            "VOC_UPDATE_STATE_FILE",
+            str((PROJECT_ROOT.parent / "state" / "update_status.json").resolve()),
+        )
+    )
+    update_status = UpdateStatusController(
+        state_file=update_state_file,
+        loadport_version=get_loadport_version(PROJECT_ROOT),
+    )
+    update_status.refresh()
+    engine.rootContext().setContextProperty("updateStatus", update_status)
 
     data_update_timer = QTimer()
     data_update_timer.setInterval(1000)

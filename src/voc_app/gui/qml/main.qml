@@ -84,6 +84,7 @@ ApplicationWindow {
             scaleFactor: Components.UiTheme.controlScale
             currentViewName: root.currentView
             alarmStoreRef: typeof alarmStore !== "undefined" ? alarmStore : null
+            updateStatusRef: (typeof updateStatus !== "undefined") ? updateStatus : null
             alarmPopupAnchorItem: informationPanel
         }
 

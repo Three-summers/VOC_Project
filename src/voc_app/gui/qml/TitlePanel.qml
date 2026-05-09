@@ -16,6 +16,7 @@ Rectangle {
     property string loggedInUser: ""
     property real scaleFactor: Components.UiTheme.controlScale
     property var alarmStoreRef: null
+    property var updateStatusRef: null
     property var alarmPopupAnchorItem: null
     readonly property bool hasActiveAlarm: alarmStoreRef && alarmStoreRef.hasActiveAlarm
     readonly property int alarmItemCount: (alarmStoreRef && alarmStoreRef.alarmModel && alarmStoreRef.alarmModel.count !== undefined)
@@ -84,6 +85,23 @@ Rectangle {
                     font.pixelSize: Components.UiTheme.fontSize("title")
                     Layout.leftMargin: Components.UiTheme.spacing("lg")
                     Layout.alignment: Qt.AlignVCenter
+                }
+            }
+
+            Frame {
+                visible: titlePanel.updateStatusRef !== null
+                background: Rectangle {
+                    color: Components.UiTheme.color("panel")
+                    radius: Components.UiTheme.radius("md")
+                    border.color: Components.UiTheme.color("outline")
+                }
+                padding: Components.UiTheme.spacing("md")
+                Text {
+                    text: titlePanel.updateStatusRef ? titlePanel.updateStatusRef.displayText : ""
+                    color: Components.UiTheme.color("textPrimary")
+                    font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 320 * Components.UiTheme.controlScale
                 }
             }
 
