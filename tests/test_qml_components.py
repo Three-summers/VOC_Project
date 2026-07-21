@@ -474,5 +474,39 @@ class TestStandbyMediaQml(unittest.TestCase):
         self.assertIn("standbyMediaOverlay.stop()", content)
 
 
+class TestStandbyMediaSettingsQml(unittest.TestCase):
+    def test_config_navigation_exposes_standby_page(self):
+        info_content = (
+            ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "InformationPanel.qml"
+        ).read_text(encoding="utf-8")
+        config_content = (
+            ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "views" / "ConfigView.qml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('{ key: "standby", title: "待机动画" }', info_content)
+        self.assertIn(
+            'case "standby": return "config/ConfigStandbyPage.qml"', config_content
+        )
+
+    def test_standby_config_page_selects_folder_and_saves_timeout(self):
+        page_path = (
+            ROOT_DIR
+            / "src"
+            / "voc_app"
+            / "gui"
+            / "qml"
+            / "views"
+            / "config"
+            / "ConfigStandbyPage.qml"
+        )
+        content = page_path.read_text(encoding="utf-8")
+
+        self.assertIn("FolderDialog", content)
+        self.assertIn("standbyMediaController.setMediaDirectory", content)
+        self.assertIn("IntValidator", content)
+        self.assertIn("standbyMediaController.setIdleTimeoutSeconds", content)
+        self.assertIn("standbyMediaController.statusMessage", content)
+
+
 if __name__ == "__main__":
     unittest.main()
