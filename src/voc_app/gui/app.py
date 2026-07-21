@@ -51,6 +51,7 @@ from voc_app.gui.csv_model import (
 from voc_app.gui.alarm_store import AlarmStore
 from voc_app.gui.update_status import UpdateStatusController
 from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
+from voc_app.gui.standby_media import StandbyMediaController
 from voc_app.gui.file_tree_browser import FilePreviewController
 from voc_app.gui.foup_acquisition import FoupAcquisitionController
 from voc_app.loadport.ascii_serial import AsciiSerialClient
@@ -578,6 +579,11 @@ if __name__ == "__main__":
     # 当最后一个窗口被关闭时，不要自动退出应用程序，以在 qml 动态调用 quit 退出
     app.setQuitOnLastWindowClosed(False)
     engine = QQmlApplicationEngine()
+
+    standby_media_controller = StandbyMediaController()
+    engine.rootContext().setContextProperty(
+        "standbyMediaController", standby_media_controller
+    )
 
     socket_bridge = QmlSocketClientBridge(Client, SocketCommunicator)
     engine.rootContext().setContextProperty("clientBridge", socket_bridge)
