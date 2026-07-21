@@ -22,8 +22,7 @@ Rectangle {
         ],
         "Config": [
             { key: "loadport", title: "Loadport" },
-            { key: "foup", title: "FOUP" },
-            { key: "standby", title: "待机动画" }
+            { key: "foup", title: "FOUP" }
         ]
     })
     // 记住每个主页面的子页面选择

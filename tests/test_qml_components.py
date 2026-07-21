@@ -14,7 +14,7 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from PySide6.QtCore import QObject, QUrl, QTimer, qInstallMessageHandler
+from PySide6.QtCore import QObject, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, QQmlComponent
 
@@ -477,20 +477,8 @@ class TestStandbyMediaQml(unittest.TestCase):
         self.assertIn("standbyMediaOverlay.stop()", content)
 
 
-class TestStandbyMediaSettingsQml(unittest.TestCase):
-    def setUp(self):
-        self.page_path = (
-            ROOT_DIR
-            / "src"
-            / "voc_app"
-            / "gui"
-            / "qml"
-            / "views"
-            / "config"
-            / "ConfigStandbyPage.qml"
-        )
-
-    def test_config_navigation_exposes_standby_page(self):
+class TestStandbyMediaSettingsRemoved(unittest.TestCase):
+    def test_config_navigation_has_no_standby_page(self):
         info_content = (
             ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "InformationPanel.qml"
         ).read_text(encoding="utf-8")
@@ -498,69 +486,18 @@ class TestStandbyMediaSettingsQml(unittest.TestCase):
             ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "views" / "ConfigView.qml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('{ key: "standby", title: "待机动画" }', info_content)
-        self.assertIn(
+        self.assertNotIn('{ key: "standby", title: "待机动画" }', info_content)
+        self.assertNotIn(
             'case "standby": return "config/ConfigStandbyPage.qml"', config_content
         )
 
-    def test_standby_config_page_selects_folder_and_saves_timeout(self):
-        content = self.page_path.read_text(encoding="utf-8")
+    def test_standby_settings_qml_files_are_removed(self):
+        qml_root = ROOT_DIR / "src" / "voc_app" / "gui" / "qml"
 
-        self.assertIn("FolderDialog", content)
-        self.assertIn("standbyMediaController.setMediaDirectory", content)
-        self.assertIn("IntValidator", content)
-        self.assertIn("standbyMediaController.setIdleTimeoutSeconds", content)
-        self.assertIn("standbyMediaController.statusMessage", content)
-
-    def test_standby_config_page_handles_a_missing_controller_without_qml_errors(self):
-        content = self.page_path.read_text(encoding="utf-8")
-        self.assertIn("readonly property var _standbyMediaController:", content)
-        self.assertIn("typeof standbyMediaController", content)
-
-        app = get_app()
-        engine = QQmlApplicationEngine()
-        engine.addImportPath(str(ROOT_DIR / "src" / "voc_app" / "gui" / "qml"))
-        engine.rootContext().setContextProperty("standbyMediaController", None)
-        messages: list[str] = []
-        previous_handler = qInstallMessageHandler(
-            lambda _message_type, _context, message: messages.append(message)
-        )
-        try:
-            component = QQmlComponent(engine, QUrl.fromLocalFile(str(self.page_path)))
-            page = component.create()
-            app.processEvents()
-        finally:
-            qInstallMessageHandler(previous_handler)
-
-        self.assertIsNotNone(page)
         self.assertFalse(
-            any("standbyMediaController" in message for message in messages), messages
+            (qml_root / "views" / "config" / "ConfigStandbyPage.qml").exists()
         )
-
-    def test_standby_page_uses_theme_sized_text_and_input(self):
-        content = self.page_path.read_text(encoding="utf-8")
-
-        self.assertGreaterEqual(
-            content.count('font.pixelSize: Components.UiTheme.fontSize("body")'), 5
-        )
-        self.assertIn(
-            'Layout.preferredHeight: Components.UiTheme.controlHeight("input")',
-            content,
-        )
-
-    def test_standby_command_component_exists(self):
-        command_path = (
-            ROOT_DIR
-            / "src"
-            / "voc_app"
-            / "gui"
-            / "qml"
-            / "commands"
-            / "Config_standbyCommands.qml"
-        )
-
-        self.assertTrue(command_path.exists())
-        self.assertIn("待机动画", command_path.read_text(encoding="utf-8"))
+        self.assertFalse((qml_root / "commands" / "Config_standbyCommands.qml").exists())
 
 
 if __name__ == "__main__":

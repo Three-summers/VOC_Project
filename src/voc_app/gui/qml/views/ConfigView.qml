@@ -16,7 +16,6 @@ Rectangle {
         switch (key) {
             case "foup": return "config/ConfigFoupPage.qml"
             case "theme": return "config/ConfigThemePage.qml"
-            case "standby": return "config/ConfigStandbyPage.qml"
             default: return "config/ConfigLoadportPage.qml"
         }
     }
