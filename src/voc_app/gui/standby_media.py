@@ -8,9 +8,9 @@ from pathlib import Path
 from PySide6.QtCore import (
     QCoreApplication,
     QEvent,
+    QFileSystemWatcher,
     QObject,
     Property,
-    QStandardPaths,
     QUrl,
     Signal,
     Slot,
@@ -37,29 +37,24 @@ class StandbyMediaController(QObject):
     statusMessageChanged = Signal()
     activityDetected = Signal()
 
-    def __init__(
-        self, config_path: Path | None = None, parent: QObject | None = None
-    ) -> None:
+    def __init__(self, config_path: Path, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._config_path = config_path or self._default_config_path()
+        self._config_path = Path(config_path)
         self._media_directory = ""
         self._idle_timeout_seconds = self.DEFAULT_IDLE_TIMEOUT_SECONDS
         self._media_items: list[dict[str, str]] = []
         self._configuration_error = ""
         self._status_message = ""
-        self._load_settings()
-        self.refreshMedia()
+        self._watcher: QFileSystemWatcher | None = None
+        self.reloadConfig()
 
         app = QCoreApplication.instance()
         if app is not None:
             app.installEventFilter(self)
-
-    @staticmethod
-    def _default_config_path() -> Path:
-        base = QStandardPaths.writableLocation(
-            QStandardPaths.StandardLocation.AppConfigLocation
-        )
-        return Path(base) / "standby_media.json"
+            self._watcher = QFileSystemWatcher(self)
+            self._watcher.fileChanged.connect(self._on_config_path_changed)
+            self._watcher.directoryChanged.connect(self._on_config_path_changed)
+            self._ensure_config_watched()
 
     @Property(str, notify=settingsChanged)
     def mediaDirectory(self) -> str:
@@ -81,28 +76,63 @@ class StandbyMediaController(QObject):
     def statusMessage(self) -> str:
         return self._status_message
 
-    @Slot(str)
-    def setMediaDirectory(self, directory: str) -> None:
-        url = QUrl(directory)
-        raw_path = (
-            url.toLocalFile()
-            if url.isValid() and url.scheme() == "file"
-            else directory
-        )
-        self._media_directory = (
-            str(Path(raw_path).expanduser().resolve()) if raw_path else ""
-        )
-        self._save_settings()
-        self.settingsChanged.emit()
-        self.refreshMedia()
+    @Slot(result=bool)
+    def reloadConfig(self) -> bool:
+        """从系统配置读取待机设置，失败时保留最近一次有效设置。"""
 
-    @Slot(int)
-    def setIdleTimeoutSeconds(self, seconds: int) -> None:
-        if seconds <= 0:
-            return
+        try:
+            data = json.loads(self._config_path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("系统配置不是对象")
+            standby = data.get("standby")
+            if not isinstance(standby, dict):
+                raise ValueError("缺少 standby 分区")
+            directory = standby.get("media_directory")
+            seconds = standby.get("idle_timeout_seconds")
+            if (
+                not isinstance(directory, str)
+                or not isinstance(seconds, int)
+                or isinstance(seconds, bool)
+                or seconds <= 0
+            ):
+                raise ValueError("standby 分区无效")
+        except (OSError, ValueError, json.JSONDecodeError):
+            self._configuration_error = "系统配置无效，保留当前待机设置"
+            self.refreshMedia()
+            self._ensure_config_watched()
+            return False
+
+        next_directory = (
+            str(Path(directory).expanduser().resolve()) if directory else ""
+        )
+        changed = (
+            next_directory != self._media_directory
+            or seconds != self._idle_timeout_seconds
+        )
+        self._media_directory = next_directory
         self._idle_timeout_seconds = seconds
-        self._save_settings()
-        self.settingsChanged.emit()
+        self._configuration_error = ""
+        self.refreshMedia()
+        if changed:
+            self.settingsChanged.emit()
+        self._ensure_config_watched()
+        return True
+
+    @Slot(str)
+    def _on_config_path_changed(self, _path: str) -> None:
+        self.reloadConfig()
+
+    def _ensure_config_watched(self) -> None:
+        if self._watcher is None:
+            return
+
+        watched = set(self._watcher.files()) | set(self._watcher.directories())
+        config_name = str(self._config_path)
+        parent_name = str(self._config_path.parent)
+        if self._config_path.exists() and config_name not in watched:
+            self._watcher.addPath(config_name)
+        if self._config_path.parent.exists() and parent_name not in watched:
+            self._watcher.addPath(parent_name)
 
     @Slot()
     def refreshMedia(self) -> None:
@@ -152,49 +182,6 @@ class StandbyMediaController(QObject):
         if event.type() in self.INPUT_EVENT_TYPES:
             self.activityDetected.emit()
         return False
-
-    def _load_settings(self) -> None:
-        if not self._config_path.exists():
-            return
-        try:
-            data = json.loads(self._config_path.read_text(encoding="utf-8"))
-            directory = data.get("mediaDirectory", "")
-            seconds = data.get(
-                "idleTimeoutSeconds", self.DEFAULT_IDLE_TIMEOUT_SECONDS
-            )
-            if (
-                not isinstance(directory, str)
-                or not isinstance(seconds, int)
-                or isinstance(seconds, bool)
-                or seconds <= 0
-            ):
-                raise ValueError("配置字段无效")
-            self._media_directory = (
-                str(Path(directory).expanduser().resolve()) if directory else ""
-            )
-            self._idle_timeout_seconds = seconds
-        except (OSError, ValueError, json.JSONDecodeError):
-            self._media_directory = ""
-            self._idle_timeout_seconds = self.DEFAULT_IDLE_TIMEOUT_SECONDS
-            self._configuration_error = "配置文件无效，已使用默认待机设置"
-
-    def _save_settings(self) -> None:
-        try:
-            self._config_path.parent.mkdir(parents=True, exist_ok=True)
-            self._config_path.write_text(
-                json.dumps(
-                    {
-                        "mediaDirectory": self._media_directory,
-                        "idleTimeoutSeconds": self._idle_timeout_seconds,
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                ),
-                encoding="utf-8",
-            )
-            self._configuration_error = ""
-        except OSError:
-            self._set_status_message("待机设置保存失败")
 
     def _set_status_message(self, message: str) -> None:
         if self._status_message != message:

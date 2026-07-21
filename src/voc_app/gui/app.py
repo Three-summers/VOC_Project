@@ -582,7 +582,7 @@ if __name__ == "__main__":
     app.setQuitOnLastWindowClosed(False)
     engine = QQmlApplicationEngine()
 
-    standby_media_controller = StandbyMediaController()
+    standby_media_controller = StandbyMediaController(config_path=SYSTEM_CONFIG_PATH)
     engine.rootContext().setContextProperty(
         "standbyMediaController", standby_media_controller
     )
