@@ -426,5 +426,53 @@ class TestTitlePanelUpdateStatus(unittest.TestCase):
         self.assertIn('typeof updateStatus !== "undefined"', self.main_content)
 
 
+class TestStandbyMediaQml(unittest.TestCase):
+    def setUp(self):
+        self.overlay_path = (
+            ROOT_DIR
+            / "src"
+            / "voc_app"
+            / "gui"
+            / "qml"
+            / "components"
+            / "StandbyMediaOverlay.qml"
+        )
+        self.main_path = ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "main.qml"
+
+    def test_overlay_component_exists_and_uses_silent_media_player(self):
+        content = self.overlay_path.read_text(encoding="utf-8")
+
+        self.assertIn("import QtMultimedia", content)
+        self.assertIn("function start()", content)
+        self.assertIn("function stop()", content)
+        self.assertIn("MediaPlayer", content)
+        self.assertIn("muted: true", content)
+        self.assertIn("imageDurationMs: 10000", content)
+
+    def test_overlay_component_loads(self):
+        app = get_app()
+        engine = QQmlApplicationEngine()
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(self.overlay_path)))
+
+        self.assertNotEqual(
+            component.status(),
+            QQmlComponent.Error,
+            [error.toString() for error in component.errors()],
+        )
+        overlay = component.create()
+        self.assertIsNotNone(overlay)
+        overlay.deleteLater()
+        app.processEvents()
+
+    def test_main_window_wires_idle_timer_to_controller_activity(self):
+        content = self.main_path.read_text(encoding="utf-8")
+
+        self.assertIn("id: idleTimer", content)
+        self.assertIn("standbyMediaController.idleTimeoutSeconds) * 1000", content)
+        self.assertIn("standbyMediaController.refreshMedia()", content)
+        self.assertIn("function onActivityDetected()", content)
+        self.assertIn("standbyMediaOverlay.stop()", content)
+
+
 if __name__ == "__main__":
     unittest.main()

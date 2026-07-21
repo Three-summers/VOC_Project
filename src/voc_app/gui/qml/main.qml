@@ -39,6 +39,40 @@ ApplicationWindow {
         }
     }
 
+    function restartIdleTimer() {
+        if (standbyMediaOverlay.visible)
+            standbyMediaOverlay.stop()
+        idleTimer.restart()
+    }
+
+    Timer {
+        id: idleTimer
+        interval: Math.max(1, standbyMediaController.idleTimeoutSeconds) * 1000
+        repeat: false
+        running: true
+        onTriggered: {
+            standbyMediaController.refreshMedia()
+            if (standbyMediaController.mediaCount > 0) {
+                standbyMediaOverlay.mediaItems = standbyMediaController.mediaItems
+                standbyMediaOverlay.start()
+            } else {
+                restart()
+            }
+        }
+    }
+
+    Connections {
+        target: standbyMediaController
+
+        function onActivityDetected() {
+            root.restartIdleTimer()
+        }
+
+        function onSettingsChanged() {
+            root.restartIdleTimer()
+        }
+    }
+
     QtObject {
         id: foupLimits
         property var limitsMap: ({})
@@ -132,5 +166,9 @@ ApplicationWindow {
         }
     }
 
+    Components.StandbyMediaOverlay {
+        id: standbyMediaOverlay
+        mediaItems: standbyMediaController.mediaItems
+    }
 
 }
