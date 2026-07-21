@@ -176,26 +176,42 @@ class TestModuleLevelConfig(unittest.TestCase):
         self.assertEqual(gui_logger.level, logging.WARNING)
         self.assertEqual(loadport_logger.level, logging.DEBUG)
 
-    def test_configure_from_file(self) -> None:
-        """测试从文件加载配置"""
+    def test_configure_from_file_reads_logging_section(self) -> None:
+        """测试从系统配置的 logging 分区加载配置"""
         logging_config_module.setup_logging(level=logging.INFO, console=False)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_file = Path(tmpdir) / "logging.json"
+            config_file = Path(tmpdir) / "system_config.json"
             config = {
-                "levels": {
-                    "voc_app": "WARNING",
-                    "voc_app.gui": "ERROR",
-                }
+                "logging": {
+                    "levels": {
+                        "voc_app": "WARNING",
+                        "voc_app.gui": "ERROR",
+                    },
+                    "format": "%(levelname)s:%(message)s",
+                },
+                "standby": {
+                    "media_directory": "/media",
+                    "idle_timeout_seconds": 60,
+                },
             }
-            with open(config_file, "w") as f:
-                json.dump(config, f)
+            config_file.write_text(json.dumps(config), encoding="utf-8")
 
             result = logging_config_module.configure_from_file(config_file)
             self.assertTrue(result)
 
             gui_logger = logging.getLogger("voc_app.gui")
             self.assertEqual(gui_logger.level, logging.ERROR)
+
+    def test_application_uses_system_config_before_creating_its_logger(self) -> None:
+        app_source = (
+            Path(__file__).resolve().parents[1] / "src" / "voc_app" / "gui" / "app.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'SYSTEM_CONFIG_PATH = APP_DIR.parent / "system_config.json"', app_source
+        )
+        self.assertIn("configure_from_file(SYSTEM_CONFIG_PATH)", app_source)
 
     def test_configure_from_file_not_exists(self) -> None:
         """测试从不存在的文件加载配置"""

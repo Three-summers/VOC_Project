@@ -12,8 +12,10 @@ if str(SRC_DIR) not in sys.path:
 
 from datetime import datetime
 
-from voc_app.logging_config import get_logger
+from voc_app.logging_config import configure_from_file, get_logger
 
+SYSTEM_CONFIG_PATH = APP_DIR.parent / "system_config.json"
+configure_from_file(SYSTEM_CONFIG_PATH)
 logger = get_logger(__name__)
 
 # 可选依赖：仅在树莓派环境存在 RPi.GPIO 时启用

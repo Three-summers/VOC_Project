@@ -1,0 +1,15 @@
+{
+  "logging": {
+    "levels": {
+      "voc_app": "INFO",
+      "voc_app.gui": "WARNING",
+      "voc_app.gui.foup_acquisition": "DEBUG",
+      "voc_app.loadport": "INFO"
+    },
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "standby": {
+    "media_directory": "/home/say/code/python/VOC_Project/standby_res",
+    "idle_timeout_seconds": 60
+  }
+}

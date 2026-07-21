@@ -24,7 +24,7 @@
     })
 
     # 方式3: 从配置文件加载
-    configure_from_file("logging_config.json")
+    configure_from_file("system_config.json")
 """
 
 from __future__ import annotations
@@ -252,14 +252,16 @@ def configure_levels(config: Dict[str, Union[int, str]]) -> None:
 def configure_from_file(config_path: Union[str, Path]) -> bool:
     """从 JSON 配置文件加载日志级别配置
 
-    配置文件格式:
+    系统配置文件格式:
     {
-        "levels": {
-            "voc_app": "INFO",
-            "voc_app.gui": "WARNING",
-            "voc_app.loadport": "DEBUG"
-        },
-        "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "logging": {
+            "levels": {
+                "voc_app": "INFO",
+                "voc_app.gui": "WARNING",
+                "voc_app.loadport": "DEBUG"
+            },
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        }
     }
 
     Args:
@@ -273,23 +275,28 @@ def configure_from_file(config_path: Union[str, Path]) -> bool:
         return False
 
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(config, dict):
+            return False
+        logging_config = config.get("logging")
+        if not isinstance(logging_config, dict):
+            return False
 
         # 应用级别配置
-        if "levels" in config and isinstance(config["levels"], dict):
-            configure_levels(config["levels"])
+        levels = logging_config.get("levels")
+        if isinstance(levels, dict):
+            configure_levels(levels)
 
         # 应用格式配置（需要重新初始化）
-        if "format" in config:
-            global _initialized
+        format_string = logging_config.get("format")
+        if isinstance(format_string, str):
             root_logger = logging.getLogger("voc_app")
-            formatter = logging.Formatter(config["format"])
+            formatter = logging.Formatter(format_string)
             for handler in root_logger.handlers:
                 handler.setFormatter(formatter)
 
         return True
-    except (json.JSONDecodeError, IOError, KeyError):
+    except (json.JSONDecodeError, OSError, ValueError):
         return False
 
 
