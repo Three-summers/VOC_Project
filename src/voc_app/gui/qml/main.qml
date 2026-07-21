@@ -17,6 +17,10 @@ ApplicationWindow {
 
     // 全局属性，用于在面板间通信
     property alias currentView: navigationPanel.currentView
+    readonly property var _standbyMediaController: (
+        typeof standbyMediaController !== "undefined" && standbyMediaController
+    ) ? standbyMediaController : null
+    readonly property bool _hasStandbyMediaController: _standbyMediaController !== null
 
     readonly property real baseWidth: 1024
     readonly property real baseHeight: 768
@@ -42,18 +46,21 @@ ApplicationWindow {
     function restartIdleTimer() {
         if (standbyMediaOverlay.visible)
             standbyMediaOverlay.stop()
-        idleTimer.restart()
+        if (root._hasStandbyMediaController)
+            idleTimer.restart()
     }
 
     Timer {
         id: idleTimer
-        interval: Math.max(1, standbyMediaController.idleTimeoutSeconds) * 1000
+        interval: root._hasStandbyMediaController
+            ? Math.max(1, root._standbyMediaController.idleTimeoutSeconds) * 1000
+            : 60000
         repeat: false
-        running: true
+        running: root._hasStandbyMediaController
         onTriggered: {
-            standbyMediaController.refreshMedia()
-            if (standbyMediaController.mediaCount > 0) {
-                standbyMediaOverlay.mediaItems = standbyMediaController.mediaItems
+            root._standbyMediaController.refreshMedia()
+            if (root._standbyMediaController.mediaCount > 0) {
+                standbyMediaOverlay.mediaItems = root._standbyMediaController.mediaItems
                 standbyMediaOverlay.start()
             } else {
                 restart()
@@ -62,7 +69,8 @@ ApplicationWindow {
     }
 
     Connections {
-        target: standbyMediaController
+        target: root._standbyMediaController
+        enabled: root._hasStandbyMediaController
 
         function onActivityDetected() {
             root.restartIdleTimer()
@@ -168,7 +176,9 @@ ApplicationWindow {
 
     Components.StandbyMediaOverlay {
         id: standbyMediaOverlay
-        mediaItems: standbyMediaController.mediaItems
+        mediaItems: root._hasStandbyMediaController
+            ? root._standbyMediaController.mediaItems
+            : []
     }
 
 }
