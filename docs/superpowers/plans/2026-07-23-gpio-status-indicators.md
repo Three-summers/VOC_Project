@@ -97,7 +97,7 @@ def test_initialize_status_outputs_turns_on_only_green() -> None:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pytest tests/test_status_gpio.py -v`  
+Run: `pytest tests/test_status_gpio.py -v`
 Expected: FAIL during collection with `ModuleNotFoundError: No module named 'voc_app.gui.status_gpio'`.
 
 - [ ] **Step 3: Write minimal implementation**
@@ -126,7 +126,7 @@ def initialize_status_outputs(gpio: Any) -> None:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `pytest tests/test_status_gpio.py -v`  
+Run: `pytest tests/test_status_gpio.py -v`
 Expected: PASS with `1 passed`.
 
 - [ ] **Step 5: Commit**
@@ -204,7 +204,7 @@ def test_initialize_status_gpio_logs_and_continues_after_gpio_failure(
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `pytest tests/test_gui_app_gpio.py -v`  
+Run: `pytest tests/test_gui_app_gpio.py -v`
 Expected: FAIL during collection with `ImportError: cannot import name 'initialize_status_gpio'` or fail with `AttributeError` because the wrapper is not yet defined.
 
 - [ ] **Step 3: Wire the helper into app startup**
@@ -243,12 +243,12 @@ This removes the old BCM25-as-green-light behavior and makes BCM26 the only outp
 
 - [ ] **Step 4: Run focused tests to verify they pass**
 
-Run: `pytest tests/test_status_gpio.py tests/test_gui_app_gpio.py -v`  
+Run: `pytest tests/test_status_gpio.py tests/test_gui_app_gpio.py -v`
 Expected: PASS with `4 passed`.
 
 - [ ] **Step 5: Run the regression suite**
 
-Run: `pytest -q`  
+Run: `pytest -q`
 Expected: PASS; existing QML tests may report intentional skips when a display-capable Qt environment is unavailable.
 
 - [ ] **Step 6: Commit**
