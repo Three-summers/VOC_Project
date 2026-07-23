@@ -14,4 +14,5 @@ def initialize_status_outputs(gpio: Any) -> None:
     gpio.setmode(gpio.BCM)
     for pin in STATUS_OUTPUT_PINS.values():
         gpio.setup(pin, gpio.OUT, initial=gpio.LOW)
+        gpio.output(pin, gpio.LOW)
     gpio.output(STATUS_OUTPUT_PINS["green"], gpio.HIGH)

@@ -31,7 +31,7 @@ class RecordingGPIO:
         self.calls.append(("output", pin, state))
 
 
-def test_initialize_status_outputs_turns_on_only_green() -> None:
+def test_initialize_status_outputs_explicitly_turns_on_only_green() -> None:
     gpio = RecordingGPIO()
 
     initialize_status_outputs(gpio)
@@ -45,8 +45,12 @@ def test_initialize_status_outputs_turns_on_only_green() -> None:
     assert gpio.calls == [
         ("setmode", gpio.BCM),
         ("setup", 14, gpio.OUT, gpio.LOW),
+        ("output", 14, gpio.LOW),
         ("setup", 7, gpio.OUT, gpio.LOW),
+        ("output", 7, gpio.LOW),
         ("setup", 25, gpio.OUT, gpio.LOW),
+        ("output", 25, gpio.LOW),
         ("setup", 26, gpio.OUT, gpio.LOW),
+        ("output", 26, gpio.LOW),
         ("output", 26, gpio.HIGH),
     ]
