@@ -56,6 +56,7 @@ from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.standby_media import StandbyMediaController
 from voc_app.gui.file_tree_browser import FilePreviewController
 from voc_app.gui.foup_acquisition import FoupAcquisitionController
+from voc_app.gui.status_gpio import initialize_status_outputs
 from voc_app.loadport.ascii_serial import AsciiSerialClient
 from voc_app.version_info import get_loadport_version
 
@@ -566,16 +567,20 @@ class LoadportBridge(QObject):
             return False
 
 
-if __name__ == "__main__":
+def initialize_status_gpio() -> None:
     if _HAS_RPI_GPIO and GPIO is not None:
         try:
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(25, GPIO.OUT)
-            GPIO.output(25, GPIO.HIGH)
+            initialize_status_outputs(GPIO)
         except Exception as exc:  # noqa: BLE001
-            logger.warning(f"RPi.GPIO 初始化失败，跳过 GPIO 置位: {exc}")
+            logger.warning(f"RPi.GPIO 状态指示器初始化失败，跳过 GPIO 置位: {exc}")
     elif _RPI_GPIO_IMPORT_ERROR is not None:
-        logger.info(f"未检测到 RPi.GPIO，跳过 GPIO 置位: {_RPI_GPIO_IMPORT_ERROR}")
+        logger.info(
+            f"未检测到 RPi.GPIO，跳过状态指示器初始化: {_RPI_GPIO_IMPORT_ERROR}"
+        )
+
+
+if __name__ == "__main__":
+    initialize_status_gpio()
 
     app = QApplication(sys.argv)
     # 当最后一个窗口被关闭时，不要自动退出应用程序，以在 qml 动态调用 quit 退出
