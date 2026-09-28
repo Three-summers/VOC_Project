@@ -16,6 +16,7 @@ from PySide6.QtCore import (
 import random
 import csv
 
+from voc_app import app_paths
 from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -367,7 +368,8 @@ class CsvFileManager(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._log_dir = Path(__file__).parent / "Log"
+        # 日志/CSV 根目录位于数据目录下（默认 ~/.local/share/voc/Log）
+        self._log_dir = app_paths.get_log_directory()
         self._csv_files = []
         self._data_model = CsvDataModel(self)
         self._active_file = ""

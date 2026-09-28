@@ -208,10 +208,16 @@ class TestModuleLevelConfig(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "src" / "voc_app" / "gui" / "app.py"
         ).read_text(encoding="utf-8")
 
+        # 配置路径由 app_paths 解析（数据目录优先），并在创建 logger 之前生效
         self.assertIn(
-            'SYSTEM_CONFIG_PATH = APP_DIR.parent / "system_config.json"', app_source
+            "SYSTEM_CONFIG_PATH = app_paths.get_system_config_path()", app_source
         )
+        self.assertIn("app_paths.prepare_runtime_paths()", app_source)
         self.assertIn("configure_from_file(SYSTEM_CONFIG_PATH)", app_source)
+        self.assertLess(
+            app_source.index("configure_from_file(SYSTEM_CONFIG_PATH)"),
+            app_source.index("logger = get_logger(__name__)"),
+        )
 
     def test_configure_from_file_not_exists(self) -> None:
         """测试从不存在的文件加载配置"""

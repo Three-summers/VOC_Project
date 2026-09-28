@@ -9,11 +9,11 @@ import re
 import struct
 import threading
 import time
-from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from PySide6.QtCore import QObject, Property, Signal, Slot, QTimer
 
+from voc_app import app_paths
 from voc_app.gui.channel_config import (
     PrefixRegistry,
     DEFAULT_PREFIX_BY_CHANNEL,
@@ -70,6 +70,7 @@ class FoupAcquisitionController(QObject):
         port: int = 65432,
         spectrum_model: SpectrumDataModel | None = None,
         spectrum_simulator: SpectrumSimulator | None = None,
+        socket_timeout: float = 5.0,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -87,6 +88,7 @@ class FoupAcquisitionController(QObject):
         # 受保护的共享状态
         self._host: str = host.strip() if host else "192.168.1.8"
         self._port: int = int(port)
+        self._socket_timeout: float = float(socket_timeout)
         self._running: bool = False
         self._status: str = "未启动"
         self._last_value: float | None = None
@@ -344,7 +346,7 @@ class FoupAcquisitionController(QObject):
         try:
             with self._lock:
                 host, port = self._host, self._port
-            self._communicator = SocketCommunicator(host, port)
+            self._communicator = SocketCommunicator(host, port, timeout=self._socket_timeout)
             self._set_running(True)
             self._set_status("采集中")
             self._perform_version_query()
@@ -392,7 +394,7 @@ class FoupAcquisitionController(QObject):
         try:
             with self._lock:
                 host, port = self._host, self._port
-            self._communicator = SocketCommunicator(host, port)
+            self._communicator = SocketCommunicator(host, port, timeout=self._socket_timeout)
             self._set_running(True)
             self._set_status("查询版本...")
             self._perform_version_query()
@@ -432,7 +434,7 @@ class FoupAcquisitionController(QObject):
     def _download_logs(self) -> List[str]:
         if self._stop_event.is_set():
             return []
-        dest_root = Path(__file__).parent / "Log"
+        dest_root = app_paths.get_log_directory()
         dest_root.mkdir(parents=True, exist_ok=True)
 
         with self._lock:
@@ -441,7 +443,7 @@ class FoupAcquisitionController(QObject):
 
         communicator: SocketCommunicator | None = None
         try:
-            communicator = SocketCommunicator(host, port)
+            communicator = SocketCommunicator(host, port, timeout=self._socket_timeout)
             client = Client(communicator)
             return client.get_file(remote_path, str(dest_root))
         except Exception as exc:
@@ -734,7 +736,7 @@ class FoupAcquisitionController(QObject):
             return self._e84_communicator
         with self._lock:
             host, port = self._host, self._port
-        self._e84_communicator = SocketCommunicator(host, port)
+        self._e84_communicator = SocketCommunicator(host, port, timeout=self._socket_timeout)
         return self._e84_communicator
 
     def _send_command_with_communicator(

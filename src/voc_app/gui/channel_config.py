@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from voc_app import app_paths
 from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -250,7 +251,8 @@ class ChannelConfigManager:
 
     def __init__(self, config_path: Optional[Path] = None) -> None:
         if config_path is None:
-            config_path = Path(__file__).parent / "channel_config.json"
+            # 运行期可变状态放在数据目录，避免升级切换 release 时丢失现场设置
+            config_path = app_paths.get_data_directory() / "channel_config.json"
         self._config_path = config_path
         self._backup_path = config_path.with_suffix(".json.bak")
         self._data: Dict[str, Dict[str, ChannelConfig]] = {}
@@ -335,6 +337,8 @@ class ChannelConfigManager:
             self._save_timer = None
 
         try:
+            # 数据目录可能尚未创建（例如单独实例化管理器时）
+            self._config_path.parent.mkdir(parents=True, exist_ok=True)
             # 备份旧文件
             if self._config_path.exists():
                 try:

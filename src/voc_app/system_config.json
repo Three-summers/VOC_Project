@@ -8,8 +8,28 @@
     },
     "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   },
+  "paths": {
+    "data_directory": ""
+  },
   "standby": {
     "media_directory": "/home/say/code/python/VOC_Project/standby_res",
     "idle_timeout_seconds": 60
+  },
+  "acquisition": {
+    "host": "192.168.1.53",
+    "port": 65432,
+    "operation_mode": "test",
+    "normal_mode_remote_path": "Log",
+    "socket_timeout_seconds": 5.0
+  },
+  "loadport": {
+    "lock_serial_port": "/dev/ttyUSB1",
+    "insert_serial_port": "/dev/ttyUSB2",
+    "baudrate": 115200,
+    "serial_timeout_seconds": 1.0,
+    "disable_e84_bridge": false
+  },
+  "update": {
+    "state_file": ""
   }
 }

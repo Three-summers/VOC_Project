@@ -12,11 +12,16 @@ if str(SRC_DIR) not in sys.path:
 
 from datetime import datetime
 
+from voc_app import app_paths
 from voc_app.logging_config import configure_from_file, get_logger
 
-SYSTEM_CONFIG_PATH = APP_DIR.parent / "system_config.json"
+# 运行期可变的配置与数据统一放在数据目录（默认 ~/.local/share/voc），
+# 不再写在 release 源码目录内，避免升级切换 current 软链后丢失现场设置。
+app_paths.prepare_runtime_paths()
+SYSTEM_CONFIG_PATH = app_paths.get_system_config_path()
 configure_from_file(SYSTEM_CONFIG_PATH)
 logger = get_logger(__name__)
+logger.info(f"系统配置: {SYSTEM_CONFIG_PATH}；数据目录: {app_paths.get_data_directory()}")
 
 # 可选依赖：仅在树莓派环境存在 RPi.GPIO 时启用
 try:
@@ -603,7 +608,7 @@ if __name__ == "__main__":
 
     file_preview_controller = FilePreviewController()
     engine.rootContext().setContextProperty("fileController", file_preview_controller)
-    log_dir = (APP_DIR / "Log").resolve()
+    log_dir = app_paths.get_log_directory()
     log_dir.mkdir(parents=True, exist_ok=True)
     engine.rootContext().setContextProperty("fileRootPath", str(log_dir))
 
@@ -645,6 +650,17 @@ if __name__ == "__main__":
     foup_acquisition = FoupAcquisitionController(
         foup_series_models,
         spectrum_model=spectrum_model,
+        host=str(app_paths.get_value("acquisition", "host", "192.168.1.53")),
+        port=int(app_paths.get_value("acquisition", "port", 65432)),
+        socket_timeout=float(
+            app_paths.get_value("acquisition", "socket_timeout_seconds", 5.0)
+        ),
+    )
+    foup_acquisition.operationMode = str(
+        app_paths.get_value("acquisition", "operation_mode", "test")
+    )
+    foup_acquisition.normalModeRemotePath = str(
+        app_paths.get_value("acquisition", "normal_mode_remote_path", "Log")
     )
     engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
@@ -656,12 +672,17 @@ if __name__ == "__main__":
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
     engine.rootContext().setContextProperty("alarmStore", alarm_store)
 
+    # 更新状态文件：环境变量 > system_config.json 的 update.state_file > 项目外置 state 目录
+    configured_state_file = str(
+        app_paths.get_value("update", "state_file", "") or ""
+    ).strip()
+    default_state_file = str((PROJECT_ROOT.parent / "state" / "update_status.json").resolve())
     update_state_file = Path(
         os.environ.get(
             "VOC_UPDATE_STATE_FILE",
-            str((PROJECT_ROOT.parent / "state" / "update_status.json").resolve()),
+            configured_state_file or default_state_file,
         )
-    )
+    ).expanduser()
     update_status = UpdateStatusController(
         state_file=update_state_file,
         loadport_version=get_loadport_version(PROJECT_ROOT),
@@ -680,15 +701,18 @@ if __name__ == "__main__":
 
     loadport_bridge = None
 
+    loadport_cfg = app_paths.get_section("loadport")
+    serial_baudrate = int(loadport_cfg.get("baudrate", 115200))
+    serial_timeout = float(loadport_cfg.get("serial_timeout_seconds", 1.0))
     loadport_serial_lock_client = AsciiSerialClient(
-        port="/dev/ttyUSB1",
-        baudrate=115200,
-        timeout=1.0,
+        port=str(loadport_cfg.get("lock_serial_port", "/dev/ttyUSB1")),
+        baudrate=serial_baudrate,
+        timeout=serial_timeout,
     )
     loadport_serial_insert_client = AsciiSerialClient(
-        port="/dev/ttyUSB2",
-        baudrate=115200,
-        timeout=1.0,
+        port=str(loadport_cfg.get("insert_serial_port", "/dev/ttyUSB2")),
+        baudrate=serial_baudrate,
+        timeout=serial_timeout,
     )
     try:
         loadport_serial_lock_client.connect()
@@ -727,12 +751,13 @@ if __name__ == "__main__":
         loadport_serial_insert_client,
     )
 
-    # 根据环境变量决定是否启用 E84 桥接（方便非树莓派环境下的调试）
-    disable_e84_bridge = os.environ.get("DISABLE_E84_BRIDGE", "").lower() in {
-        "1",
-        "true",
-        "yes",
-    }
+    # 是否启用 E84 桥接：环境变量优先，其次 system_config.json 的
+    # loadport.disable_e84_bridge（方便非树莓派环境下的调试）
+    env_disable_e84 = os.environ.get("DISABLE_E84_BRIDGE", "").strip().lower()
+    if env_disable_e84:
+        disable_e84_bridge = env_disable_e84 in {"1", "true", "yes"}
+    else:
+        disable_e84_bridge = bool(loadport_cfg.get("disable_e84_bridge", False))
     serial_error_handled_by_bridge = False
     enable_e84_bridge = not disable_e84_bridge
 

@@ -24,3 +24,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/voc_app"]
+
+[tool.pytest.ini_options]
+# 只收集真实测试目录，避免把 examples/ 下的手工联调脚本当成测试
+testpaths = ["tests", "src"]
+pythonpath = ["src"]
+
