@@ -112,6 +112,7 @@ class E84Controller(QObject):
         self.led_cnt = 0
         self._actuator_error_latched = False
         self._error_latch_reported = False
+        self._go_signal_low_reported = False
 
         self.E84_SigPin = GPIOController(
             self.E84_InSig, self.E84_OutSig, IN_PUL_UP, SIG_OFF
@@ -338,12 +339,18 @@ class E84Controller(QObject):
                 logger.info("FOUP 移走")
 
         if self.E84_InSig_Value["GO"]:
+            if self._go_signal_low_reported:
+                self._go_signal_low_reported = False
+                logger.info("GO 信号恢复为高，SENSOR_LED 点亮")
             self.E84_InfoPin.set_output("SENSOR_LED", LED_ON)
         else:
-            message = "GO 信号为低，SENSOR_LED 熄灭"
-            logger.debug(message)
-            self.warning.emit(message)
             self.E84_InfoPin.set_output("SENSOR_LED", LED_OFF)
+            # 只在 GO 由高变低时上报一次，避免每 0.2s 刷屏告警
+            if not self._go_signal_low_reported:
+                self._go_signal_low_reported = True
+                message = "GO 信号为低，SENSOR_LED 熄灭"
+                logger.warning(message)
+                self.warning.emit(message)
 
         if self.led_cnt > 10:
             self.led_cnt = 0

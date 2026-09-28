@@ -62,8 +62,9 @@ class AlarmModel(QAbstractListModel):
         logger.info(f"添加告警: [{timestamp}] {message}")
         self.beginInsertRows(QModelIndex(), self.rowCount(), self.rowCount())
         self._items.append({"timestamp": timestamp, "message": message})
-        self.countChanged.emit()
         self.endInsertRows()
+        # 行插入完成后再通知计数变化，避免视图在行尚未插入时读到新计数
+        self.countChanged.emit()
 
     def clear(self):
         if not self._items:

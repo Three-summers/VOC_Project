@@ -669,12 +669,14 @@ if __name__ == "__main__":
     update_status.refresh()
     engine.rootContext().setContextProperty("updateStatus", update_status)
 
-    data_update_timer = QTimer()
-    data_update_timer.setInterval(1000)
-    data_update_timer.timeout.connect(
-        lambda: [gen.generate_new_point() for gen in chart_generators_instances]
-    )
-    data_update_timer.start()
+    # 演示用的随机数据定时器：chart_generators_instances 目前为空（生成器创建代码已注释），
+    # 保留代码但先不启动，避免每秒空转。
+    # data_update_timer = QTimer()
+    # data_update_timer.setInterval(1000)
+    # data_update_timer.timeout.connect(
+    #     lambda: [gen.generate_new_point() for gen in chart_generators_instances]
+    # )
+    # data_update_timer.start()
 
     loadport_bridge = None
 

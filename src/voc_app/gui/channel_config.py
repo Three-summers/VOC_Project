@@ -129,11 +129,8 @@ class PrefixRegistry:
         ),
     }
 
-    # 通道数到默认前缀的映射
-    _CHANNEL_COUNT_MAP: Dict[int, str] = {
-        1: "VOC",
-        3: "NOISE_HUMILITY",
-    }
+    # 通道数到默认前缀的映射统一使用模块级 DEFAULT_PREFIX_BY_CHANNEL，
+    # 避免同一份映射在多处维护而分叉。
 
     # 默认预设（用于未知前缀）
     _DEFAULT_PRESET = PrefixPreset(
@@ -161,7 +158,7 @@ class PrefixRegistry:
     @classmethod
     def get_preset_by_channel_count(cls, channel_count: int) -> PrefixPreset:
         """根据通道数获取默认预设"""
-        prefix = cls._CHANNEL_COUNT_MAP.get(channel_count)
+        prefix = DEFAULT_PREFIX_BY_CHANNEL.get(channel_count)
         if prefix:
             return cls._PRESETS.get(prefix, cls._DEFAULT_PRESET)
         return cls._DEFAULT_PRESET
@@ -169,7 +166,7 @@ class PrefixRegistry:
     @classmethod
     def get_default_prefix(cls, channel_count: int) -> str:
         """根据通道数获取默认前缀"""
-        return cls._CHANNEL_COUNT_MAP.get(channel_count, "UNKNOWN")
+        return DEFAULT_PREFIX_BY_CHANNEL.get(channel_count, "UNKNOWN")
 
 
 @dataclass

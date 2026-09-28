@@ -45,6 +45,8 @@ class SocketCommunicator(Communicator):
 
     def __init__(self, host: str, port: int, timeout: float | None = 5.0) -> None:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 记录最近一次读取是"超时"还是"对端关闭"，供上层区分中断原因
+        self.last_recv_timed_out = False
         # 设置超时，避免阻塞导致线程无法退出
         if timeout is not None:
             self.sock.settimeout(timeout)
@@ -60,11 +62,14 @@ class SocketCommunicator(Communicator):
 
     def recv(self, size: int) -> bytes:
         try:
-            return self.sock.recv(size)
+            data = self.sock.recv(size)
         except socket.timeout:
-            # 超时返回空字节，交由上层判定为断开/中断
+            # 超时返回空字节，同时标记原因，交由上层判定为超时/断开
+            self.last_recv_timed_out = True
             logger.debug("Socket recv 超时")
             return b""
+        self.last_recv_timed_out = False
+        return data
 
     def close(self) -> None:
         try:

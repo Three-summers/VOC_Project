@@ -259,6 +259,60 @@ class TestFoupAcquisitionController(unittest.TestCase):
         """测试处理无效数据"""
         self.controller._handle_line("invalid data")  # 不应该崩溃
 
+    def test_handle_line_scientific_notation_is_not_identity(self) -> None:
+        """科学计数法数值按数据处理，不得被当成服务器类型"""
+        self.controller._handle_line("1.2e5,3.4")
+        # 解析为两个通道的数据点，而不是把 "1.2E5" 当成 prefix
+        self.assertEqual(self.controller.channelCount, 2)
+        self.assertAlmostEqual(self.controller.getChannelValue(0), 120000.0, places=1)
+        self.assertNotEqual(self.controller.serverType, "1.2E5")
+        self.assertEqual(self.controller.serverVersion, "")
+
+    def test_identity_pattern_rejects_non_identity_lines(self) -> None:
+        """只有严格的身份报文才允许在采集过程中改写服务器类型"""
+        for payload in (
+            "1.2e5,3.4",
+            "nan,inf",
+            "NaN",
+            "-inf,2.0",
+            "Error: timeout,1.0",
+            "Noise_Spectrum,0.5,0.5",
+            "SPEC,1,2,3",
+            "123.45",
+            "VOC",
+            "voc,v1.0.0",
+        ):
+            self.assertFalse(
+                FoupAcquisitionController._looks_like_identity(payload), payload
+            )
+
+    def test_identity_pattern_accepts_identity_lines(self) -> None:
+        """标准身份报文仍被接受"""
+        for payload in ("VOC,V1.0.0", "NOISE_HUMILITY,V1.2.3", "TEST,3"):
+            self.assertTrue(
+                FoupAcquisitionController._looks_like_identity(payload), payload
+            )
+
+    def test_handle_line_accepts_strict_identity_line(self) -> None:
+        """严格形如 {PREFIX},{version} 的报文仍然可以更新身份"""
+        self.controller._handle_line("NOISE_HUMILITY,V1.2.3")
+        self.assertEqual(self.controller.serverType, "NOISE_HUMILITY")
+        self.assertEqual(self.controller.serverVersion, "V1.2.3")
+        self.assertEqual(self.series_models[0].points, [])
+
+    def test_handle_line_non_numeric_tokens_never_become_prefix(self) -> None:
+        """NaN/inf/报错文本不得成为服务器类型"""
+        for payload in ("nan,inf", "NaN", "-inf,2.0", "Error: timeout,1.0"):
+            controller = FoupAcquisitionController(
+                series_models=[MockSeriesModel()],
+                host="127.0.0.1",
+                port=65432,
+            )
+            controller._handle_line(payload)
+            self.assertNotIn(
+                controller.serverType, {"NAN", "INF", "ERROR: TIMEOUT"}, payload
+            )
+
     def test_get_channel_value(self) -> None:
         """测试获取通道值"""
         self.controller._handle_line("100.0, 200.0, 300.0")

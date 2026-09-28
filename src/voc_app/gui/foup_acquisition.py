@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 import struct
 import threading
 import time
@@ -24,6 +25,14 @@ from voc_app.gui.socket_client import SocketCommunicator, Client
 from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# 流式接收阶段允许改写服务器身份的报文格式：{PREFIX},{version}
+# 要求前缀为大写类型名（如 VOC / NOISE_HUMILITY，至少 2 字符）、整体恰好两段、
+# 且版本段含数字。这样科学计数法数值（1.2e5）、NaN/inf、报错文本以及
+# "Noise_Spectrum,<256 点>" 这类带前缀的数据包都不会被误判成服务器身份。
+_IDENTITY_LINE_PATTERN = re.compile(
+    r"^[A-Z][A-Z0-9_]{1,31},(?=[^,]*[0-9])[A-Za-z0-9._+\-]+$"
+)
 
 
 class FoupAcquisitionController(QObject):
@@ -97,6 +106,8 @@ class FoupAcquisitionController(QObject):
         self._sample_index: int = 0
         self._last_timestamp_ms: float = 0.0
         self._detected_channel_count: int = 0
+        # 记录采集循环被中断的原因（超时 / 对端关闭 / 异常），用于显式报错
+        self._last_recv_error: str = ""
 
         self._config_manager = ChannelConfigManager()
 
@@ -261,6 +272,7 @@ class FoupAcquisitionController(QObject):
             self._last_timestamp_ms = 0.0
 
         self._stop_event.clear()
+        self._last_recv_error = ""
         with self._lock:
             self._server_version = ""
             self._command_prefix = ""
@@ -345,6 +357,15 @@ class FoupAcquisitionController(QObject):
                 if message is None:
                     break
                 self._handle_line(message)
+            if not self._stop_event.is_set():
+                # 非用户主动停止：显式报告中断原因，避免"静默停止"
+                reason = self._last_recv_error or "数据源连接中断"
+                logger.warning(f"FOUP 采集中断: {reason}")
+                try:
+                    self.errorOccurred.emit(f"FOUP 采集中断: {reason}")
+                except RuntimeError:
+                    pass
+                self._set_status(f"异常: {reason}")
         except Exception as exc:
             try:
                 self.errorOccurred.emit(f"FOUP 采集异常: {exc}")
@@ -450,6 +471,11 @@ class FoupAcquisitionController(QObject):
             if version or prefix:
                 self._apply_server_identity(version, prefix)
                 break
+
+    @staticmethod
+    def _looks_like_identity(text: str) -> bool:
+        """判断一段采集报文是否可能是服务器身份（而非数据）。"""
+        return bool(_IDENTITY_LINE_PATTERN.match(text.strip()))
 
     def _parse_version_response(self, response: str) -> tuple[str, str]:
         """解析版本响应，返回 (version, prefix)，prefix 统一大写"""
@@ -587,11 +613,13 @@ class FoupAcquisitionController(QObject):
                     self.spectrumFrameReceived.emit(bins)
                 return
 
-        version, prefix = self._parse_version_response(cleaned)
-        if version or prefix:
-            self._apply_server_identity(version, prefix)
-            if not all(ch in "0123456789.,-+ " for ch in cleaned):
-                return
+        # 采集过程中只有严格形如 {PREFIX},{version} 的报文才允许改写服务器身份；
+        # 其余含字母的报文（科学计数法数值、NaN/inf、报错文本等）不再污染 serverType。
+        if self._looks_like_identity(cleaned):
+            version, prefix = self._parse_version_response(cleaned)
+            if version or prefix:
+                self._apply_server_identity(version, prefix)
+            return
 
         values: List[float] = []
         if "," in cleaned:
@@ -726,8 +754,13 @@ class FoupAcquisitionController(QObject):
                 chunk = communicator.recv(remaining)
             except Exception as exc:
                 logger.warning(f"recv exception: {exc}")
+                self._last_recv_error = f"接收异常: {exc}"
                 return None
             if not chunk:
+                if getattr(communicator, "last_recv_timed_out", False):
+                    self._last_recv_error = "接收超时（数据源在该超时时间内没有新数据）"
+                else:
+                    self._last_recv_error = "连接已被数据源关闭"
                 return None
             chunks.append(chunk)
             remaining -= len(chunk)
