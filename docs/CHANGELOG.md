@@ -1,5 +1,41 @@
 # 变更记录
 
+## 2026-09-28 — 配置/数据目录与采集健壮性
+
+### 运行期状态移出 release
+- 新增 `src/voc_app/app_paths.py`：统一解析系统配置与数据目录。优先级
+  `VOC_SYSTEM_CONFIG` > `<数据目录>/system_config.json` > 包内默认；数据目录
+  `VOC_DATA_DIR` > `paths.data_directory` > `$XDG_DATA_HOME/voc`。
+- 首次启动把包内默认配置复制到数据目录，并把旧的 `gui/channel_config.json`
+  迁移到数据目录；通道配置与采集日志不再写在源码目录，升级切换 `current`
+  软链后不会丢失。
+- `channel_config.py`、`csv_model.py`、`foup_acquisition.py`、`app.py` 改用数据目录。
+
+### 硬编码移入 system_config.json
+- 新增 `paths`、`acquisition`（host/port/模式/远端目录/socket 超时）、`loadport`
+  （两个串口、波特率、超时、E84 桥接开关）、`update.state_file` 分区；
+  `app.py` 从配置读取，环境变量仍优先。
+
+### 采集与告警健壮性
+- 流式接收阶段只有严格形如 `{PREFIX},{version}` 的报文才允许改写服务器类型，
+  科学计数法数值、NaN/inf、报错文本与带前缀的数据包不再污染 `serverType`。
+- 采集因接收超时或对端关闭而结束时，显式发出 `errorOccurred` 并写入状态文本，
+  不再静默停止；新增 `socket_timeout_seconds` 配置。
+- E84 GO 低电平告警改为边沿触发，避免每 200ms 刷屏。
+- `AlarmModel.add_alarm` 在 `endInsertRows()` 之后再发 `countChanged`。
+- 注释掉依赖空生成器列表的演示定时器，避免每秒空转。
+- 通道数 → 前缀映射去重，只保留 `DEFAULT_PREFIX_BY_CHANNEL`。
+
+### 测试与文档
+- 新增 `conftest.py`：强制 `QT_QPA_PLATFORM=offscreen`（否则导入 `app.py` 会把平台
+  写成 xcb，导致后续 `QGuiApplication` abort）并把数据目录指向临时目录。
+- `pyproject.toml` 增加 `[tool.pytest.ini_options]`，限定收集 `tests` 与 `src`，
+  不再把 `examples/` 联调脚本当测试。
+- 新增 `tests/test_app_paths.py`、`foup_acquisition` 身份识别回归用例；
+  裸跑 `pytest` 由崩溃（exit 134）变为 273 passed / 3 skipped。
+- 重写 `docs/STRUCTURE.md`，补充 `ARCHITECTURE.md` 的配置/数据目录与测试环境章节，
+  同步 GPIO 状态指示器设计文档的引脚与电平定义，删除失效的 `qml/.qmlls.ini`。
+
 ## 2025-12-09 — Codex
 
 ### 后端采集与命令流程

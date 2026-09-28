@@ -281,3 +281,25 @@
   - 修复 `src/voc_app/loadport/ascii_serial.py`：包内导入改为 `voc_app.loadport.serial_device`；`set_unconnect()` 改为发送已注册命令 `disconnect`，不再触发 KeyError。
   - 串口通用层单测 `tests/test_serial_device.py` 通过（1 test, 0 failures）。
 - Risk Assessment: 低-中。串口层回归通过；E84 仍需在具备 RPi.GPIO 与真实接线/AMHS 的环境实机验证信号时序与引脚映射（LOAD/UNLOAD LED 与 L_REQ/U_REQ 等）。
+
+## Verification - 2026-09-28T10:20:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 运行期状态移出 release、硬编码移入 system_config.json、采集健壮性与测试环境修复、文档同步
+- Command:
+  - `.venv/bin/python -m pytest`（不预设 QT_QPA_PLATFORM / VOC_DATA_DIR）
+  - `QT_QPA_PLATFORM=offscreen VOC_DATA_DIR=/tmp/voc-smoke PYTHONPATH=src DISABLE_E84_BRIDGE=1 timeout 20 .venv/bin/python -m voc_app.gui.app`
+- Result: ✅ Passed
+- Details:
+  - 裸跑 `pytest` 由 SIGABRT（exit 134）变为 **273 passed, 3 skipped**；`conftest.py` 强制
+    offscreen Qt 并把数据目录指向临时目录，`pyproject.toml` 限定 `testpaths` 后 `examples/`
+    不再被收集。
+  - 新增 `src/voc_app/app_paths.py`：配置文件与数据目录解析、用户配置生成、旧
+    `gui/channel_config.json` 迁移；冒烟运行确认生成 `/tmp/voc-smoke/{system_config.json,
+    channel_config.json,Log}`。
+  - 流式身份识别收紧：`1.2e5,3.4`、`nan,inf`、`Error: timeout,1.0` 等不再改写 `serverType`；
+    合规身份报文 `NOISE_HUMILITY,V1.2.3` 仍生效（新增 5 个回归用例）。
+  - 采集因接收超时/对端关闭结束时会发出 `errorOccurred` 并写状态文本；E84 GO 低电平告警边沿触发。
+  - 文档：重写 `STRUCTURE.md`，`ARCHITECTURE.md` 增补配置/数据目录与测试环境两章，
+    `CHANGELOG.md` 新增条项，GPIO 设计文档引脚/电平与代码对齐，删除失效的 `qml/.qmlls.ini`。
+- Risk Assessment: 低-中。配置/数据目录改动涉及现场文件位置，需在树莓派部署时确认
+  `~/.local/share/voc`（或 `VOC_DATA_DIR`）可写；E84/GPIO 与真实 TCP 采集仍需实机验证。

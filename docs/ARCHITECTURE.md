@@ -1,6 +1,6 @@
 # VOC_Project 架构说明
 
-- Date: 2025-12-03T10:08:17+08:00
+- Date: 2025-12-03T10:08:17+08:00（2026-09-28 更新配置/数据目录与测试环境章节）
 - Executor: Codex
 
 本文基于代码与现有文档（`docs/STRUCTURE.md`）整理 VOC_Project 的整体架构与信号 / 数据流转路径，方便后续维护与扩展。
@@ -14,13 +14,22 @@
 - `docs/`
   - `STRUCTURE.md`：目录结构说明
   - `ARCHITECTURE.md`：架构与信号流说明（本文）
+  - `superpowers/`：设计（specs）与实施计划（plans）
 - `src/voc_app/`
+  - `app_paths.py`：系统配置定位、数据目录解析与旧状态迁移
   - `gui/`：PySide6 + QML 图形界面
   - `loadport/`：E84 协议与 GPIO 控制、串口工具
-- `tests/`
-  - `test_serial_device.py`：通用串口模块单元测试
+- `tools/updater/`：独立部署的升级器（包校验、release 切换、FOUP 更新、状态写入）
+- `deploy/`：`systemd --user` 单元与 autostart 模板
+- `tests/`：pytest 单元测试（`src` 内部另有 4 个测试文件）
+- `conftest.py`：测试隔离（强制 offscreen Qt、临时数据目录）
 
-从架构上可分为两大子系统：
+从架构上可分为三大子系统：
+
+0. **配置与路径 (`voc_app.app_paths`)**
+   - 系统配置定位与合并：`VOC_SYSTEM_CONFIG` > `<数据目录>/system_config.json` > 包内默认
+   - 数据目录解析：`VOC_DATA_DIR` > `paths.data_directory` > `$XDG_DATA_HOME/voc`
+   - 运行期可变状态（通道配置、采集日志）统一落在数据目录，与 release 解耦
 
 1. **GUI 子系统 (`voc_app.gui`)**
    - PySide6 应用入口：`gui/app.py`
@@ -62,7 +71,7 @@ QApplication
        ├─ setContextProperty("csvFileManager", CsvFileManager)
        ├─ setContextProperty("authManager", AuthenticationManager)
        ├─ setContextProperty("fileController", FilePreviewController)
-       ├─ setContextProperty("fileRootPath", Log 目录)
+       ├─ setContextProperty("fileRootPath", <数据目录>/Log)
        ├─ setContextProperty("chartLegendHelper", ChartLegendHelper)
        ├─ setContextProperty("chartListModel", ChartDataListModel)
        ├─ setContextProperty("foupAcquisition", FoupAcquisitionController)
@@ -86,7 +95,7 @@ QApplication
   - 用于在 QML 中通过索引获取某个 “曲线条目”
 
 - `CsvFileManager`
-  - 扫描日志目录 `gui/Log` 下的 `.csv` 文件（`csvFiles` 属性）
+  - 扫描数据目录下 `Log/` 里的 `.csv` 文件（`csvFiles` 属性，默认 `~/.local/share/voc/Log`）
   - `parse_csv_file(filename)` 解析 CSV：
     - 第一列视为时间列，统一规范为毫秒时间戳
     - 之后若干列转换为 `[{x, y}, ...]` 列表
@@ -623,3 +632,63 @@ DataLogView:
 4. **GPIO 与平台兼容**
    - `RPi.GPIO` 在非树莓派环境不可用，如需在 PC 上开发/调试 loadport 逻辑，可考虑增加软模拟实现或条件导入，以便单测和文档示例更易执行。 
 
+
+---
+
+## 7. 配置与运行期数据目录（2026-09-28 新增）
+
+升级采用 `releases/loadport-<version>` + `current` 软链切换，因此**任何写在源码目录里的运行期
+状态都会在升级后丢失**。现在统一由 `voc_app.app_paths` 解析：
+
+```text
+系统配置定位（优先级）
+  VOC_SYSTEM_CONFIG 环境变量
+    └─ <数据目录>/system_config.json     # 首次启动由包内默认配置复制生成
+         └─ src/voc_app/system_config.json  # 包内默认值（与用户配置递归合并）
+
+数据目录定位（优先级）
+  VOC_DATA_DIR 环境变量
+    └─ 配置项 paths.data_directory
+         └─ $XDG_DATA_HOME/voc（缺省 ~/.local/share/voc）
+```
+
+数据目录内的可变状态：
+
+```text
+<数据目录>/
+  system_config.json     # 现场配置（日志级别、待机媒体、采集 IP/端口、串口、更新状态文件）
+  channel_config.json    # 通道限界配置（首次启动从旧 gui/channel_config.json 迁移）
+  Log/                   # 采集 CSV（下载目标，同时是 DataLog/FileView 的根目录）
+```
+
+启动装配顺序（`app.py`）：
+
+```text
+app_paths.prepare_runtime_paths()   # 建目录、生成用户配置、迁移旧通道配置
+  └─ SYSTEM_CONFIG_PATH = app_paths.get_system_config_path()
+       └─ configure_from_file(SYSTEM_CONFIG_PATH)   # 日志在创建 logger 前生效
+            └─ QApplication / 上下文对象（host、串口、fileRootPath 等均取自配置）
+```
+
+配置项与消费者对应关系：
+
+| 配置分区 | 关键项 | 消费者 |
+| --- | --- | --- |
+| `logging` | `levels`、`format` | `logging_config.configure_from_file` |
+| `paths` | `data_directory` | `app_paths.get_data_directory` |
+| `standby` | `media_directory`、`idle_timeout_seconds` | `standby_media.StandbyMediaController` |
+| `acquisition` | `host`、`port`、`operation_mode`、`normal_mode_remote_path`、`socket_timeout_seconds` | `foup_acquisition.FoupAcquisitionController` |
+| `loadport` | `lock_serial_port`、`insert_serial_port`、`baudrate`、`serial_timeout_seconds`、`disable_e84_bridge` | `app.py`（串口与 E84 桥接开关） |
+| `update` | `state_file` | `update_status.UpdateStatusController` |
+
+环境变量仍然优先于配置项：`VOC_DATA_DIR`、`VOC_SYSTEM_CONFIG`、`VOC_UPDATE_STATE_FILE`、
+`DISABLE_E84_BRIDGE`。
+
+## 8. 测试环境（2026-09-28 新增）
+
+- `conftest.py` 在导入任何被测模块前设置 `QT_QPA_PLATFORM=offscreen`。原因是 `app.py`
+  导入期会调用 `apply_performance_settings()`，在 WSL2 且无 `/dev/dxg` 时把平台写成 `xcb`，
+  一旦如此，后续任何 `QGuiApplication` 创建都会 abort（exit 134）。
+- 同一文件把 `VOC_DATA_DIR` 指向临时目录，保证测试不读写真实用户数据目录。
+- `pyproject.toml` 的 `[tool.pytest.ini_options]` 限定 `testpaths = ["tests", "src"]`，
+  避免把 `examples/` 下的联调脚本当成测试收集。
