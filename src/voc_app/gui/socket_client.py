@@ -126,6 +126,9 @@ class Client:
     - 返回结果或抛出异常，无控制台打印
     """
 
+    # 下载临时文件后缀：内容完整后才原子替换目标文件
+    TEMP_SUFFIX = ".part"
+
     def __init__(self, communicator: Communicator, max_message_size: int = 1024 * 1024) -> None:
         self.comm = communicator
         self.max_message_size = max_message_size
@@ -178,6 +181,87 @@ class Client:
         self._send_msg(f"run {cmd_str}")
         return self._recv_msg()
 
+    # --- 文件下载路径与写入 ---
+
+    @staticmethod
+    def _resolve_local_path(
+        server_path: str,
+        server_root: Optional[str],
+        local_root: Optional[str],
+        dest_root: str,
+    ) -> str:
+        """把服务端路径映射成本地路径，越界就拒绝。
+
+        R05：不能只做字符串 replace。异常或被篡改的服务端可以给出不属于
+        请求目录的绝对路径或 ``..`` 跳转，从而写出下载根目录之外。
+        """
+        dest_real = os.path.realpath(dest_root)
+        if server_root is None:
+            # 单文件模式：只取文件名，天然去掉任何目录成分
+            candidate = os.path.normpath(
+                os.path.join(dest_root, os.path.basename(server_path))
+            )
+            base_root = dest_real
+        else:
+            if local_root is None:
+                raise RuntimeError("协议错误: local_root 未初始化。")
+            server_root_norm = os.path.normpath(server_root)
+            server_path_norm = os.path.normpath(server_path)
+            if server_path_norm != server_root_norm and not server_path_norm.startswith(
+                server_root_norm + os.sep
+            ):
+                raise RuntimeError(f"协议错误: 文件路径越界: {server_path}")
+            relative = os.path.relpath(server_path_norm, server_root_norm)
+            if relative.startswith("..") or os.path.isabs(relative):
+                raise RuntimeError(f"协议错误: 文件路径越界: {server_path}")
+            candidate = os.path.normpath(os.path.join(local_root, relative))
+            base_root = os.path.realpath(local_root)
+
+        if candidate != base_root and not candidate.startswith(base_root + os.sep):
+            raise RuntimeError(f"协议错误: 文件路径越界: {server_path}")
+        return candidate
+
+    def _ensure_safe_parent(self, local_path: str, base_root: str) -> None:
+        """创建父目录后确认没有被符号链接带出下载根目录。"""
+        parent_dir = os.path.dirname(local_path)
+        if parent_dir:
+            os.makedirs(parent_dir, exist_ok=True)
+            parent_real = os.path.realpath(parent_dir)
+            base_real = os.path.realpath(base_root)
+            if parent_real != base_real and not parent_real.startswith(
+                base_real + os.sep
+            ):
+                raise RuntimeError(f"协议错误: 目标目录越界: {local_path}")
+
+    def _receive_file(self, local_filepath: str, filesize: int) -> None:
+        """先写同目录临时文件，长度校验通过后再原子替换。
+
+        R06：直接以 ``wb`` 打开最终文件会在接收完成前截断旧数据，
+        一次网络中断就能破坏之前保存好的日志。
+        """
+        if filesize < 0:
+            raise RuntimeError(f"协议错误: 非法的文件长度 {filesize}")
+
+        temp_path = f"{local_filepath}{self.TEMP_SUFFIX}"
+        try:
+            with open(temp_path, "wb") as handle:
+                remaining = filesize
+                while remaining > 0:
+                    chunk_size = min(4096, remaining)
+                    data = self._recvall(chunk_size)
+                    if not data:
+                        raise RuntimeError("文件传输中断或超时。")
+                    handle.write(data)
+                    remaining -= len(data)
+            os.replace(temp_path, local_filepath)
+        except BaseException:
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except OSError:
+                pass
+            raise
+
     def get_file(self, remote_path: str, dest_root: Optional[str] = None) -> List[str]:
         """
         下载文件或目录到本地。
@@ -209,13 +293,9 @@ class Client:
                 if server_root is None:
                     server_root = server_path
                     local_root = os.path.join(dest_root, os.path.basename(server_path))
-                    local_path = local_root
-                else:
-                    if local_root is None:
-                        raise RuntimeError("协议错误: local_root 未初始化。")
-                    # 将服务端路径前缀 server_root 替换为 local_root，映射到本地
-                    local_path = server_path.replace(server_root, local_root, 1)
-
+                local_path = self._resolve_local_path(
+                    server_path, server_root, local_root, dest_root
+                )
                 os.makedirs(local_path, exist_ok=True)
                 dir_stack.append(server_path)
 
@@ -235,29 +315,12 @@ class Client:
                 except ValueError:
                     raise RuntimeError(f"协议错误: 无效的 FILE 消息: {msg}")
 
-                if server_root is None:
-                    # 单文件模式：直接保存到 dest_root 下
-                    local_filepath = os.path.join(
-                        dest_root, os.path.basename(server_filepath)
-                    )
-                else:
-                    if local_root is None:
-                        raise RuntimeError("协议错误: local_root 未初始化。")
-                    local_filepath = server_filepath.replace(server_root, local_root, 1)
-
-                parent_dir = os.path.dirname(local_filepath)
-                if parent_dir:
-                    os.makedirs(parent_dir, exist_ok=True)
-
-                remaining = filesize
-                with open(local_filepath, "wb") as f:
-                    while remaining > 0:
-                        chunk_size = min(4096, remaining)
-                        data = self._recvall(chunk_size)
-                        if not data:
-                            raise RuntimeError("文件传输中断或超时。")
-                        f.write(data)
-                        remaining -= len(data)
+                local_filepath = self._resolve_local_path(
+                    server_filepath, server_root, local_root, dest_root
+                )
+                base_root = local_root if server_root is not None else dest_root
+                self._ensure_safe_parent(local_filepath, base_root)
+                self._receive_file(local_filepath, filesize)
 
                 saved_files.append(os.path.abspath(local_filepath))
                 logger.debug(f"已下载: {local_filepath}")
