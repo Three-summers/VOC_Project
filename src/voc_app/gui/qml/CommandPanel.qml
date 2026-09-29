@@ -33,9 +33,10 @@ Rectangle {
         id: commandLoader
         objectName: "command_panel_loader"
         anchors.fill: parent
-        // 未登录时禁用整块面板（父项 disabled 会拦截子按钮的鼠标/键盘事件）
+        // 未登录时不渲染命令内容、也不接受输入：提示与命令二选一显示，
+        // 这样提示文字不会浮在按钮文字上层造成重叠。
+        visible: commandPanel.authenticated
         enabled: commandPanel.authenticated
-        opacity: commandPanel.authenticated ? 1.0 : 0.45
         onLoaded: {
             if (!commandLoader.item)
                 return;
@@ -115,19 +116,37 @@ Rectangle {
             commandLoader.item.scaleFactor = commandPanel.scaleFactor;
     }
 
-    // 未登录提示（不拦截鼠标，仅说明为何按钮不可用）
-    Text {
-        objectName: "command_panel_login_hint"
-        anchors.top: parent.top
-        anchors.topMargin: Components.UiTheme.spacing("xl")
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: parent.width - Components.UiTheme.spacing("lg") * 2
+    // 未登录占位：整块面板居中提示（与命令内容互斥显示，不会重叠）
+    Item {
+        objectName: "command_panel_login_placeholder"
+        anchors.fill: parent
         visible: !commandPanel.authenticated
-        text: "请先登录后再操作"
-        horizontalAlignment: Text.AlignHCenter
-        wrapMode: Text.WordWrap
-        color: Components.UiTheme.color("textSecondary")
-        font.pixelSize: Components.UiTheme.fontSize("body")
-        z: 1
+
+        Column {
+            objectName: "command_panel_login_placeholder_column"
+            anchors.centerIn: parent
+            width: parent.width - Components.UiTheme.spacing("lg") * 2
+            spacing: Components.UiTheme.spacing("sm")
+
+            Text {
+                objectName: "command_panel_login_hint"
+                width: parent.width
+                text: "请先登录后再操作"
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: Components.UiTheme.color("textPrimary")
+                font.pixelSize: Components.UiTheme.fontSize("subtitle")
+                font.bold: true
+            }
+
+            Text {
+                width: parent.width
+                text: "登录后可使用本页命令"
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: Components.UiTheme.color("textSecondary")
+                font.pixelSize: Components.UiTheme.fontSize("body")
+            }
+        }
     }
 }
