@@ -312,11 +312,11 @@ class FoupAcquisitionController(QObject):
             try:
                 self._set_status("E84 Unload：启动采集")
                 if not self._known_prefix():
-                    self._e84_query_server_identity(attempts=1)
+                    self._e84_query_server_identity(attempts=1, retry=False)
                 sample_cmd = self._select_command("sample_normal")
-                self._e84_send_command(sample_cmd)
+                self._e84_send_command(sample_cmd, retry=False)
                 start_cmd = self._select_command("start")
-                self._e84_send_command(start_cmd)
+                self._e84_send_command(start_cmd, retry=False)
                 self._set_status(f"E84 Unload 已发送: {sample_cmd}, {start_cmd}")
                 return True
             except Exception as exc:
@@ -851,11 +851,13 @@ class FoupAcquisitionController(QObject):
         except UnicodeDecodeError:
             return None
 
-    def _e84_send_command(self, text: str) -> None:
+    def _e84_send_command(self, text: str, retry: bool = True) -> None:
         try:
             communicator = self._ensure_e84_connected()
             self._send_command_with_communicator(communicator, text)
         except Exception:
+            if not retry:
+                raise
             # 发送异常时清理旧连接并重连重试一次
             self._close_e84_socket()
             communicator = self._ensure_e84_connected()
@@ -868,8 +870,8 @@ class FoupAcquisitionController(QObject):
             self._close_e84_socket()
         return message
 
-    def _e84_query_server_identity(self, attempts: int = 3) -> None:
-        self._e84_send_command("get_function_version_info")
+    def _e84_query_server_identity(self, attempts: int = 3, retry: bool = True) -> None:
+        self._e84_send_command("get_function_version_info", retry=retry)
         for _ in range(max(1, attempts)):
             response = self._e84_recv_message()
             if not response:

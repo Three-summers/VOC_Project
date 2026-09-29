@@ -118,6 +118,20 @@ class FoupAcquisitionE84Tests(unittest.TestCase):
         commands = [_unpack_command(frame) for frame in communicators[0].sent_payloads]
         self.assertEqual(commands, ["VOC_data_coll_ctrl_stop"])
 
+    def test_unload_start_does_not_retry_on_connection_failure(self) -> None:
+        """开始采集是安全关键路径：连接失败不重连重试，避免拖住机械动作"""
+        attempts: list[str] = []
+
+        def factory(host: str, port: int, timeout: float | None = 5.0):
+            attempts.append("attempt")
+            raise ConnectionError("no route to foup")
+
+        with patch("voc_app.gui.foup_acquisition.SocketCommunicator", side_effect=factory):
+            ok = self.controller.e84StartDataCollectionForUnload()
+
+        self.assertFalse(ok)
+        self.assertEqual(len(attempts), 1)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

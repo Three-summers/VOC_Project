@@ -103,3 +103,36 @@ def test_install_copies_manifest_so_version_can_be_read(tmp_path: Path) -> None:
 
     assert (current / "loadport" / "manifest.json").exists()
     assert get_loadport_version(current) == "1.2.3"
+
+
+def test_install_repairs_manifest_in_existing_release(tmp_path: Path) -> None:
+    """已存在的 release（例如上次部分拷贝留下）也必须补上版本 manifest"""
+    import json
+
+    from voc_app.version_info import get_loadport_version
+
+    releases = tmp_path / "releases"
+    current = tmp_path / "current"
+    target = releases / "loadport-1.2.3"
+    _make_app(target, "already-there")
+
+    package_root = tmp_path / "package" / "loadport"
+    new_app = package_root / "app"
+    _make_app(new_app, "new")
+    (package_root / "manifest.json").write_text(
+        json.dumps({"component": "loadport", "version": "1.2.3"}),
+        encoding="utf-8",
+    )
+
+    installer = LoadportInstaller(
+        releases_dir=releases,
+        current_link=current,
+        gui_service="voc-gui.service",
+        systemctl_scope="user",
+        runner=FakeCommandRunner(),
+    )
+
+    installer.install(version="1.2.3", app_dir=new_app)
+
+    assert (target / "loadport" / "manifest.json").exists()
+    assert get_loadport_version(target) == "1.2.3"

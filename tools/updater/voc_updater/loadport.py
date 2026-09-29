@@ -29,7 +29,9 @@ class LoadportInstaller:
         target = self.releases_dir / f"loadport-{version}"
         if not target.exists():
             copy_tree(Path(app_dir), target)
-            self._write_release_manifest(Path(app_dir), target, version)
+        # 无论 release 是否已存在都要写入版本 manifest：既覆盖"上次部分拷贝
+        # 残留"的情况，也保证版本比较可用。
+        self._write_release_manifest(Path(app_dir), target, version)
 
         self._systemctl("stop")
         self._switch_current(target)
