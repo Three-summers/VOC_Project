@@ -52,7 +52,7 @@ class FoupAcquisitionE84Tests(unittest.TestCase):
 
         def factory(host: str, port: int, timeout: float | None = 5.0):
             _ = (host, port, timeout)
-            comm = FakeSocketCommunicator(response_messages=["ack", "Noise,1.2.3"])
+            comm = FakeSocketCommunicator(response_messages=["ack", "VOC,V1.0.0"])
             communicators.append(comm)
             return comm
 
@@ -62,9 +62,36 @@ class FoupAcquisitionE84Tests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(len(communicators), 1)
         commands = [_unpack_command(frame) for frame in communicators[0].sent_payloads]
+        # 下位机 VOC_Sample_Type 是全局标志：只有先声明 normal，start 才会写 CSV。
+        # 缺少 sample_type_normal 时，上一次测试模式会残留 false，整趟飞行不记录数据。
         self.assertEqual(
             commands,
-            ["get_function_version_info", "NOISE_data_coll_ctrl_start"],
+            [
+                "get_function_version_info",
+                "VOC_sample_type_normal",
+                "VOC_data_coll_ctrl_start",
+            ],
+        )
+
+    def test_unload_sequence_skips_version_query_when_prefix_known(self) -> None:
+        """已知前缀时不在传输关键路径上做版本查询（避免占用 BUSY 前的余量）"""
+        communicators: list[FakeSocketCommunicator] = []
+
+        def factory(host: str, port: int, timeout: float | None = 5.0):
+            _ = (host, port, timeout)
+            comm = FakeSocketCommunicator(response_messages=["ack"])
+            communicators.append(comm)
+            return comm
+
+        self.controller._apply_server_identity(prefix="VOC")
+        with patch("voc_app.gui.foup_acquisition.SocketCommunicator", side_effect=factory):
+            ok = self.controller.e84StartDataCollectionForUnload()
+
+        self.assertTrue(ok)
+        commands = [_unpack_command(frame) for frame in communicators[0].sent_payloads]
+        self.assertEqual(
+            commands,
+            ["VOC_sample_type_normal", "VOC_data_coll_ctrl_start"],
         )
 
     def test_load_sequence_stops_collection_and_downloads_logs(self) -> None:

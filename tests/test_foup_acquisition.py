@@ -182,6 +182,28 @@ class TestFoupAcquisitionController(unittest.TestCase):
         self.assertEqual(self.controller.channelCount, 3)
         self.assertAlmostEqual(self.controller.lastValue, 100.0, places=2)
 
+    def test_handle_line_invalid_token_drops_whole_frame(self) -> None:
+        """含非法字段的数据帧必须整帧丢弃，否则后续通道会整体错位"""
+        self.controller._handle_line("12.3,<bad>,45.6")
+        # 不能把 45.6 落到通道 1：应当整帧丢弃
+        self.assertEqual(self.controller.channelCount, 0)
+        self.assertEqual(self.controller.lastValue != self.controller.lastValue, True)  # NaN
+        for model in self.series_models:
+            self.assertEqual(model.points, [])
+
+    def test_handle_line_trailing_comma_drops_frame(self) -> None:
+        """空字段同样视为非法，避免静默错位"""
+        self.controller._handle_line("1.0,2.0,")
+        self.assertEqual(self.controller.channelCount, 0)
+        self.assertEqual(self.series_models[0].points, [])
+
+    def test_handle_line_valid_frame_still_accepted_after_bad_frame(self) -> None:
+        """坏帧之后的好帧仍要正常接收"""
+        self.controller._handle_line("1.0,bad,3.0")
+        self.controller._handle_line("10.0,20.0,30.0")
+        self.assertEqual(self.controller.channelCount, 3)
+        self.assertAlmostEqual(self.controller.getChannelValue(2), 30.0, places=2)
+
     @unittest.skip("Noise_Spectrum 当前暂未使用")
     def test_handle_line_noise_spectrum_routes_to_spectrum_model(self) -> None:
         """测试 Noise_Spectrum 前缀将 256 点数据路由到频谱模型"""

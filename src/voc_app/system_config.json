@@ -19,8 +19,9 @@
     "host": "192.168.1.53",
     "port": 65432,
     "operation_mode": "test",
-    "normal_mode_remote_path": "Log",
-    "socket_timeout_seconds": 5.0
+    "normal_mode_remote_path": "/home/root/files",
+    "socket_timeout_seconds": 5.0,
+    "e84_control_timeout_seconds": 1.5
   },
   "loadport": {
     "lock_serial_port": "/dev/ttyUSB1",

@@ -15,11 +15,47 @@ from PySide6.QtCore import (
 )
 import random
 import csv
+from datetime import datetime
 
 from voc_app import app_paths
 from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+# 下位机 CSV 的第一列是 "YYYY-MM-DD HH:MM:SS.mmm" 字符串（见
+# voc_251028/src/VOC_App/VOC_file_app/VOC_gen_csv.c 的 make_timestamp）。
+_TIME_FORMATS: tuple[str, ...] = (
+    "%Y-%m-%d %H:%M:%S.%f",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y/%m/%d %H:%M:%S.%f",
+    "%Y/%m/%d %H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S",
+)
+
+
+def to_milliseconds(value: float) -> float:
+    """数值时间列归一化为毫秒：>1e12 视为已是毫秒，其余按秒处理。"""
+    if value > 1e12:
+        return value
+    return value * 1000.0
+
+
+def parse_time_value(raw: str) -> float | None:
+    """解析 CSV 第一列：既支持数值时间，也支持设备的时间戳字符串。"""
+    text = (raw or "").strip()
+    if not text:
+        return None
+    try:
+        return to_milliseconds(float(text))
+    except ValueError:
+        pass
+    for fmt in _TIME_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).timestamp() * 1000.0
+        except ValueError:
+            continue
+    return None
 
 
 # 暴露列名和数据
@@ -366,10 +402,10 @@ class CsvFileManager(QObject):
     csvFilesChanged = Signal()
     activeFileChanged = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, log_dir=None, parent=None):
         super().__init__(parent)
         # 日志/CSV 根目录位于数据目录下（默认 ~/.local/share/voc/Log）
-        self._log_dir = app_paths.get_log_directory()
+        self._log_dir = Path(log_dir) if log_dir is not None else app_paths.get_log_directory()
         self._csv_files = []
         self._data_model = CsvDataModel(self)
         self._active_file = ""
@@ -389,9 +425,15 @@ class CsvFileManager(QObject):
         return self._data_model
 
     def list_csv_files(self):
+        """兼容旧调用：扫描日志目录。"""
+        self.refresh_csv_files()
+
+    @Slot()
+    def refresh_csv_files(self):
+        """重新扫描日志目录（下载完成后由 GUI 调用）。"""
         if not self._log_dir.exists():
             logger.debug(f"创建日志目录: {self._log_dir}")
-            self._log_dir.mkdir()
+            self._log_dir.mkdir(parents=True, exist_ok=True)
 
         files = []
         for path in self._log_dir.rglob("*.csv"):
@@ -404,6 +446,20 @@ class CsvFileManager(QObject):
             self._csv_files = files
             self.csvFilesChanged.emit()
 
+    @Slot(result=str)
+    def latest_csv_file(self) -> str:
+        """返回最近修改的 CSV 相对路径（没有文件时返回空串）。"""
+        if not self._csv_files:
+            return ""
+
+        def _mtime(relative: str) -> float:
+            try:
+                return (self._log_dir / relative).stat().st_mtime
+            except OSError:
+                return 0.0
+
+        return max(self._csv_files, key=_mtime)
+
     @Slot(str)
     def parse_csv_file(self, filename):
         relative_path = Path(filename)
@@ -415,33 +471,40 @@ class CsvFileManager(QObject):
 
         logger.info(f"解析 CSV 文件: {file_path}")
 
-        def to_milliseconds(value: float) -> float:
-            """将时间值归一化为毫秒时间戳，支持秒/毫秒或相对秒。"""
-            if value > 1e12:
-                return value  # 已是毫秒
-            if value > 1e9:
-                return value * 1000.0  # 秒级时间戳
-            return value * 1000.0  # 相对秒
-
         with open(file_path, "r", newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
-            # 读取第一行作为列名
-            header = next(reader)
+            # 读取第一行作为列名（下位机表头形如 "timestamp, area_data, ..."，
+            # 逗号后带空格，这里统一去掉首尾空白）
+            try:
+                header = next(reader)
+            except StopIteration:
+                self._data_model.resetModelData([])
+                return
 
             parsed_data = []
             # 跳过第一列（时间列）
-            column_names = header[1:]
+            column_names = [name.strip() for name in header[1:]]
             # 每列一个列表
-            for name in column_names:
+            for _ in column_names:
                 parsed_data.append([])
 
             for row in reader:
-                try:
-                    time_val = to_milliseconds(float(row[0]))
-                    for i in range(1, len(row)):
-                        parsed_data[i - 1].append({"x": time_val, "y": float(row[i])})
-                except (ValueError, IndexError):
+                if not row:
                     continue
+                time_val = parse_time_value(row[0])
+                if time_val is None:
+                    continue
+                # 逐列容错：单个数值异常只丢该列该点，不影响同帧其它通道
+                for i in range(1, len(parsed_data) + 1):
+                    if i >= len(row):
+                        break
+                    try:
+                        y_value = float(row[i])
+                    except ValueError:
+                        continue
+                    if y_value != y_value:  # NaN 不画点
+                        continue
+                    parsed_data[i - 1].append({"x": time_val, "y": y_value})
 
         final_data = []
         for i, name in enumerate(column_names):

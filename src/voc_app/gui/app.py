@@ -481,15 +481,17 @@ class LoadportBridge(QObject):
         self._controller = None
 
     def _on_data_collection_start(self) -> None:
-        self._set_title_message("E84 Unload 开始，执行解锁与采集启动")
-        if self._actuator_controller and not self._actuator_controller.run_unlock_for_unload():
-            self._append_alarm("ERROR", "Unload 解锁动作执行失败")
+        self._set_title_message("E84 Unload 开始：先启动采集，再断开对插并解锁")
+        # 顺序不可颠倒：START 必须在网络（对插连接器）仍然连通时发出，
+        # 否则下位机收不到命令，整趟飞行不会记录任何数据。
         if self._foup_controller and hasattr(
             self._foup_controller, "e84StartDataCollectionForUnload"
         ):
             ok = self._foup_controller.e84StartDataCollectionForUnload()  # type: ignore[attr-defined]
             if not ok:
                 self._append_alarm("ERROR", "Unload 采集启动命令执行失败")
+        if self._actuator_controller and not self._actuator_controller.run_unlock_for_unload():
+            self._append_alarm("ERROR", "Unload 解锁动作执行失败")
 
     def _on_data_collection_stop(self) -> None:
         self._set_title_message("E84 Load 完成，执行加锁与采集停止")
@@ -570,6 +572,58 @@ class LoadportBridge(QObject):
         except Exception as exc:  # noqa: BLE001
             logger.error(f"请求清除 E84 故障锁存失败: {exc}")
             return False
+
+
+class GuiAlarmNotifier(QObject):
+    """把采集侧的跨线程信号安全地落到报警列表、标题栏与 CSV 列表。
+
+    ``FoupAcquisitionController`` 在工作线程里发出 errorOccurred /
+    limitViolation / logsDownloaded；本对象在主线程创建，槽函数因此由 Qt
+    排队到主线程执行，避免跨线程操作 QML 对象。
+    """
+
+    def __init__(
+        self,
+        alarm_store,
+        title_panel: QObject | None,
+        csv_file_manager,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self._alarm_store = alarm_store
+        self._title_panel = title_panel
+        self._csv_file_manager = csv_file_manager
+
+    def _publish(self, text: str) -> None:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if self._alarm_store is not None:
+            self._alarm_store.addAlarm(timestamp, text)
+        if self._title_panel is not None:
+            self._title_panel.setProperty("systemMessage", text)
+
+    @Slot(str)
+    def onError(self, message: str) -> None:
+        """采集错误（连接失败、中断、下载为空等）。"""
+        self._publish(f"[ERROR] {message}")
+
+    @Slot(str, str)
+    def onLimitViolation(self, level: str, message: str) -> None:
+        """通道 OOC/OOS 越限。"""
+        self._publish(f"[{level}] {message}")
+
+    @Slot(int)
+    def onLogsDownloaded(self, count: int) -> None:
+        """下载完成：刷新文件列表并自动打开最新的日志。"""
+        manager = self._csv_file_manager
+        if manager is None:
+            return
+        manager.refresh_csv_files()
+        if count <= 0:
+            return
+        latest = manager.latest_csv_file()
+        if latest:
+            logger.info(f"下载完成，自动打开最新日志: {latest}")
+            manager.parse_csv_file(latest)
 
 
 def initialize_status_gpio() -> None:
@@ -655,12 +709,15 @@ if __name__ == "__main__":
         socket_timeout=float(
             app_paths.get_value("acquisition", "socket_timeout_seconds", 5.0)
         ),
+        e84_control_timeout=float(
+            app_paths.get_value("acquisition", "e84_control_timeout_seconds", 1.5)
+        ),
     )
     foup_acquisition.operationMode = str(
         app_paths.get_value("acquisition", "operation_mode", "test")
     )
     foup_acquisition.normalModeRemotePath = str(
-        app_paths.get_value("acquisition", "normal_mode_remote_path", "Log")
+        app_paths.get_value("acquisition", "normal_mode_remote_path", "/home/root/files")
     )
     engine.rootContext().setContextProperty("foupAcquisition", foup_acquisition)
 
@@ -771,6 +828,15 @@ if __name__ == "__main__":
     title_panel = root_obj.findChild(QObject, "title_message")
     if title_panel is None:
         logger.warning("未找到 TitlePanel(title_message)，状态消息将仅写入日志")
+
+    gui_alarm_notifier = GuiAlarmNotifier(
+        alarm_store=alarm_store,
+        title_panel=title_panel,
+        csv_file_manager=csv_file_manager,
+    )
+    foup_acquisition.errorOccurred.connect(gui_alarm_notifier.onError)
+    foup_acquisition.limitViolation.connect(gui_alarm_notifier.onLimitViolation)
+    foup_acquisition.logsDownloaded.connect(gui_alarm_notifier.onLogsDownloaded)
 
     if enable_e84_bridge:
         try:

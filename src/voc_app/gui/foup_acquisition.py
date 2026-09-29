@@ -60,6 +60,8 @@ class FoupAcquisitionController(QObject):
     normalModeRemotePathChanged = Signal()
     dataPointReceived = Signal(float, list)
     spectrumFrameReceived = Signal(list)
+    limitViolation = Signal(str, str)
+    logsDownloaded = Signal(int)
     _channelCountDetected = Signal(int)
 
     def __init__(
@@ -71,6 +73,7 @@ class FoupAcquisitionController(QObject):
         spectrum_model: SpectrumDataModel | None = None,
         spectrum_simulator: SpectrumSimulator | None = None,
         socket_timeout: float = 5.0,
+        e84_control_timeout: float = 1.5,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -89,6 +92,7 @@ class FoupAcquisitionController(QObject):
         self._host: str = host.strip() if host else "192.168.1.8"
         self._port: int = int(port)
         self._socket_timeout: float = float(socket_timeout)
+        self._e84_control_timeout: float = float(e84_control_timeout)
         self._running: bool = False
         self._status: str = "未启动"
         self._last_value: float | None = None
@@ -296,14 +300,24 @@ class FoupAcquisitionController(QObject):
 
     @Slot(result=bool)
     def e84StartDataCollectionForUnload(self) -> bool:
-        """E84 Unload 阶段：查询类型/版本后发送采集启动命令。"""
+        """E84 Unload 阶段：声明正常采样并启动采集。
+
+        必须在对插连接器断开之前完成，因此这里不做耗时的版本轮询：
+        只有在服务器类型完全未知时才查询一次。
+        下位机的 ``VOC_Sample_Type`` 是全局标志（true=正常，false=测试），
+        而 ``VOC_data_coll_ctrl_start`` 只在 normal 模式下写 CSV，
+        所以每次启动采集都要先发 ``sample_type_normal``。
+        """
         with self._e84_io_lock:
             try:
-                self._set_status("E84 Unload：查询版本并启动采集")
-                self._e84_query_server_identity()
+                self._set_status("E84 Unload：启动采集")
+                if not self._known_prefix():
+                    self._e84_query_server_identity(attempts=1)
+                sample_cmd = self._select_command("sample_normal")
+                self._e84_send_command(sample_cmd)
                 start_cmd = self._select_command("start")
                 self._e84_send_command(start_cmd)
-                self._set_status(f"E84 Unload 已发送: {start_cmd}")
+                self._set_status(f"E84 Unload 已发送: {sample_cmd}, {start_cmd}")
                 return True
             except Exception as exc:
                 self._close_e84_socket()
@@ -322,7 +336,8 @@ class FoupAcquisitionController(QObject):
                 stop_cmd = self._select_command("stop")
                 self._e84_send_command(stop_cmd)
                 saved_files = self._download_logs()
-                self._set_status(f"E84 Load 日志下载完成: {len(saved_files)} 个文件")
+                count = self._report_download(saved_files)
+                self._set_status(f"E84 Load 日志下载完成: {count} 个文件")
                 return True
             except Exception as exc:
                 self._close_e84_socket()
@@ -417,10 +432,11 @@ class FoupAcquisitionController(QObject):
         try:
             self._set_status("正在下载日志...")
             saved_files = self._download_logs()
+            count = self._report_download(saved_files)
             if self._stop_event.is_set():
                 self._set_status("已停止")
             else:
-                self._set_status(f"下载完成: {len(saved_files)} 个文件")
+                self._set_status(f"下载完成: {count} 个文件")
         except Exception as exc:
             try:
                 self.errorOccurred.emit(f"FOUP 下载异常: {exc}")
@@ -430,6 +446,16 @@ class FoupAcquisitionController(QObject):
         finally:
             self._set_running(False)
             self._stop_event.clear()
+
+    def _report_download(self, saved_files: List[str]) -> int:
+        """上报下载结果：文件数交给界面刷新，0 个文件按失败报警。"""
+        count = len(saved_files)
+        self.logsDownloaded.emit(count)
+        if count == 0:
+            message = "未下载到任何日志文件（请检查下位机数据目录与 SD 卡挂载状态）"
+            logger.warning(message)
+            self.errorOccurred.emit(message)
+        return count
 
     def _download_logs(self) -> List[str]:
         if self._stop_event.is_set():
@@ -625,11 +651,19 @@ class FoupAcquisitionController(QObject):
 
         values: List[float] = []
         if "," in cleaned:
+            # 整帧校验：任何一个字段无法解析就丢弃整帧。
+            # 若像以前那样跳过坏字段，后面的通道会整体左移（12.3,<bad>,45.6 会把
+            # 45.6 当成通道 1），同时通道数被误判，属于静默的数据错误。
             for token in cleaned.split(","):
+                stripped = token.strip()
+                if not stripped:
+                    logger.debug(f"丢弃含空字段的数据帧: {cleaned!r}")
+                    return
                 try:
-                    values.append(float(token.strip()))
+                    values.append(float(stripped))
                 except ValueError:
-                    continue
+                    logger.debug(f"丢弃含非法字段的数据帧: {cleaned!r}")
+                    return
         else:
             try:
                 values.append(float(cleaned))
@@ -657,6 +691,7 @@ class FoupAcquisitionController(QObject):
             self._init_config_if_ready()
         self.channelValuesChanged.emit()
         self.lastValueChanged.emit()
+        self._check_channel_limits(values)
 
         self._sample_index += 1
         timestamp_ms = time.time() * 1000.0
@@ -674,6 +709,33 @@ class FoupAcquisitionController(QObject):
             default_prefix = PrefixRegistry.get_default_prefix(channel_count)
             self._apply_server_identity(prefix=default_prefix)
             logger.info(f"使用默认前缀: {default_prefix} (通道数: {channel_count})")
+
+    def _check_channel_limits(self, values: List[float]) -> None:
+        """按通道配置检查 OOC/OOS 越限并上报。
+
+        - 只检查显示开关为真的限界（预设中关闭的下限没有监测意义）；
+        - 每个通道每帧最多上报一次，OOS 优先于 OOC；
+        - 文案不含实时数值，保证 AlarmStore 的 60 秒去重可以抑制刷屏。
+        """
+        for channel_idx, value in enumerate(values):
+            if value != value:  # NaN
+                continue
+            config = self._config_manager.get(channel_idx)
+            checks = (
+                ("OOS", config.show_oos_upper, value > config.oos_upper, "高于上限", config.oos_upper),
+                ("OOS", config.show_oos_lower, value < config.oos_lower, "低于下限", config.oos_lower),
+                ("OOC", config.show_ooc_upper, value > config.ooc_upper, "高于上限", config.ooc_upper),
+                ("OOC", config.show_ooc_lower, value < config.ooc_lower, "低于下限", config.ooc_lower),
+            )
+            for level, enabled, exceeded, direction, limit in checks:
+                if not enabled or not exceeded:
+                    continue
+                unit = f" {config.unit}" if config.unit else ""
+                title = config.title or f"通道 {channel_idx + 1}"
+                message = f"{title} {direction} {limit:g}{unit}"
+                logger.warning(f"[{level}] {message}")
+                self.limitViolation.emit(level, message)
+                break
 
     def _append_point_to_model(self, x: float, y_values: list) -> None:
         try:
@@ -736,7 +798,11 @@ class FoupAcquisitionController(QObject):
             return self._e84_communicator
         with self._lock:
             host, port = self._host, self._port
-        self._e84_communicator = SocketCommunicator(host, port, timeout=self._socket_timeout)
+        # E84 采集启停发生在传输关键路径上（BUSY 之前只有 2-3 秒余量），
+        # 因此控制连接使用更短的超时，避免拖住机械动作。
+        self._e84_communicator = SocketCommunicator(
+            host, port, timeout=self._e84_control_timeout
+        )
         return self._e84_communicator
 
     def _send_command_with_communicator(
@@ -802,9 +868,9 @@ class FoupAcquisitionController(QObject):
             self._close_e84_socket()
         return message
 
-    def _e84_query_server_identity(self) -> None:
+    def _e84_query_server_identity(self, attempts: int = 3) -> None:
         self._e84_send_command("get_function_version_info")
-        for _ in range(3):
+        for _ in range(max(1, attempts)):
             response = self._e84_recv_message()
             if not response:
                 break
@@ -814,6 +880,14 @@ class FoupAcquisitionController(QObject):
             if version or prefix:
                 self._apply_server_identity(version, prefix)
                 break
+
+    def _known_prefix(self) -> str:
+        """返回当前已知的命令前缀（服务器上报或本地已保存）。"""
+        with self._lock:
+            prefix = self._command_prefix
+        if prefix:
+            return prefix
+        return self._config_manager.get_prefix()
 
     def _recv_message(self) -> str | None:
         if not self._communicator:
