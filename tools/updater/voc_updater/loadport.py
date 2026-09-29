@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 from .commands import CommandRunner, copy_tree
+from .package import validate_version
 
 
 class LoadportInstaller:
@@ -26,12 +27,14 @@ class LoadportInstaller:
     def install(self, version: str, app_dir: str | Path) -> Path:
         self.releases_dir.mkdir(parents=True, exist_ok=True)
         old_target = self.current_link.resolve() if self.current_link.exists() else None
-        target = self.releases_dir / f"loadport-{version}"
-        if not target.exists():
-            copy_tree(Path(app_dir), target)
-        # 无论 release 是否已存在都要写入版本 manifest：既覆盖"上次部分拷贝
-        # 残留"的情况，也保证版本比较可用。
-        self._write_release_manifest(Path(app_dir), target, version)
+        source = Path(app_dir)
+        target = self._release_dir_for(version)
+
+        if self._is_release_complete(target):
+            # 已有完整版本：只刷新版本 manifest
+            self._write_release_manifest(source, target, version)
+        else:
+            self._publish_release(source, target, version)
 
         self._systemctl("stop")
         self._switch_current(target)
@@ -43,6 +46,41 @@ class LoadportInstaller:
                 self._systemctl("start")
             raise RuntimeError("GUI service did not become active after upgrade")
         return target
+
+    def _release_dir_for(self, version: str) -> Path:
+        """版本字符串会被拼进目录名，必须校验格式并确认落在 releases 下。"""
+        validate_version(version)
+        target = self.releases_dir / f"loadport-{version}"
+        releases_real = self.releases_dir.resolve()
+        if target.resolve().parent != releases_real:
+            raise ValueError(f"invalid release target for version: {version!r}")
+        return target
+
+    @staticmethod
+    def _is_release_complete(target: Path) -> bool:
+        """release 是否包含应用入口（与升级包的校验口径一致）。"""
+        return (target / "src" / "voc_app" / "gui" / "app.py").is_file()
+
+    def _publish_release(self, source: Path, target: Path, version: str) -> None:
+        """在暂存目录完成复制与校验后原子发布。
+
+        R15：只凭"目标目录存在"判断复制完成，会让上次中断留下的残缺目录
+        被当成完整版本（甚至被补上正确的版本 manifest）持续复用。
+        """
+        staging = target.with_name(f".staging-{target.name}")
+        if staging.exists():
+            shutil.rmtree(staging)
+        try:
+            copy_tree(source, staging)
+            self._write_release_manifest(source, staging, version)
+            if not self._is_release_complete(staging):
+                raise RuntimeError(f"incomplete release source: {source}")
+            if target.exists():
+                shutil.rmtree(target)
+            os.replace(staging, target)
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
 
     def _write_release_manifest(self, app_dir: Path, target: Path, version: str) -> None:
         """把升级包内的 ``loadport/manifest.json`` 放进 release。

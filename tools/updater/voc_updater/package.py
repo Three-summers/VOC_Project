@@ -1,10 +1,32 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import re
 import shutil
 import tarfile
 from dataclasses import dataclass
 from pathlib import Path
+
+# 版本字符串会被拼进 release 目录名，必须拒绝路径分隔符与上级跳转
+_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]*$")
+
+
+def validate_version(version: str) -> str:
+    """校验版本字符串可用于目录名，返回原值。"""
+    text = str(version or "").strip()
+    if not _VERSION_PATTERN.match(text) or ".." in text:
+        raise ValueError(f"invalid version string: {version!r}")
+    return text
+
+
+def _sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 @dataclass(frozen=True)
@@ -60,24 +82,31 @@ class UpdatePackageReader:
             raise ValueError("invalid foup manifest component")
         if not loadport_manifest.get("version"):
             raise ValueError("missing loadport version")
+        validate_version(loadport_manifest["version"])
         if not foup_manifest.get("ps_version"):
             raise ValueError("missing FOUP PS version")
         if not foup_manifest.get("pl_version"):
             raise ValueError("missing FOUP PL version")
+
+        # manifest 提供哈希时必须逐项校验（设计文档第 159 行）
+        self._verify_sha256(
+            root / "loadport", loadport_manifest.get("sha256"), "loadport"
+        )
+        self._verify_sha256(root / "foup", foup_manifest.get("sha256"), "foup")
 
         loadport_app_dir = root / "loadport" / "app"
         if not (loadport_app_dir / "src" / "voc_app" / "gui" / "app.py").exists():
             raise ValueError("missing Loadport app entry file")
 
         foup_root = root / "foup"
-        ps_file = foup_root / str(foup_manifest.get("ps_file", "ps/run"))
-        pl_file = foup_root / str(
-            foup_manifest.get("pl_file", "pl/design_1_wrapper.bit.bin")
+        ps_file = self._component_file(
+            foup_root, foup_manifest.get("ps_file", "ps/run"), "FOUP PS"
         )
-        if not ps_file.exists():
-            raise ValueError("missing FOUP PS file")
-        if not pl_file.exists():
-            raise ValueError("missing FOUP PL file")
+        pl_file = self._component_file(
+            foup_root,
+            foup_manifest.get("pl_file", "pl/design_1_wrapper.bit.bin"),
+            "FOUP PL",
+        )
 
         return UpdatePackage(
             package_path=source_package,
@@ -90,13 +119,71 @@ class UpdatePackageReader:
         )
 
     @staticmethod
+    def _component_file(component_root: Path, relative: object, label: str) -> Path:
+        """把 manifest 里的相对路径安全地解析为组件内的普通文件。"""
+        text = str(relative or "").strip()
+        if not text or os.path.isabs(text) or ".." in Path(text).parts:
+            raise ValueError(f"invalid {label} path in manifest: {relative!r}")
+        root = component_root.resolve()
+        target = (component_root / text).resolve()
+        if root != target and root not in target.parents:
+            raise ValueError(f"{label} path escapes package: {relative!r}")
+        if not target.is_file():
+            raise ValueError(f"missing {label} file")
+        return target
+
+    @staticmethod
+    def _verify_sha256(component_root: Path, declared: object, component: str) -> None:
+        """校验 manifest 中声明的 sha256（形如 {组件内相对路径: 十六进制摘要}）。"""
+        if declared in (None, {}, ""):
+            return
+        if not isinstance(declared, dict):
+            raise ValueError(f"invalid sha256 section in {component} manifest")
+        root = component_root.resolve()
+        for relative, expected in declared.items():
+            text = str(relative).strip()
+            if not text or os.path.isabs(text) or ".." in Path(text).parts:
+                raise ValueError(f"invalid sha256 path in {component} manifest: {relative!r}")
+            target = (component_root / text).resolve()
+            if root != target and root not in target.parents:
+                raise ValueError(f"sha256 path escapes package: {relative!r}")
+            if not target.is_file():
+                raise ValueError(f"sha256 file missing: {component}/{text}")
+            actual = _sha256_of(target)
+            if actual.lower() != str(expected).strip().lower():
+                raise ValueError(f"sha256 mismatch for {component}/{text}")
+
+    @staticmethod
     def _extract_safely(tar: tarfile.TarFile, extract_dir: Path) -> None:
+        """逐项解包：拒绝符号链接/硬链接/特殊文件，并持续约束目标路径。
+
+        R10：只校验 member.name 是不够的——先落盘一个指向外部的符号链接，
+        ``extractall`` 随后会跟随它把文件写到解包目录之外。
+        """
         root = extract_dir.resolve()
         for member in tar.getmembers():
             target = (extract_dir / member.name).resolve()
             if root != target and root not in target.parents:
                 raise ValueError(f"unsafe path in update package: {member.name}")
-        tar.extractall(extract_dir)
+            if member.issym() or member.islnk():
+                raise ValueError(
+                    f"symbolic/hard link not allowed in update package: {member.name}"
+                )
+            if member.isdir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            if not member.isreg():
+                raise ValueError(
+                    f"unsupported entry in update package: {member.name}"
+                )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source = tar.extractfile(member)
+            if source is None:
+                raise ValueError(f"cannot read entry in update package: {member.name}")
+            with source, open(target, "wb") as destination:
+                shutil.copyfileobj(source, destination)
+            if member.mode:
+                os.chmod(target, member.mode & 0o777)
 
     @staticmethod
     def _read_json(path: Path) -> dict:
