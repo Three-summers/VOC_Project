@@ -179,3 +179,71 @@ def test_prepare_runtime_paths_creates_directories(monkeypatch, tmp_path: Path) 
     assert data_dir == bootstrap.resolve()
     assert app_paths.get_log_directory().is_dir()
     assert (bootstrap / app_paths.CONFIG_FILE_NAME).exists()
+
+
+# ---------------------------------------------------------------- R28
+
+
+def _make_release_tree(root: Path) -> Path:
+    """构造部署树，返回 release 里的 voc_app 目录。"""
+    app_dir = root / "releases" / "loadport-2" / "src" / "voc_app"
+    app_dir.mkdir(parents=True)
+    (root / "current").mkdir(parents=True)
+    return app_dir
+
+
+def test_find_deployment_root_from_release(tmp_path: Path) -> None:
+    root = tmp_path / "voc_project"
+    app_dir = _make_release_tree(root)
+
+    assert app_paths.find_deployment_root(app_dir) == root.resolve()
+
+
+def test_find_deployment_root_returns_none_in_dev(tmp_path: Path) -> None:
+    app_dir = tmp_path / "checkout" / "src" / "voc_app"
+    app_dir.mkdir(parents=True)
+
+    assert app_paths.find_deployment_root(app_dir) is None
+
+
+def test_update_state_file_prefers_env(monkeypatch, tmp_path: Path) -> None:
+    app_dir = _make_release_tree(tmp_path / "voc_project")
+    explicit = tmp_path / "custom_state.json"
+    monkeypatch.setenv(app_paths.UPDATE_STATE_ENV, str(explicit))
+
+    assert app_paths.get_update_state_file(app_dir) == explicit.resolve()
+
+
+def test_update_state_file_prefers_config(monkeypatch, tmp_path: Path) -> None:
+    app_dir = _make_release_tree(tmp_path / "voc_project")
+    configured = tmp_path / "configured_state.json"
+    config_path = _write_config(
+        tmp_path / "custom.json", {"update": {"state_file": str(configured)}}
+    )
+    monkeypatch.setenv(app_paths.CONFIG_PATH_ENV, str(config_path))
+
+    assert app_paths.get_update_state_file(app_dir) == configured.resolve()
+
+
+def test_update_state_file_uses_deployment_root(monkeypatch, tmp_path: Path) -> None:
+    """部署树下应与升级设计一致：<base>/state/update_status.json"""
+    root = tmp_path / "voc_project"
+    app_dir = _make_release_tree(root)
+
+    state_file = app_paths.get_update_state_file(app_dir)
+
+    assert state_file == (root / "state" / app_paths.UPDATE_STATE_FILE_NAME).resolve()
+    # 不能推出 releases/state/... 这种错误位置
+    assert "releases" not in state_file.parts
+
+
+def test_update_state_file_dev_fallback_is_stable(tmp_path: Path) -> None:
+    """开发环境回退路径不能随调用方传入的目录深度漂移"""
+    package_like = tmp_path / "checkout" / "src" / "voc_app"
+    app_like = package_like / "gui"
+    app_like.mkdir(parents=True)
+
+    assert app_paths.get_update_state_file(app_like) == app_paths.get_update_state_file(
+        package_like
+    )
+    assert "releases" not in app_paths.get_update_state_file(app_like).parts

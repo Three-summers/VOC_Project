@@ -751,17 +751,9 @@ if __name__ == "__main__":
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")
     engine.rootContext().setContextProperty("alarmStore", alarm_store)
 
-    # 更新状态文件：环境变量 > system_config.json 的 update.state_file > 项目外置 state 目录
-    configured_state_file = str(
-        app_paths.get_value("update", "state_file", "") or ""
-    ).strip()
-    default_state_file = str((PROJECT_ROOT.parent / "state" / "update_status.json").resolve())
-    update_state_file = Path(
-        os.environ.get(
-            "VOC_UPDATE_STATE_FILE",
-            configured_state_file or default_state_file,
-        )
-    ).expanduser()
+    # 更新状态文件：环境变量 > 配置 update.state_file > 部署根 state 目录（R28）
+    update_state_file = app_paths.get_update_state_file(APP_DIR)
+    logger.info(f"升级状态文件: {update_state_file}")
     update_status = UpdateStatusController(
         state_file=update_state_file,
         loadport_version=get_loadport_version(PROJECT_ROOT),

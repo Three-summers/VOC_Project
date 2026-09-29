@@ -40,9 +40,12 @@ CONFIG_FILE_NAME = "system_config.json"
 CHANNEL_CONFIG_FILE_NAME = "channel_config.json"
 LEGACY_CHANNEL_CONFIG_PATH = PACKAGE_DIR / "gui" / CHANNEL_CONFIG_FILE_NAME
 LOG_DIR_NAME = "Log"
+STATE_DIR_NAME = "state"
+UPDATE_STATE_FILE_NAME = "update_status.json"
 
 DATA_DIR_ENV = "VOC_DATA_DIR"
 CONFIG_PATH_ENV = "VOC_SYSTEM_CONFIG"
+UPDATE_STATE_ENV = "VOC_UPDATE_STATE_FILE"
 
 _config_cache: Optional[Dict[str, Any]] = None
 
@@ -136,6 +139,43 @@ def get_data_directory() -> Path:
 def get_log_directory() -> Path:
     """采集日志与 CSV 浏览根目录（位于数据目录下）。"""
     return get_data_directory() / LOG_DIR_NAME
+
+
+def find_deployment_root(start: Path | None = None) -> Optional[Path]:
+    """从应用目录向上寻找部署根（同时包含 ``releases/`` 与 ``current`` 的目录）。
+
+    升级设计里状态文件固定在 ``<base>/state/update_status.json``；而 release
+    位于 ``<base>/releases/loadport-X/``，直接按"父目录的父目录"推导会得到
+    ``<base>/releases/state/...``，GUI 永远读不到升级状态（R28）。
+    """
+    current = (start or PACKAGE_DIR).resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / "releases").is_dir() and (candidate / "current").exists():
+            return candidate
+    return None
+
+
+def get_update_state_file(start: Path | None = None) -> Path:
+    """升级状态文件路径。
+
+    优先级：``VOC_UPDATE_STATE_FILE`` > 配置 ``update.state_file`` >
+    部署根 ``<base>/state/update_status.json`` > 开发环境回退。
+    """
+    env_value = os.environ.get(UPDATE_STATE_ENV, "").strip()
+    if env_value:
+        return _expand(env_value).resolve()
+
+    configured = str(get_value("update", "state_file", "") or "").strip()
+    if configured:
+        return _expand(configured).resolve()
+
+    root = find_deployment_root(start)
+    if root is not None:
+        return root / STATE_DIR_NAME / UPDATE_STATE_FILE_NAME
+
+    # 开发环境：把仓库根当作部署根，结果不随调用方传入的目录深度漂移
+    project_root = PACKAGE_DIR.parents[1]
+    return (project_root / STATE_DIR_NAME / UPDATE_STATE_FILE_NAME).resolve()
 
 
 def get_section(name: str) -> Dict[str, Any]:
