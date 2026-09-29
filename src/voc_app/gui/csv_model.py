@@ -383,8 +383,16 @@ class CsvDataModel(QAbstractListModel):
     def resetModelData(self, data):
         # 告诉视图模型数据即将要被重置
         self.beginResetModel()
+        previous = self._data
         self._data = data
         self.endResetModel()
+        # R24：旧列对象仍然挂在 dataModel 上，只替换 Python 列表不会释放它们，
+        # 反复加载会让子对象与整份历史数据持续累积，必须显式释放。
+        for item in previous:
+            try:
+                item.deleteLater()
+            except RuntimeError:
+                pass
         new_names = [item.columnName for item in self._data]
         if new_names != self._column_names:
             self._column_names = new_names
@@ -496,6 +504,9 @@ class CsvFileManager(QObject):
 
         logger.info(f"解析 CSV 文件: {file_path}")
 
+        column_names: list[str] = []
+        parsed_data: list[list] = []
+
         with open(file_path, "r", newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             # 读取第一行作为列名（下位机表头形如 "timestamp, area_data, ..."，
@@ -503,33 +514,32 @@ class CsvFileManager(QObject):
             try:
                 header = next(reader)
             except StopIteration:
-                self._data_model.resetModelData([])
-                return
+                # 空文件（0 字节）也要走统一的收尾流程：R25 要求文件名、点数
+                # 与提示都同步更新，否则界面仍停留在上一个文件的状态。
+                header = []
 
-            parsed_data = []
-            # 跳过第一列（时间列）
-            column_names = [name.strip() for name in header[1:]]
-            # 每列一个列表
-            for _ in column_names:
-                parsed_data.append([])
+            if header:
+                # 跳过第一列（时间列）
+                column_names = [name.strip() for name in header[1:]]
+                parsed_data = [[] for _ in column_names]
 
-            for row in reader:
-                if not row:
-                    continue
-                time_val = parse_time_value(row[0])
-                if time_val is None:
-                    continue
-                # 逐列容错：单个数值异常只丢该列该点，不影响同帧其它通道
-                for i in range(1, len(parsed_data) + 1):
-                    if i >= len(row):
-                        break
-                    try:
-                        y_value = float(row[i])
-                    except ValueError:
+                for row in reader:
+                    if not row:
                         continue
-                    if y_value != y_value:  # NaN 不画点
+                    time_val = parse_time_value(row[0])
+                    if time_val is None:
                         continue
-                    parsed_data[i - 1].append({"x": time_val, "y": y_value})
+                    # 逐列容错：单个数值异常只丢该列该点，不影响同帧其它通道
+                    for i in range(1, len(parsed_data) + 1):
+                        if i >= len(row):
+                            break
+                        try:
+                            y_value = float(row[i])
+                        except ValueError:
+                            continue
+                        if y_value != y_value:  # NaN 不画点
+                            continue
+                        parsed_data[i - 1].append({"x": time_val, "y": y_value})
 
         final_data = []
         for i, name in enumerate(column_names):

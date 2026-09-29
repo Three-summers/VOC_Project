@@ -29,29 +29,40 @@ Rectangle {
         }
     }
 
-    Loader {
-        id: commandLoader
-        objectName: "command_panel_loader"
+    // 命令区可滚动：按钮多于可视高度时（例如 Loadport 的 9 个按钮）仍能滚到
+    // 最后一个，避免"故障复位"这类关键操作被底部导航挡住而不可点击（R09）。
+    ScrollView {
+        id: commandScroll
+        objectName: "command_panel_scroll"
         anchors.fill: parent
+        clip: true
+        contentWidth: availableWidth
         // 未登录时不渲染命令内容、也不接受输入：提示与命令二选一显示，
         // 这样提示文字不会浮在按钮文字上层造成重叠。
         visible: commandPanel.authenticated
         enabled: commandPanel.authenticated
-        onLoaded: {
-            if (!commandLoader.item)
-                return;
-            if (commandLoader.item.hasOwnProperty("commandPanelRef"))
-                commandLoader.item.commandPanelRef = commandPanel;
-            if (commandLoader.item.hasOwnProperty("informationPanelRef"))
-                commandLoader.item.informationPanelRef = commandPanel.informationPanelRef;
-            if (commandLoader.item.hasOwnProperty("alarmStore"))
-                commandLoader.item.alarmStore = commandPanel.alarmStoreRef;
-            if (commandLoader.item.hasOwnProperty("subPageKey"))
-                commandLoader.item.subPageKey = commandPanel.currentSubPage;
-            if (commandLoader.item.hasOwnProperty("scaleFactor"))
-                commandLoader.item.scaleFactor = commandPanel.scaleFactor;
-            if (commandLoader.item.hasOwnProperty("foupLimitRef"))
-                commandLoader.item.foupLimitRef = commandPanel.foupLimitRef;
+
+        Loader {
+            id: commandLoader
+            objectName: "command_panel_loader"
+            width: commandScroll.availableWidth
+            enabled: commandPanel.authenticated
+            onLoaded: {
+                if (!commandLoader.item)
+                    return;
+                if (commandLoader.item.hasOwnProperty("commandPanelRef"))
+                    commandLoader.item.commandPanelRef = commandPanel;
+                if (commandLoader.item.hasOwnProperty("informationPanelRef"))
+                    commandLoader.item.informationPanelRef = commandPanel.informationPanelRef;
+                if (commandLoader.item.hasOwnProperty("alarmStore"))
+                    commandLoader.item.alarmStore = commandPanel.alarmStoreRef;
+                if (commandLoader.item.hasOwnProperty("subPageKey"))
+                    commandLoader.item.subPageKey = commandPanel.currentSubPage;
+                if (commandLoader.item.hasOwnProperty("scaleFactor"))
+                    commandLoader.item.scaleFactor = commandPanel.scaleFactor;
+                if (commandLoader.item.hasOwnProperty("foupLimitRef"))
+                    commandLoader.item.foupLimitRef = commandPanel.foupLimitRef;
+            }
         }
     }
 

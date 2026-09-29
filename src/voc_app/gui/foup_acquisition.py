@@ -26,13 +26,15 @@ from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# 流式接收阶段允许改写服务器身份的报文格式：{PREFIX},{version}
+# 允许改写服务器身份的报文格式：{PREFIX},{version} 或单独的 {PREFIX}
 # 要求前缀为大写类型名（如 VOC / NOISE_HUMILITY，至少 2 字符）、整体恰好两段、
 # 且版本段含数字。这样科学计数法数值（1.2e5）、NaN/inf、报错文本以及
 # "Noise_Spectrum,<256 点>" 这类带前缀的数据包都不会被误判成服务器身份。
+# 查询阶段与流式阶段共用同一套规则（R21）。
 _IDENTITY_LINE_PATTERN = re.compile(
-    r"^[A-Z][A-Z0-9_]{1,31},(?=[^,]*[0-9])[A-Za-z0-9._+\-]+$"
+    r"^[A-Z][A-Z0-9_]{1,31}\s*,\s*(?=[^,]*[0-9])[A-Za-z0-9._+\-]+$"
 )
+_IDENTITY_ONLY_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{1,31}$")
 
 
 class FoupAcquisitionController(QObject):
@@ -518,17 +520,30 @@ class FoupAcquisitionController(QObject):
             if response.strip().lower() == "ack":
                 self._set_status("收到 ACK")
                 continue
-            version, prefix = self._parse_version_response(response)
+            version, prefix = self._parse_identity(response)
             if version or prefix:
                 self._apply_server_identity(version, prefix)
                 break
 
-    @staticmethod
-    def _looks_like_identity(text: str) -> bool:
-        """判断一段采集报文是否可能是服务器身份（而非数据）。"""
-        return bool(_IDENTITY_LINE_PATTERN.match(text.strip()))
+    @classmethod
+    def _parse_identity(cls, text: str) -> tuple[str, str]:
+        """统一的设备身份解析（查询阶段与流式阶段共用，R21）。
 
-    def _parse_version_response(self, response: str) -> tuple[str, str]:
+        只接受 ``PREFIX,version`` 或单独的 ``PREFIX``（大写类型名），
+        其余含字母的报文（科学计数法数值、NaN/inf、报错文本、带前缀的数据包）
+        一律返回空，避免被当成服务器类型而拼出错误的控制命令。
+        """
+        cleaned = (text or "").strip()
+        if not cleaned:
+            return "", ""
+        if _IDENTITY_LINE_PATTERN.match(cleaned) or _IDENTITY_ONLY_PATTERN.match(
+            cleaned
+        ):
+            return cls._parse_version_response(cleaned)
+        return "", ""
+
+    @staticmethod
+    def _parse_version_response(response: str) -> tuple[str, str]:
         """解析版本响应，返回 (version, prefix)，prefix 统一大写"""
         cleaned = (response or "").strip()
         if not cleaned or not any(ch.isalpha() for ch in cleaned):
@@ -666,10 +681,9 @@ class FoupAcquisitionController(QObject):
 
         # 采集过程中只有严格形如 {PREFIX},{version} 的报文才允许改写服务器身份；
         # 其余含字母的报文（科学计数法数值、NaN/inf、报错文本等）不再污染 serverType。
-        if self._looks_like_identity(cleaned):
-            version, prefix = self._parse_version_response(cleaned)
-            if version or prefix:
-                self._apply_server_identity(version, prefix)
+        version, prefix = self._parse_identity(cleaned)
+        if version or prefix:
+            self._apply_server_identity(version, prefix)
             return
 
         values: List[float] = []
@@ -901,7 +915,7 @@ class FoupAcquisitionController(QObject):
                 break
             if response.strip().lower() == "ack":
                 continue
-            version, prefix = self._parse_version_response(response)
+            version, prefix = self._parse_identity(response)
             if version or prefix:
                 self._apply_server_identity(version, prefix)
                 break

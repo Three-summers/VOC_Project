@@ -109,11 +109,27 @@ DataInputDialog {
 
     signal loggedIn(string username)
 
+    // 清理输入：登录会话不能留在输入框里，否则下一位操作员重新打开弹窗
+    // 直接点 OK 就能恢复上一次的权限（R07）。
+    function clearFields() {
+        var item = loginDialog.internalContentLoader.item;
+        if (!item)
+            return;
+        item.username = "";
+        item.password = "";
+    }
+
+    onOpened: {
+        loginDialog.showError = false;
+        clearFields();
+    }
+
     onAccepted: {
         loggedIn(loginDialog.internalContentLoader.item.username);
     }
 
     onClosed: {
         loginDialog.showError = false;
+        clearFields();
     }
 }

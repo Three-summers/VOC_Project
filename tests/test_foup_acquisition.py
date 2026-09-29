@@ -290,30 +290,37 @@ class TestFoupAcquisitionController(unittest.TestCase):
         self.assertNotEqual(self.controller.serverType, "1.2E5")
         self.assertEqual(self.controller.serverVersion, "")
 
-    def test_identity_pattern_rejects_non_identity_lines(self) -> None:
-        """只有严格的身份报文才允许在采集过程中改写服务器类型"""
+    def test_identity_parsing_rejects_data_and_error_text(self) -> None:
+        """查询与流式两条路径共用同一套严格身份校验（R21）"""
         for payload in (
+            "1.2e5",
             "1.2e5,3.4",
+            "nan,1.2",
             "nan,inf",
-            "NaN",
             "-inf,2.0",
+            "ERROR no device",
             "Error: timeout,1.0",
             "Noise_Spectrum,0.5,0.5",
             "SPEC,1,2,3",
             "123.45",
-            "VOC",
             "voc,v1.0.0",
         ):
-            self.assertFalse(
-                FoupAcquisitionController._looks_like_identity(payload), payload
+            self.assertEqual(
+                FoupAcquisitionController._parse_identity(payload), ("", ""), payload
             )
 
-    def test_identity_pattern_accepts_identity_lines(self) -> None:
-        """标准身份报文仍被接受"""
-        for payload in ("VOC,V1.0.0", "NOISE_HUMILITY,V1.2.3", "TEST,3"):
-            self.assertTrue(
-                FoupAcquisitionController._looks_like_identity(payload), payload
-            )
+    def test_identity_parsing_accepts_device_forms(self) -> None:
+        """下位机实际返回形式必须被接受"""
+        self.assertEqual(
+            FoupAcquisitionController._parse_identity("VOC,V1.0.0"), ("V1.0.0", "VOC")
+        )
+        self.assertEqual(
+            FoupAcquisitionController._parse_identity("VOC, V1.0.0"), ("V1.0.0", "VOC")
+        )
+        self.assertEqual(
+            FoupAcquisitionController._parse_identity("NOISE_HUMILITY"),
+            ("", "NOISE_HUMILITY"),
+        )
 
     def test_handle_line_accepts_strict_identity_line(self) -> None:
         """严格形如 {PREFIX},{version} 的报文仍然可以更新身份"""
@@ -426,6 +433,36 @@ class TestFoupAcquisitionController(unittest.TestCase):
         self.assertEqual(self.series_models[0].points[0], (1000.0, 10.0))
         self.assertEqual(self.series_models[1].points[0], (1000.0, 20.0))
         self.assertEqual(self.series_models[2].points[0], (1000.0, 30.0))
+
+    def test_version_query_ignores_non_identity_response(self) -> None:
+        """查询阶段收到数据/错误文本时不得改写服务器类型（R21）"""
+        import struct
+        from unittest.mock import patch as _patch
+
+        class _Comm:
+            def __init__(self, *args, **kwargs):
+                payload = "1.2e5".encode("utf-8")
+                self._buffer = bytearray(struct.pack(">I", len(payload)) + payload)
+
+            def send(self, data: bytes) -> None:
+                return None
+
+            def recv(self, size: int) -> bytes:
+                if not self._buffer:
+                    return b""
+                chunk = self._buffer[:size]
+                del self._buffer[:size]
+                return bytes(chunk)
+
+            def close(self) -> None:
+                return None
+
+        self.controller._communicator = _Comm()
+        with _patch("voc_app.gui.foup_acquisition.SocketCommunicator", _Comm):
+            self.controller._perform_version_query()
+
+        self.assertEqual(self.controller.serverType, "")
+        self.assertEqual(self.controller.serverVersion, "")
 
 
 class TestFoupAcquisitionControllerNoSeries(unittest.TestCase):
