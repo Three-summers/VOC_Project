@@ -224,3 +224,26 @@ def test_installer_does_not_leave_staging_directory(tmp_path: Path) -> None:
 
     leftovers = [p.name for p in (tmp_path / "releases").iterdir() if p.name.startswith(".")]
     assert leftovers == [], f"存在未清理的暂存目录: {leftovers}"
+
+
+# ---------------------------------------------------------------- R31
+
+
+def test_reader_rejects_manifest_firmware_path_escape(tmp_path: Path) -> None:
+    """manifest 的 ps_file/pl_file 必须是组件内的普通文件"""
+    outside = tmp_path / "external_run"
+    outside.write_bytes(b"outside")
+
+    source = tmp_path / "source"
+    source.mkdir()
+    _valid_source(source)
+    manifest_path = source / "foup" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["ps_file"] = str(outside)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    package_path = tmp_path / "escapepath.tar.gz"
+    _write_package(source, package_path)
+
+    with pytest.raises(ValueError, match="PS"):
+        UpdatePackageReader(tmp_path / "work").read(package_path)
