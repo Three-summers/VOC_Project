@@ -4,6 +4,7 @@
 - 审查基线：`c84e0d2`（审查开始时工作树干净）
 - 技术栈：Python 3.11、PySide6 / QML、TCP、串口、E84 / GPIO、独立升级器
 - 本次交付：审查报告与验证证据；未修改业务代码、依赖或部署配置。
+- 状态标注（2026-09-29 追加）：每项“建议”下方新增一行 `- 状态：`，标明是否已完成及提交号；汇总与未完成原因见 [修复状态](2026-09-29-fix-status.md)。原报告正文未作其他改动。
 
 ## 1. 审查结论
 
@@ -64,6 +65,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：进入 `WAIT_TR_REQ` 后，将 `GO / CS_0 / VALID` 置为 False，只保持 `TR_REQ=True`，状态仍进入 `wait_busy`，READY 仍被置为有效。
 - 原因与影响：阶段处理只看 TR_REQ 和超时，未确认握手前提仍成立，可能对已经撤销的请求继续响应。
 - 建议：明确各阶段必须保持的输入条件，条件撤销时回到安全状态并撤回输出；补充握手中途撤销的状态机测试。
+- 状态：⏳ 待决策 — 需先确定各阶段必须保持的输入条件与撤销后的安全复位策略（现场/E84 时序确认）
 
 ### R02 — 一颗落位传感器有效就被当成装载完成
 
@@ -71,6 +73,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：`KEY_0=True`、其余两键 False 时，`FOUP_status=True`，`WAIT_L_REQ` 进入 `wait_compt`；与此同时 HO_AVBL / ES 仍处于无效状态。
 - 原因与影响：`FOUP_status` 表示至少检测到载具，却被用作完整落位条件。载具尚未正确落位时就撤回 L_REQ，内部状态与可用信号不一致。
 - 建议：分离“检测到载具”和“完整落位”语义；装载完成条件应与落位传感器、消抖及设备协议一致。实机验证传感器先后触发和载具倾斜场景。
+- 状态：⏳ 待决策 — 需先确定“检测到载具”与“完整落位”的判定口径（现场接线与机械协议）
 
 ### R03 — 执行机构本机通信异常没有进入 E84 故障锁存
 
@@ -78,6 +81,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：模拟 `insert.move_to_step()` 抛出 `OSError("USB write failed")`，仅产生报警；桥接对象的故障锁存仍为 False，E84 锁存方法调用次数为 0。
 - 原因与影响：串口返回 `error:` 会撤回 READY，但本机连接/写入异常只返回 False 并记录报警。机械动作失败后，握手没有得到同等级的故障处理。
 - 建议：统一执行机构失败入口，把连接失败、写入失败和设备主动上报错误纳入明确的联锁策略；避免只处理一种错误来源。
+- 状态：⏳ 待决策 — 需先确定执行机构本机通信异常是否一律进入故障锁存（会改变现场行为）
 
 ### R04 — 停止 E84 控制器时保留了有效硬件输出
 
@@ -85,6 +89,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：已输出 READY 和 U_REQ 后调用 `stop()`，两者仍保持有效。
 - 原因与影响：`stop()` 只停止定时器，没有设置停止状态的输出；GUI 退出链也没有明确执行这部分安全复位。软件停止监控后，外部可能仍看到有效握手信号。
 - 建议：定义并显式设置停机输出状态，在控制器所属线程完成后再退出；不能只依赖 QObject 删除或进程结束。断电/退出后的真实电平另做现场验证。
+- 状态：⏳ 待决策 — 需先确定控制器停止/应用退出时 GPIO 输出的目标状态
 
 ### R05 — 日志下载允许服务端指定目标目录之外的文件
 
@@ -92,6 +97,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：目录传输先返回 `D_START /remote/Log`，随后 FILE 报文给出不属于该根的绝对路径，程序成功写入临时下载目录之外的 `outside.csv`。
 - 原因与影响：仅通过字符串 `replace()` 映射路径，缺少路径归属验证；异常服务端可覆盖应用进程有权限写入的其他文件。`..` 和符号链接也需要一并考虑。
 - 建议：分别约束服务端相对路径和本地规范化路径，拒绝绝对路径、越界路径及链接逃逸；校验完成后再创建目录和打开文件。
+- 状态：✅ 已完成（`aab5a39`）— 服务端路径归一化并校验归属，创建父目录后再用 realpath 复核，拒绝绝对路径、`..` 与符号链接逃逸
 
 ### R06 — 日志下载中断会破坏已有完整文件
 
@@ -99,6 +105,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：本地已有 `history.csv`，服务端宣告发送 20 字节但中途结束。方法抛出传输异常后，原文件内容已变为 `b''`。
 - 原因与影响：直接以 `wb` 打开最终文件，接收完整之前便截断旧数据；重复下载时一次网络故障即可损坏之前保存的日志。
 - 建议：写入同目录临时文件，完成长度校验并关闭后原子替换；失败只删除临时文件，保留原文件。补充“已有文件 + 中断/超时”测试。
+- 状态：✅ 已完成（`aab5a39`）— 先写同目录 `.part` 临时文件，字节数校验通过后原子替换；失败清理临时文件并保留原日志
 
 ### R07 — 注销后不输入密码也能重新登录
 
@@ -106,6 +113,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：管理员登录 → 点击用户名注销 → 重新打开登录框 → 直接确定。实际重新登录成功，弹窗仍保留长度为 6 的密码。
 - 原因与影响：登录弹窗关闭时只清除错误提示，用户名和密码持续保存在输入框中。下一位操作员无需知道密码即可恢复上一次权限。
 - 建议：登录成功、取消、关闭及注销时清除密码；重新打开必须重新输入。添加覆盖完整登录—注销—重新登录流程的界面测试。
+- 状态：✅ 已完成（`5d08c05`）— 登录框打开与关闭都会清空用户名密码，注销后必须重新输入
 
 ### R08 — 通道配置显示第三通道，却把参数保存到第一通道
 
@@ -113,6 +121,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：实际三通道模型中选择第三通道，关闭再重新打开配置框。此时 `selectedChannel=0`，ComboBox 的 `currentIndex=2`。
 - 原因与影响：入口每次 `openWithChannel(0)`，但没有同步选择器显示；保存以 `selectedChannel` 为准。操作员可能无意修改第一通道的 OOC / OOS 阈值和单位。
 - 建议：让选择器与待保存通道共用一个状态来源；重开、模型变化和保存时保持一致，补充多通道往返操作测试。
+- 状态：⏳ 未开始 — 已独立复核确认存在（`openWithChannel(0)` 重置 `selectedChannel`，ComboBox 仍保留上一次 `currentIndex`），建议下一批修复
 
 ### R09 — 默认尺寸下“故障复位”按钮被底部导航遮挡
 
@@ -120,6 +129,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：按默认 1024×768 主窗口几何装配真实业务组件。命令区为 `y=120, height=568`；故障复位按钮为 `y=691..747`，落入 `y=688..768` 的底部导航区域。截图确认按钮被覆盖。
 - 原因与影响：9 个按钮放在没有滚动能力的 Column 中，所需高度超过可用空间。关键故障恢复入口在默认尺寸下不可见。
 - 建议：为命令区提供可滚动布局或重新分组，并保证关键恢复操作可达；测试默认分辨率及字号/缩放组合。
+- 状态：✅ 已完成（`5d08c05` + `39924e4`）— 命令区改为可滚动，内边距由 CommandPanel 统一提供；已用窗口坐标断言与离屏截图确认“故障复位”可完整滚入可视区
 
 ![默认尺寸下 Loadport 命令区与底部导航](evidence/2026-09-29/loadport-panel.png)
 
@@ -131,6 +141,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：在 Python 3.11.13 上构造“指向解包目录外的符号链接 + 链接内文件”的 tar 包，解包后成功在外部临时目录写入 marker；随后 manifest 校验失败也无法撤销该写入。
 - 原因与影响：预先校验 `member.name` 时链接尚未落盘，后续 `extractall()` 跟随新建链接。处理被篡改的包时，解包阶段即可写出工作目录。
 - 建议：使用兼容最低 Python 版本的安全提取策略；必要时拒绝符号链接、硬链接及特殊文件，并在实际提取时持续约束路径。不能只检查成员名称。
+- 状态：✅ 已完成（`8dc32d4`）— 逐项解包并拒绝符号链接/硬链接/特殊文件，父目录自行创建，不再使用 extractall
 
 ### R11 — 升级版本字符串可使安装目录逃逸 releases
 
@@ -138,6 +149,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：版本为 `x/../../outside` 时，安装器在 `releases` 同级目录写入应用并切换 current，模拟命令执行器记录到正常安装流程。
 - 原因与影响：版本只要求非空，直接用于路径拼接；恶意或错误版本字段可改变安装目标，绕过版本目录边界。
 - 建议：限制版本字符串允许的格式，并验证最终目标是 releases 下的直接子目录；拒绝路径分隔符和上级跳转。
+- 状态：✅ 已完成（`8dc32d4`）— 版本字符串格式校验，且 release 目标必须是 `releases/` 的直接子目录
 
 ### R12 — 升级包声明了哈希，但安装前完全没有校验
 
@@ -145,6 +157,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：构造结构完整、manifest 中 SHA-256 明显不匹配的包，`UpdatePackageReader.read()` 仍正常返回。
 - 原因与影响：代码只检查 component、版本和文件存在性，忽略 `sha256`。与设计要求不符，可能把已损坏的应用或固件继续送入安装。
 - 建议：提供哈希时必须逐项验证成功后才能安装；缺失文件、错误哈希和非法哈希路径都应明确失败。哈希校验本身不等于可信来源认证。
+- 状态：✅ 已完成（`8dc32d4`）— manifest 声明 sha256 时逐项校验路径归属、文件存在与摘要匹配
 
 ### R13 — systemd 切换 current 后可能仍运行原有代码
 
@@ -152,6 +165,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：模板从 release 根目录执行 `python -m voc_app.gui.app`，项目却是 `src/` 布局。用现有虚拟环境在临时 release 目录查导入位置，仍得到原 checkout 的 `src/voc_app`；禁用 site / editable 路径后无法找到模块。
 - 原因与影响：仅改变 WorkingDirectory 不会自动把 `current/src` 加入模块搜索路径。根据虚拟环境安装方式，可能启动失败，也可能一直运行旧安装位置的代码；current 切换不等于代码切换。
 - 建议：明确让服务从当前 release 加载源码或独立安装产物，并验证启动进程实际模块路径与版本。复现未启动真实 systemd 服务。
+- 状态：⏳ 待决策 — 需先确定部署方式（release 内带 `src` 走 PYTHONPATH / 安装 wheel / 解除 venv 旧路径绑定）
 
 ### R14 — 新版本启动超时等异常不会触发回滚
 
@@ -159,6 +173,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：切换 current 后模拟 `systemctl start` 抛 `TimeoutExpired`，安装直接退出，current 仍指向新版本。
 - 原因与影响：只有 `is-active` 返回非零会进入回滚分支，启动、状态检查抛异常时不在恢复流程中。旧 GUI 已停止时可能形成持续停机。
 - 建议：把停止、切换、启动、确认纳入完整事务式恢复流程；错误后恢复旧链接并验证旧服务恢复，分别测试返回码失败与命令异常。
+- 状态：⏳ 待决策 — 需先确定升级事务化范围（启动超时等异常的回滚策略）
 
 ### R15 — 部分复制留下的 release 被直接复用，重试无法修复
 
@@ -166,72 +181,89 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：预建只有 `stale.txt` 的目标 release 后重试安装，`app.py` 仍不存在，但安装器写入版本 manifest 并继续切换 current、启动服务。
 - 原因与影响：仅以目标目录存在判定是否需要复制。上次复制中断留下的残缺目录会持续被当成完整版本，甚至获得正确的新版本标记。
 - 建议：先在临时目录完成复制和完整性验证，再原子发布；复用已有版本前重新验证，不能只补写 manifest。
+- 状态：✅ 已完成（`8dc32d4`）— 暂存目录复制 + 完整性校验 + 原子发布，残缺 release 重建；本项曾因上一轮补写 manifest 的改动而加重，已一并纠正
 
 ## 4. P2：功能、状态及可靠性问题
 
 ### R16 — 串口读取线程死亡后仍显示已连接，自动重连无效
 
 位置：[ascii_serial.py:80](../../src/voc_app/loadport/ascii_serial.py#L80)。模拟读取异常后，读线程已经退出，`is_connected=True`；再次 `connect()` 不创建新串口或新读线程，工厂调用次数仍为 1。后续设备反馈及错误消息会丢失。应在读失败时更新连接状态、释放失效对象并允许重建接收线程，向上层发出明确故障通知。
+- 状态：⏳ 未开始 — 需先定义串口失效检测与读线程重建策略
 
 ### R17 — QThread 先退出，排队的控制器清理可能没有执行
 
 位置：[e84_thread.py:78](../../src/voc_app/loadport/e84_thread.py#L78)。工作线程正在处理 120 ms 模拟任务时调用 `stop()`，实测线程已结束但 worker 仍持有控制器、refresh timer 仍 active，并产生跨线程停止定时器警告。原因是排队 `stop_controller` 后立即 `quit()`。应等待 worker 清理完成后再退出线程，并处理有界等待和销毁顺序。
+- 状态：⏳ 未开始 — 需先定义有界等待与销毁顺序
 
 ### R18 — 协议帧大小上限不能真正限制接收内存
 
 位置：[socket_client.py:155](../../src/voc_app/gui/socket_client.py#L155)、[foup_acquisition.py:866](../../src/voc_app/gui/foup_acquisition.py#L866)、同文件 `:923`。Client 对超大帧仍调用 `_recvall(msglen)`；输入 `0xffffffff` 后，替身记录到请求读取 4,294,967,295 字节。FOUP 的两条收帧路径没有长度上限。异常服务端持续提供内容时可造成大量内存占用；本次只验证读取请求，未实际分配 4 GB。应拒绝超限帧并关闭连接，或使用有界丢弃机制，同时限制文件大小与负长度。
+- 状态：⏳ 待决策 — 需先确定协议帧/文件大小上限阈值与超限处理
 
 ### R19 — 上一次停止的延迟清理会关闭新启动的采集
 
 位置：[foup_acquisition.py:299](../../src/voc_app/gui/foup_acquisition.py#L299)、同文件 `:373`。停止后旧 worker 很快结束，用户在 500 ms 内重新启动；旧的定时清理随后操作当前 `_communicator/_worker`。两次真实 Python 线程、真实 Qt 定时器的隔离复现中，新连接也被关闭，第二次采集变为停止。应让清理绑定对应会话资源，或在清理完成前禁止重启；避免旧回调访问新会话的共享引用。
+- 状态：⏳ 待决策 — 需先确定采集会话清理策略（绑定会话资源或禁止 500ms 内重启）
 
 ### R20 — 修改 FOUP IP 后 E84 仍可能沿用旧设备连接
 
 位置：[foup_acquisition.py:174](../../src/voc_app/gui/foup_acquisition.py#L174)、同文件 `:819`。已有 `_e84_communicator` 时修改 host，随后 `_ensure_e84_connected()` 返回的仍是原连接，已用替身确认。IP 显示已改变，但控制命令仍可能发往旧地址，而下载使用新地址。应在受锁保护的设备切换流程中关闭旧控制连接、清除旧身份，并防止切换与 E84 控制并发。
+- 状态：⏳ 待决策 — 需先确定修改 IP 时切换设备连接的时机与并发约束
 
 ### R21 — 版本查询阶段会把数据或错误文本当成设备身份
 
 位置：[foup_acquisition.py:509](../../src/voc_app/gui/foup_acquisition.py#L509)、同文件 `:532`、`:896`。查询阶段使用宽松解析；`1.2e5` 被解析为前缀 `1.2E5`，`ERROR no device` 被解析为 `ERROR NO DEVICE`，随后可拼成错误控制命令。流式阶段虽使用严格身份正则，查询阶段没有同等校验。该问题只在查询期间收到非身份报文时触发，正常版本响应不受影响。建议统一身份校验并显式处理 ACK、错误和数据帧。
+- 状态：✅ 已完成（`5d08c05`）— 查询与流式阶段共用 `_parse_identity`，只接受大写 `PREFIX,version` 或单独 `PREFIX`
 
 ### R22 — 图表报警颜色忽略了限界启用开关
 
 位置：[ChartCard.qml:85](../../src/voc_app/gui/qml/components/ChartCard.qml#L85)。默认 Noise 预设关闭下限，正常值 60 在 OOS 下限 80、OOC 下限 70 时仍显示报警红 `#e11d48`，真实组件已复现。后台越限检测尊重开关，界面颜色没有检查，导致“界面红色、后台无报警”。应共用或严格对齐限界判定规则。
+- 状态：⏳ 未开始 — 建议下一批修复：复用后台限界判定规则，消除“界面红色、后台无报警”
 
 ### R23 — 图表统一把 Y 轴下界截到零，负数数据不可见
 
 位置：[ChartCard.qml:376](../../src/voc_app/gui/qml/components/ChartCard.qml#L376)、同文件 `:495`。CSV 含 `-10、-5` 且关闭参考线时，真实 ChartView 轴范围为 `[0,1]`，有效数据全部落在视口之外；实时路径也有同样约束。配置允许负值，温度等数据也可能为负。应按数据及业务量纲确定轴范围，不对通用图表统一截零。
+- 状态：⏳ 未开始 — 建议下一批修复：按数据与量纲决定 Y 轴范围，不再统一截零
 
 ### R24 — 反复加载 CSV 会累积旧列对象及整份历史数据
 
 位置：[csv_model.py:383](../../src/voc_app/gui/csv_model.py#L383)、同文件 `:537`。两列 CSV 重复加载 10 次后，GC 和 Qt 事件处理后仍有 20 个 `ColumnData` 子对象，而当前模型只有 2 列。原因是旧对象仍以长寿命 dataModel 为父对象，替换 Python 列表不会销毁它们。长时间切换日志会持续占用内存。应在模型重置后按 Qt 所有权规则释放旧对象，并增加重复加载的资源稳定性验证。
+- 状态：✅ 已完成（`5d08c05`）— `resetModelData` 用 `deleteLater()` 释放旧列对象
 
 ### R25 — 打开零字节 CSV 后显示状态仍属于上一个文件
 
 位置：[csv_model.py:505](../../src/voc_app/gui/csv_model.py#L505)。有效文件后再打开空文件，实测 `activeFile=good.csv`、`dataPointCount=2`、`parseMessage=''`，但模型行数已为 0。空文件分支只清模型就返回，没有同步文件名、点数与提示。页面无法解释空图，后续逻辑还可能重新加载旧文件。应让成功、空文件、缺失和解析失败统一更新状态。
+- 状态：✅ 已完成（`5d08c05`）— 0 字节 CSV 走统一收尾流程，文件名/点数/提示同步更新
 
 ### R26 — FOUP 的 SCP 上传没有使用配置的 SSH 密钥
 
 位置：[commands.py:34](../../tools/updater/voc_updater/commands.py#L34)、[foup.py:49](../../tools/updater/voc_updater/foup.py#L49)。捕获实际命令构造可见 SSH 使用 `-i <配置密钥>`，上传却只是 `scp local remote`。配置非默认密钥且 SSH agent 没有等效身份时，挂载可以成功，上传却认证失败或等待交互。应让 SSH 与 SCP 共用认证参数和非交互策略；本次未连接远端。
+- 状态：⏳ 未开始 — 建议与 R14/R27 一并在升级事务化中处理（SSH 与 SCP 共用认证参数）
 
 ### R27 — 忽略停止服务失败，可将旧进程误记为升级成功
 
 位置：[loadport.py:36](../../tools/updater/voc_updater/loadport.py#L36)。注入 stop 返回码 1、start 与 is-active 返回码 0，安装器仍正常结束并切换 current。若旧服务根本未停止，后续 start 对已运行服务可能无效果，is-active 却依然成功。应检查每一步返回码，并确认实际运行进程属于目标版本；不能仅使用“服务 active”代表升级完成。
+- 状态：⏳ 未开始 — 建议与 R14/R29/R30 一并在升级事务化中处理（逐步检查返回码）
 
 ### R28 — GUI 默认升级状态文件路径与部署设计不一致
 
 位置：[app.py:758](../../src/voc_app/gui/app.py#L758)。release 中解析得到 `PROJECT_ROOT=base/releases/loadport-X`，默认状态文件因此是 `base/releases/state/update_status.json`；升级设计配置使用 `base/state/update_status.json`。内置 state_file 为空时默认读取不到升级状态。路径推导已独立验证。应共享稳定的部署根或显式配置同一个绝对路径，避免根据 release 父级猜测。
+- 状态：✅ 已完成（`dd31521`）— 状态文件按部署根推导（向上寻找同时含 `releases/` 与 `current` 的目录）
 
 ### R29 — 回滚成功后界面仍把目标版本显示为当前版本
 
 位置：[orchestrator.py:79](../../tools/updater/voc_updater/orchestrator.py#L79)、[update_status.py:56](../../src/voc_app/gui/update_status.py#L56)。从版本 1 更新至 2，健康检查失败并成功回滚后，current 已回到 1，界面却显示 `Loadport v2 | Update: failed`。状态写入始终使用包版本，并覆盖 GUI 的当前版本。应区分目标版本与实际运行版本，回滚后重新读取当前版本。
+- 状态：⏳ 未开始 — 建议与 R14/R27/R30 一并在升级事务化中处理（区分目标版本与实际运行版本）
 
 ### R30 — 包校验等前置步骤失败，不会正确记录失败状态
 
 位置：[orchestrator.py:28](../../tools/updater/voc_updater/orchestrator.py#L28)、同文件 `:32`。预置上次 succeeded 状态，再提交无效/缺失包，读取失败后状态仍是 succeeded；读取当前版本失败也位于安装阶段的异常处理之外，可能留下 running。应把整个升级尝试纳入状态生命周期，记录本次任务及阶段，不让旧成功状态冒充本次结果。
+- 状态：⏳ 未开始 — 建议与 R14/R27/R29 一并在升级事务化中处理（覆盖整个升级尝试的状态生命周期）
 
 ### R31 — manifest 的固件路径允许引用升级包外的文件
 
 位置：[package.py:73](../../tools/updater/voc_updater/package.py#L73)。将 `ps_file` 设为解包目录外已有临时文件的绝对路径，reader 正常返回该路径；后续安装器会把它当作固件来源。当前只检查 exists，没有约束为组件内的普通文件。应拒绝绝对路径、上级跳转及链接逃逸，检查最终文件归属和类型。此项是 manifest 引用边界问题，与 R10 的 tar 提取越界不同。
+- 状态：✅ 已完成（`8dc32d4`）— manifest 的 `ps_file`/`pl_file` 限定为组件内普通文件
 
 ### R32 — 依赖锁没有包含已声明的 PyYAML
 
@@ -240,10 +272,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 TOML 对比确认 pyproject 声明 `PyYAML>=6.0`，但锁中项目依赖和包列表都没有 PyYAML。依赖严格锁定或 frozen 安装不能据此保证升级器可导入 `yaml`。应同步生成并提交锁文件，在干净环境验证升级器导入。离线 lock-check 因依赖缓存不足未完成，本结论依据文件内容对比，不声称已验证一次全新安装失败。
 
 ## 5. P3：当前未启用路径中的问题
+- 状态：✅ 已完成（`dd31521`）— `uv.lock` 补齐 pyyaml 6.0.3，`uv lock --check` 通过
 
 ### R33 — 通用异步 Socket 桥接执行一次后永久 busy
 
 位置：[qml_socket_client_bridge.py:76](../../src/voc_app/gui/qml_socket_client_bridge.py#L76)、同文件 `:114`。第一次异步操作已返回 `ok`，主 Qt 事件循环持续处理 500 ms 后 `busy` 仍为 True；第二次操作被“上一个操作尚未完成”拒绝。无接收上下文的 `QTimer.singleShot()` 在 Python 工作线程中没有把回调投递到主线程。应使用绑定主线程 QObject 的队列信号/调用。当前 QML 中未找到该桥接异步方法的实际调用，因此不把它描述为现有采集按钮必现故障。
+- 状态：⏳ 未开始 — 功能入口已隐藏，重新启用前修复（改用绑定主线程 QObject 的队列调用）
 
 ### R34 — 全零时域信号被频谱模型转换成满量程
 
@@ -296,3 +330,4 @@ TOML 对比确认 pyproject 声明 `PyYAML>=6.0`，但锁中项目依赖和包�
 证据中的 `/tmp` 路径均为审查隔离目录。图表负值复现的最小装配曾缺少 `chartLegendHelper` 上下文而产生一条提示；该提示不计为产品错误，负值轴范围结论同时由对应轴设置代码确认。
 
 本报告是指定提交上的代码与软件行为审查，不替代设备联调验收。后续修复若改变文件行号，应按问题编号与函数名追踪。
+- 状态：⏳ 未开始 — 功能入口已隐藏，重新启用前修复（无信号单独处理并明确归一化语义）
