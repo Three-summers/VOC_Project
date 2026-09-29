@@ -73,3 +73,33 @@ def test_loadport_installer_rolls_back_when_start_check_fails(tmp_path: Path) ->
         raise AssertionError("expected RuntimeError")
 
     assert current.resolve() == old_release.resolve()
+
+
+def test_install_copies_manifest_so_version_can_be_read(tmp_path: Path) -> None:
+    """release 内必须带有版本 manifest，否则版本比较永远失效（每次升级都重启 GUI）"""
+    import json
+
+    from voc_app.version_info import get_loadport_version
+
+    root = tmp_path / "package" / "loadport"
+    new_app = root / "app"
+    _make_app(new_app, "new")
+    (root / "manifest.json").write_text(
+        json.dumps({"component": "loadport", "version": "1.2.3"}),
+        encoding="utf-8",
+    )
+
+    releases = tmp_path / "releases"
+    current = tmp_path / "current"
+    installer = LoadportInstaller(
+        releases_dir=releases,
+        current_link=current,
+        gui_service="voc-gui.service",
+        systemctl_scope="user",
+        runner=FakeCommandRunner(),
+    )
+
+    installer.install(version="1.2.3", app_dir=new_app)
+
+    assert (current / "loadport" / "manifest.json").exists()
+    assert get_loadport_version(current) == "1.2.3"

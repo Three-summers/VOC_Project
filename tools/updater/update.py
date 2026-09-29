@@ -7,18 +7,12 @@ from pathlib import Path
 
 from voc_updater.commands import CommandRunner
 from voc_updater.config import load_config
+from voc_updater.flow import archive_package, find_next_package
 from voc_updater.foup import FoupInstaller
 from voc_updater.foup_version import FoupVersionClient
 from voc_updater.loadport import LoadportInstaller
 from voc_updater.orchestrator import UpdateOrchestrator
 from voc_updater.package import UpdatePackageReader
-
-
-def _find_package(updates_dir: Path) -> Path:
-    packages = sorted(updates_dir.glob("*.tar.gz"), key=lambda path: path.stat().st_mtime)
-    if not packages:
-        raise FileNotFoundError(f"no update package found in {updates_dir}")
-    return packages[0]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    package_path = Path(args.package) if args.package else _find_package(
+    package_path = Path(args.package) if args.package else find_next_package(
         config.paths.updates_dir
     )
     runner = CommandRunner()
@@ -77,7 +71,13 @@ def main(argv: list[str] | None = None) -> int:
         state_file=config.paths.state_file,
         log_file=config.paths.log_file,
     )
-    orchestrator.run(package_path)
+    # 无论成功失败都要把包移出 updates/，否则 .path 单元会反复触发同一个包
+    try:
+        orchestrator.run(package_path)
+    except Exception:
+        archive_package(package_path, config.paths.updates_dir, success=False)
+        raise
+    archive_package(package_path, config.paths.updates_dir, success=True)
     return 0
 
 

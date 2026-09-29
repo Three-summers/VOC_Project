@@ -77,3 +77,25 @@ def test_package_reader_rejects_missing_run(tmp_path: Path) -> None:
         assert "missing FOUP PS file" in str(exc)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_package_reader_recovers_from_stale_work_dir(tmp_path: Path) -> None:
+    """上次解包残留的目录不应让第二次升级永久失败"""
+    source = tmp_path / "source"
+    source.mkdir()
+    _valid_source(source)
+    package_path = tmp_path / "voc-update.tar.gz"
+    _write_package(source, package_path)
+
+    work_dir = tmp_path / "work"
+    reader = UpdatePackageReader(work_dir)
+    reader.read(package_path)
+
+    # 模拟上次运行留下的残留（未清理的 work 目录 + 被改坏的文件）
+    stale = work_dir / "voc-update"
+    assert stale.exists()
+    (stale / "loadport" / "manifest.json").write_text("{broken", encoding="utf-8")
+
+    result = reader.read(package_path)
+
+    assert result.loadport_version == "1.2.3"

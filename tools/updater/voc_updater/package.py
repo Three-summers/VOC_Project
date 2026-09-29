@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tarfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,9 +39,13 @@ class UpdatePackageReader:
         if not source_package.exists():
             raise ValueError(f"package does not exist: {source_package}")
 
-        extract_dir = self.work_dir / source_package.stem.replace(".tar", "")
+        extract_dir = (self.work_dir / source_package.stem.replace(".tar", "")).resolve()
+        work_root = self.work_dir.resolve()
+        if work_root != extract_dir and work_root not in extract_dir.parents:
+            raise ValueError(f"invalid work directory for package: {source_package.name}")
         if extract_dir.exists():
-            raise ValueError(f"work directory already exists: {extract_dir}")
+            # 上次运行留下的解包残留：清掉重来，否则第二次升级会永久失败
+            shutil.rmtree(extract_dir)
         extract_dir.mkdir(parents=True, exist_ok=False)
         with tarfile.open(source_package, "r:gz") as tar:
             self._extract_safely(tar, extract_dir)

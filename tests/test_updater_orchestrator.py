@@ -107,3 +107,42 @@ def test_orchestrator_installs_changed_components(tmp_path: Path) -> None:
         )
     ]
     assert json.loads(state_file.read_text())["update_state"] == "succeeded"
+
+
+class FailingFoupClient:
+    def get_version(self):
+        raise ConnectionError("foup unreachable")
+
+
+def test_orchestrator_keeps_loadport_update_when_foup_unreachable(
+    tmp_path: Path,
+) -> None:
+    """FOUP 查询失败不能阻塞 Loadport 升级，也不能把状态永久留在 running"""
+    state_file = tmp_path / "state.json"
+    log_file = tmp_path / "update.log"
+    loadport_installer = FakeLoadportInstaller()
+    foup_installer = FakeFoupInstaller()
+    orchestrator = UpdateOrchestrator(
+        reader=FakeReader(),
+        current_loadport_version=FakeLoadportVersion("1.0.0"),
+        foup_client=FailingFoupClient(),
+        loadport_installer=loadport_installer,
+        foup_installer=foup_installer,
+        state_file=state_file,
+        log_file=log_file,
+    )
+
+    try:
+        orchestrator.run(tmp_path / "package.tar.gz")
+    except Exception as exc:
+        assert "FOUP" in str(exc) or "foup" in str(exc)
+    else:
+        raise AssertionError("expected the FOUP failure to surface")
+
+    # Loadport 升级必须照常执行
+    assert loadport_installer.calls == [("1.2.3", Path("/package/loadport/app"))]
+    assert foup_installer.calls == []
+
+    state = json.loads(state_file.read_text())
+    assert state["update_state"] == "failed"
+    assert "FOUP" in state["update_message"] or "foup" in state["update_message"]

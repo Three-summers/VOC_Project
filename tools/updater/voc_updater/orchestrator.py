@@ -30,20 +30,29 @@ class UpdateOrchestrator:
         self.state.log(f"package loaded: {package_path}")
 
         current_loadport = self.current_loadport_version()
-        current_foup = self.foup_client.get_version()
-
         loadport_changed = current_loadport != package.loadport_version
-        ps_changed = current_foup.ps_version != package.foup_ps_version
-        pl_changed = current_foup.pl_version != package.foup_pl_version
 
-        if not loadport_changed and not ps_changed and not pl_changed:
-            self.state.write_status(
-                package.loadport_version,
-                "skipped",
-                "Versions already match",
-            )
-            self.state.log("update skipped: all versions match")
-            return
+        # FOUP 版本查询失败不应阻塞 Loadport 升级（设计文档要求），
+        # 但必须显式记录失败，不能让状态永久停留在 running。
+        foup_error: Exception | None = None
+        ps_changed = False
+        pl_changed = False
+        try:
+            current_foup = self.foup_client.get_version()
+        except Exception as exc:  # noqa: BLE001
+            foup_error = exc
+            self.state.log(f"foup version query failed: {exc}")
+        else:
+            ps_changed = current_foup.ps_version != package.foup_ps_version
+            pl_changed = current_foup.pl_version != package.foup_pl_version
+            if not loadport_changed and not ps_changed and not pl_changed:
+                self.state.write_status(
+                    package.loadport_version,
+                    "skipped",
+                    "Versions already match",
+                )
+                self.state.log("update skipped: all versions match")
+                return
 
         try:
             if loadport_changed:
@@ -70,6 +79,12 @@ class UpdateOrchestrator:
             self.state.write_status(package.loadport_version, "failed", str(exc))
             self.state.log(f"update failed: {exc}")
             raise
+
+        if foup_error is not None:
+            message = f"FOUP update skipped: {foup_error}"
+            self.state.write_status(package.loadport_version, "failed", message)
+            self.state.log(message)
+            raise RuntimeError(message)
 
         self.state.write_status(package.loadport_version, "succeeded", "Update completed")
         self.state.log("update succeeded")
