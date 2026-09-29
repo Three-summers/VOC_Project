@@ -1,0 +1,25 @@
+2026-09-29 14:36:26,357 - voc_app.app_paths - INFO - 已生成用户系统配置: /tmp/voc-ui-audit-kar3o7v1/system_config.json
+2026-09-29 14:36:26,357 - voc_app.app_paths - INFO - 已迁移旧通道配置到数据目录: /tmp/voc-ui-audit-kar3o7v1/channel_config.json
+2026-09-29 14:36:26,427 - voc_app.gui.foup_acquisition - INFO - 使用默认前缀: NOISE_HUMILITY (通道数: 3)
+qml: Logged in as admin
+qml: Logged in as admin
+LOGIN authenticated True
+REOPEN password length 6 username admin
+RELOGIN no typing True
+LOADPORT PANEL height 568.0
+COMMAND 锁定 y 163.0 bottom 219.0 windowH 768
+COMMAND Load y 559.0 bottom 615.0 windowH 768
+COMMAND Unload y 625.0 bottom 681.0 windowH 768
+COMMAND 故障复位 y 691.0 bottom 747.0 windowH 768
+CHANNEL selected/displayed 2 2
+REOPEN selected/displayed 0 2
+LIMIT geometry 24.0 599.0 parentheight 568.0
+CSV children/current columns 20 2
+CSV EMPTY state good.csv 2 '' 0
+2026-09-29 14:36:29,252 - voc_app.app_paths - INFO - 已生成用户系统配置: /tmp/voc-ui-audit-dtbmzymi/system_config.json
+2026-09-29 14:36:29,252 - voc_app.app_paths - INFO - 已迁移旧通道配置到数据目录: /tmp/voc-ui-audit-dtbmzymi/channel_config.json
+file:///home/say/code/python/VOC_Project/src/voc_app/gui/qml/components/ChartCard.qml:127: ReferenceError: chartLegendHelper is not defined
+NEGATIVE_CHART {'axisMax': 1.0, 'axisMin': 0.0}
+2026-09-29 14:36:29,675 - voc_app.app_paths - INFO - 已生成用户系统配置: /tmp/voc-ui-audit-mnmj2xwa/system_config.json
+2026-09-29 14:36:29,675 - voc_app.app_paths - INFO - 已迁移旧通道配置到数据目录: /tmp/voc-ui-audit-mnmj2xwa/channel_config.json
+NORMAL 60 colour #e11d48

@@ -1,0 +1,9 @@
+2026-09-29 14:32:58,095 - voc_app.loadport.ascii_serial - ERROR - 串口读取异常: disconnected device
+2026-09-29 14:32:58,095 - voc_app.loadport.e84_passive - INFO - Unload 流程开始，发出数据采集 START 信号
+2026-09-29 14:32:58,098 - voc_app.gui.app - ERROR - Unload 动作失败: USB write failed
+AUDIT_RESULTS={"serial_error": {"error": "disconnected device", "connected": true, "reader_alive": false, "factory_calls_after_reconnect": 1, "same_reader": true}, "withdrawn_handshake": {"state": "wait_busy", "ready_asserted": true}, "stopped_outputs": {"ready_still_asserted": true, "request_still_asserted": true}, "one_key_load": {"state": "wait_compt", "foup_present": true, "ho_available": false, "es": false}, "actuator_write_error": {"alarm": ["[ERROR] Unload 解锁动作执行失败"], "bridge_latched": false, "latch_method_calls": 0}}
+2026-09-29 14:32:58,217 - voc_app.loadport.e84_thread - INFO - E84 Worker: 正在启动控制器...
+2026-09-29 14:32:58,218 - voc_app.loadport.e84_thread - INFO - E84 Worker: 控制器启动成功
+THREAD_STOP_RESULT={"thread_running": false, "worker_controller_left": true, "timer_active": true}
+QObject::killTimer: Timers cannot be stopped from another thread
+QObject::~QObject: Timers cannot be stopped from another thread

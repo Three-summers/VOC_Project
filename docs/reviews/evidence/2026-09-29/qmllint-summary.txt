@@ -1,0 +1,4 @@
+Files: 45
+Levels: {'info': 29, 'warning': 576}
+Categories: {'unused-imports': 29, 'unqualified': 459, 'missing-property': 91, 'import': 14, 'duplicate-import': 4, 'Quick.layout-positioning': 7, 'unresolved-type': 1}
+No error-level diagnostic. Warnings are not all confirmed product defects.

@@ -1,0 +1,6 @@
+PATH_ESCAPE: True download_dir: /tmp/voc-audit-network-9l6_s86m/downloads written: ['/tmp/voc-audit-network-9l6_s86m/outside.csv']
+INTERRUPTED_DOWNLOAD: 文件传输中断或超时。 existing_content: b''
+2026-09-29 14:27:06,062 - voc_app.gui.socket_client - WARNING - 消息过大 (4294967295 bytes)，已丢弃
+OVERSIZE_RECV_REQUESTS: [4, 4294967295]
+2026-09-29 14:27:06,062 - voc_app.gui.qml_socket_client_bridge - INFO - 已连接到 mock:1
+ASYNC_BUSY: True results: ['ok'] errors: ['忙碌中：上一个操作尚未完成']

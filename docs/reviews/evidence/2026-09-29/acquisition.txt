@@ -1,0 +1,8 @@
+STALE_CLEANUP: ['new_connection_closed'] new_running: False worker_reference: None
+HANDSHAKE_IDENTITY '1.2e5' -> ('', '1.2E5')
+HANDSHAKE_IDENTITY 'nan,1.2' -> ('1.2', 'NAN')
+HANDSHAKE_IDENTITY 'ERROR no device' -> ('', 'ERROR NO DEVICE')
+HOST_CHANGE_REUSES_OLD_CONNECTION: True
+Real Qt timer and worker-thread restart reproduction:
+RAPID_RESTART: {'sessions': 2, 'closed_sessions': [1, 2], 'new_session_running': False}
+

@@ -1,0 +1,14 @@
+{"case": "tar_link_escape", "outside_written": true, "eventual_error": "missing manifest: /tmp/voc-audit-tx7z9y4x/work1/symlink/loadport/manifest.json", "python": "3.11.13"}
+{"case": "wrong_sha256_accepted", "version": "2", "content": "new"}
+{"case": "absolute_manifest_accepted", "ps_path": "/tmp/voc-audit-tx7z9y4x/external_run", "outside_extract": true}
+{"case": "stop_failure_ignored", "current": "/tmp/voc-audit-tx7z9y4x/stop/releases/loadport-2", "commands": [["systemctl", "--user", "stop", "gui"], ["systemctl", "--user", "start", "gui"], ["systemctl", "--user", "is-active", "gui"]]}
+{"case": "start_timeout_no_rollback", "current_is_old": false, "current": "/tmp/voc-audit-tx7z9y4x/timeout/releases/loadport-2"}
+{"case": "partial_release_reused", "entry_exists": false, "manifest": {"component": "loadport", "version": "2"}}
+{"case": "scp_missing_identity", "commands": [["ssh", "-i", "/tmp/voc-audit-tx7z9y4x/id_custom", "root@mock.invalid", "mount /dev/mock /tmp"], ["scp", "/tmp/voc-audit-tx7z9y4x/external_run", "root@mock.invalid:/tmp/run"], ["ssh", "-i", "/tmp/voc-audit-tx7z9y4x/id_custom", "root@mock.invalid", "sync"], ["ssh", "-i", "/tmp/voc-audit-tx7z9y4x/id_custom", "root@mock.invalid", "reboot"]]}
+{"case": "rollback_status_wrong_version", "current_is_old": true, "status": {"loadport_version": "2", "update_state": "failed", "update_message": "GUI service did not become active after upgrade"}, "display": "Loadport v2 | Update: failed"}
+{"case": "validation_failure_stale_state", "status": {"update_state": "succeeded", "loadport_version": "1"}}
+{"case": "temp_root", "path": "/tmp/voc-audit-tx7z9y4x"}
+{"case": "service_import_existing_editable", "cwd": "/tmp/voc-followup-x9wnk_pf/releases/loadport-2", "imported": "/home/say/code/python/VOC_Project/src/voc_app/__init__.py", "returncode": 0}
+{"case": "service_no_editable_src_not_found", "stdout": "None"}
+{"case": "default_update_state_mismatch", "actual_gui_default": "/tmp/voc-followup-x9wnk_pf/releases/state/update_status.json", "documented_updater": "/tmp/voc-followup-x9wnk_pf/state/update_status.json"}
+{"case": "version_traversal", "target": "/tmp/voc-followup-x9wnk_pf/outside", "outside_releases": true, "marker": true}
