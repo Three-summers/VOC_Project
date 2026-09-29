@@ -4,8 +4,9 @@
 真实状态机，覆盖两件事：
 
 1. 一条正常的 Unload 握手走完并回到 IDLE（回归保护）；
-2. 记录两个已确认的业务缺陷（B5/B6），用 expectedFailure 标注，
-   修好之后会变成 XPASS 提醒把标记去掉。
+2. B5：WAIT_L_REQ/WAIT_U_REQ 阶段的 60s 超时必须生效（曾因不消费
+   timeout_expired 而永久卡死）；
+3. B6：load/unload 方向必须在握手瞬间锁定，不能按实时 FOUP_status 二次判定。
 """
 
 from __future__ import annotations
@@ -120,10 +121,9 @@ class E84HappyPathTests(unittest.TestCase):
         self.assertIn("idle", states)
 
 
-class E84KnownIssuesTests(unittest.TestCase):
-    @unittest.expectedFailure
+class E84TimingRegressionTests(unittest.TestCase):
     def test_wait_l_req_phase_honours_the_armed_timeout(self) -> None:
-        """B5：L_REQ/U_REQ 阶段武装了 60s 定时器却从不消费，卡住后无法恢复。"""
+        """B5（已修复）：L_REQ/U_REQ 阶段武装了 60s 定时器却从不消费，卡住后无法恢复。"""
         controller = _make_controller()
         controller.FOUP_status = False
         controller.state = E84State.WAIT_L_REQ
@@ -141,9 +141,8 @@ class E84KnownIssuesTests(unittest.TestCase):
             "等待 L_REQ 超时后应复位到 IDLE，而不是永久卡住",
         )
 
-    @unittest.expectedFailure
     def test_direction_is_latched_at_handoff(self) -> None:
-        """B6：load/unload 方向在 WAIT_BUSY 处按实时 FOUP_status 二次判定，
+        """B6（已修复）：load/unload 方向在 WAIT_BUSY 处按实时 FOUP_status 二次判定，
         FOUP 被提前提走会走错分支。"""
         controller = _make_controller()
         controller.FOUP_status = True  # FOUP 在位 → 本次是 Unload

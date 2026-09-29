@@ -328,6 +328,20 @@ Rectangle {
                     font.pixelSize: Components.UiTheme.fontSize("body")
                 }
 
+                // 解析提示：文件不存在 / 该文件没有数据点（下位机只在条码事件写行）
+                Text {
+                    id: parseMessageText
+                    objectName: "datalog_parse_message"
+                    visible: text.length > 0
+                    text: (typeof csvFileManager !== "undefined" && csvFileManager)
+                        ? csvFileManager.parseMessage
+                        : ""
+                    color: Components.UiTheme.color("accentAlarm")
+                    wrapMode: Text.WordWrap
+                    font.pixelSize: Components.UiTheme.fontSize("body")
+                    font.bold: true
+                }
+
                 // 该布局用于在列信息视图和绘画视图之间切换
                 StackLayout {
                     id: contentStack

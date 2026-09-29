@@ -401,6 +401,7 @@ class CsvDataModel(QAbstractListModel):
 class CsvFileManager(QObject):
     csvFilesChanged = Signal()
     activeFileChanged = Signal()
+    parseStatusChanged = Signal()
 
     def __init__(self, log_dir=None, parent=None):
         super().__init__(parent)
@@ -409,6 +410,8 @@ class CsvFileManager(QObject):
         self._csv_files = []
         self._data_model = CsvDataModel(self)
         self._active_file = ""
+        self._data_point_count = 0
+        self._parse_message = ""
         self.list_csv_files()
 
     @Property(list, notify=csvFilesChanged)
@@ -419,10 +422,31 @@ class CsvFileManager(QObject):
     def activeFile(self):
         return self._active_file
 
+    @Property(int, notify=parseStatusChanged)
+    def dataPointCount(self):
+        """最近一次解析得到的数据点总数。"""
+        return self._data_point_count
+
+    @Property(str, notify=parseStatusChanged)
+    def parseMessage(self):
+        """解析提示：空串表示正常；否则为界面可直接显示的原因。
+
+        下位机只在条码事件满足时才写行，因此"表头正常但没有数据点"是
+        现场可能出现的正常现象，必须显式告诉操作员，而不是显示空图表。
+        """
+        return self._parse_message
+
     # constant 表示属性值不会改变
     @Property(QObject, constant=True)
     def dataModel(self):
         return self._data_model
+
+    def _set_parse_status(self, count: int, message: str) -> None:
+        if self._data_point_count == count and self._parse_message == message:
+            return
+        self._data_point_count = count
+        self._parse_message = message
+        self.parseStatusChanged.emit()
 
     def list_csv_files(self):
         """兼容旧调用：扫描日志目录。"""
@@ -467,6 +491,7 @@ class CsvFileManager(QObject):
         if not file_path.exists():
             logger.warning(f"CSV 文件不存在: {file_path}")
             self._data_model.resetModelData([])
+            self._set_parse_status(0, "文件不存在")
             return
 
         logger.info(f"解析 CSV 文件: {file_path}")
@@ -513,6 +538,13 @@ class CsvFileManager(QObject):
             )
 
         self._data_model.resetModelData(final_data)
+
+        total_points = sum(len(points) for points in parsed_data)
+        if total_points == 0:
+            # 下位机只在条码事件满足时写行，空文件要明确告知操作员
+            self._set_parse_status(0, "该文件没有数据点")
+        else:
+            self._set_parse_status(total_points, "")
 
         normalized = relative_path.as_posix()
         if self._active_file != normalized:

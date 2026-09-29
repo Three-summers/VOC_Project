@@ -94,12 +94,55 @@ class FoupAcquisitionE84Tests(unittest.TestCase):
             ["VOC_sample_type_normal", "VOC_data_coll_ctrl_start"],
         )
 
-    def test_load_sequence_stops_collection_and_downloads_logs(self) -> None:
+    def test_load_sequence_downloads_logs_before_sending_stop(self) -> None:
+        """必须先下载再发 STOP：下位机收到 stop 后 5 秒会反挂载 SD 分区"""
         communicators: list[FakeSocketCommunicator] = []
+        events: list[str] = []
 
         def factory(host: str, port: int, timeout: float | None = 5.0):
             _ = (host, port, timeout)
             comm = FakeSocketCommunicator()
+            original_send = comm.send
+
+            def send_recording(data: bytes) -> None:
+                events.append(f"send:{_unpack_command(data)}")
+                original_send(data)
+
+            comm.send = send_recording  # type: ignore[method-assign]
+            communicators.append(comm)
+            return comm
+
+        def fake_download() -> list[str]:
+            events.append("download")
+            return ["/tmp/fake_log.csv"]
+
+        self.controller._apply_server_identity(prefix="VOC")
+        with patch("voc_app.gui.foup_acquisition.SocketCommunicator", side_effect=factory):
+            with patch.object(
+                self.controller, "_download_logs", side_effect=fake_download
+            ) as mocked_download:
+                ok = self.controller.e84StopDataCollectionForLoad()
+
+        self.assertTrue(ok)
+        mocked_download.assert_called_once()
+        self.assertEqual(len(communicators), 1)
+        self.assertEqual(events, ["download", "send:VOC_data_coll_ctrl_stop"])
+
+    def test_load_sequence_still_stops_collection_when_download_fails(self) -> None:
+        """下载失败也要尽力停止采集，避免下位机继续写文件/不关文件"""
+        communicators: list[FakeSocketCommunicator] = []
+        commands: list[str] = []
+
+        def factory(host: str, port: int, timeout: float | None = 5.0):
+            _ = (host, port, timeout)
+            comm = FakeSocketCommunicator()
+            original_send = comm.send
+
+            def send_recording(data: bytes) -> None:
+                commands.append(_unpack_command(data))
+                original_send(data)
+
+            comm.send = send_recording  # type: ignore[method-assign]
             communicators.append(comm)
             return comm
 
@@ -108,14 +151,11 @@ class FoupAcquisitionE84Tests(unittest.TestCase):
             with patch.object(
                 self.controller,
                 "_download_logs",
-                return_value=["/tmp/fake_log.csv"],
-            ) as mocked_download:
+                side_effect=RuntimeError("download broken"),
+            ):
                 ok = self.controller.e84StopDataCollectionForLoad()
 
-        self.assertTrue(ok)
-        mocked_download.assert_called_once()
-        self.assertEqual(len(communicators), 1)
-        commands = [_unpack_command(frame) for frame in communicators[0].sent_payloads]
+        self.assertFalse(ok)
         self.assertEqual(commands, ["VOC_data_coll_ctrl_stop"])
 
     def test_unload_start_does_not_retry_on_connection_failure(self) -> None:

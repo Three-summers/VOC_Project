@@ -329,15 +329,31 @@ class FoupAcquisitionController(QObject):
 
     @Slot(result=bool)
     def e84StopDataCollectionForLoad(self) -> bool:
-        """E84 Load 阶段：发送采集停止命令并下载日志。"""
+        """E84 Load 阶段：先下载日志，再发送采集停止命令。
+
+        下位机收到 stop 后会在 5 秒后反挂载 SD 分区（VOC_cmd_deal.c 的
+        end_collect_data），先 stop 再下载会读到空的挂载点。设备每写一行都
+        fflush，所以先下载得到的数据是完整的。
+        """
         with self._e84_io_lock:
             try:
-                self._set_status("E84 Load：停止采集并下载日志")
-                stop_cmd = self._select_command("stop")
-                self._e84_send_command(stop_cmd)
+                self._set_status("E84 Load：下载日志")
                 saved_files = self._download_logs()
                 count = self._report_download(saved_files)
                 self._set_status(f"E84 Load 日志下载完成: {count} 个文件")
+            except Exception as exc:
+                # 下载失败也要尽力停止采集，否则下位机持续写文件、不关闭文件
+                self._best_effort_stop_command()
+                self._close_e84_socket()
+                message = f"E84 Load 下载日志失败: {exc}"
+                logger.error(message)
+                self.errorOccurred.emit(message)
+                self._set_status(message)
+                return False
+
+            try:
+                stop_cmd = self._select_command("stop")
+                self._e84_send_command(stop_cmd)
                 return True
             except Exception as exc:
                 self._close_e84_socket()
@@ -346,6 +362,13 @@ class FoupAcquisitionController(QObject):
                 self.errorOccurred.emit(message)
                 self._set_status(message)
                 return False
+
+    def _best_effort_stop_command(self) -> None:
+        """尽力发送停止命令（失败只记录，不覆盖主错误）。"""
+        try:
+            self._e84_send_command(self._select_command("stop"), retry=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"发送停止采集命令失败: {exc}")
 
     def _cleanup(self) -> None:
         """清理资源：关闭 socket 并等待线程结束"""

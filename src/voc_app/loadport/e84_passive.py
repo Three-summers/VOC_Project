@@ -113,6 +113,9 @@ class E84Controller(QObject):
         self._actuator_error_latched = False
         self._error_latch_reported = False
         self._go_signal_low_reported = False
+        # 本次传输方向（True=卸载）。在 E84Handoff 时锁定，避免中途 FOUP
+        # 已离位导致 WAIT_BUSY 阶段把卸载误判成装载。
+        self._unload_flow: bool | None = None
 
         self.E84_SigPin = GPIOController(
             self.E84_InSig, self.E84_OutSig, IN_PUL_UP, SIG_OFF
@@ -183,7 +186,7 @@ class E84Controller(QObject):
             if self.E84Handoff():
                 self.state = E84State.WAIT_TR_REQ
                 # Unload 流程开始时发出 START 信号（VALID=1 之后，TR_REQ 之前）
-                if self.FOUP_status:
+                if self._unload_flow:
                     logger.info("Unload 流程开始，发出数据采集 START 信号")
                     self.data_collection_start.emit()
                     # TODO: 这里可以添加具体的数据采集启动操作
@@ -206,14 +209,20 @@ class E84Controller(QObject):
                 self.warning.emit(message)
                 self.state = E84State.IDLE
             elif wait_status == 2:
+                # 使用握手时锁定的方向，而不是实时 FOUP_status
+                unload_flow = (
+                    self._unload_flow
+                    if self._unload_flow is not None
+                    else self.FOUP_status
+                )
                 self.state = (
-                    E84State.WAIT_U_REQ if self.FOUP_status else E84State.WAIT_L_REQ
+                    E84State.WAIT_U_REQ if unload_flow else E84State.WAIT_L_REQ
                 )
 
         elif self.state == E84State.WAIT_L_REQ:
             wait_status = self.E84_wait_L_REQ()
             if wait_status == 1:
-                message = "L_REQ 阶段检测到信号中断，状态重置为 IDLE"
+                message = "L_REQ 阶段超时或信号中断，状态重置为 IDLE"
                 logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
@@ -223,7 +232,7 @@ class E84Controller(QObject):
         elif self.state == E84State.WAIT_U_REQ:
             wait_status = self.E84_wait_U_REQ()
             if wait_status == 1:
-                message = "U_REQ 阶段检测到信号中断，状态重置为 IDLE"
+                message = "U_REQ 阶段超时或信号中断，状态重置为 IDLE"
                 logger.warning(message)
                 self.warning.emit(message)
                 self.state = E84State.IDLE
@@ -373,6 +382,7 @@ class E84Controller(QObject):
 
         self._actuator_error_latched = True
         self._error_latch_reported = False
+        self._unload_flow = None
         self.state = E84State.IDLE
         self.prev_state = None
         self.E84_ResetSig()
@@ -390,6 +400,7 @@ class E84Controller(QObject):
             return
         self._actuator_error_latched = False
         self._error_latch_reported = False
+        self._unload_flow = None
         self.state = E84State.IDLE
         self.prev_state = None
         self.E84_ResetSig()
@@ -414,6 +425,9 @@ class E84Controller(QObject):
             and self.E84_InSig_Value["VALID"]
         ):
             logger.debug("检测到握手请求")
+            # 方向在握手瞬间锁定：FOUP 在位=卸载，否则=装载。
+            # 传输过程中 FOUP 可能已经被天车提走，后续判断不能再看实时状态。
+            self._unload_flow = self.FOUP_status
             if self.FOUP_status:
                 self.E84_SigPin.set_output("U_REQ", SIG_ON)
                 self.E84_InfoPin.set_output("UNLOAD_LED", LED_ON)
@@ -449,6 +463,11 @@ class E84Controller(QObject):
         return 0
 
     def E84_wait_L_REQ(self):
+        if self._consume_timeout():
+            # 下位机/天车保持信号但 FOUP 一直不落位：必须能超时复位，
+            # 否则状态机会永久停在 WAIT_L_REQ（L_REQ、READY 一直输出）。
+            self.E84_ResetSig()
+            return 1
         if (
             not self.E84_InSig_Value["CS_0"]
             or not self.E84_InSig_Value["VALID"]
@@ -465,6 +484,10 @@ class E84Controller(QObject):
         return 0
 
     def E84_wait_U_REQ(self):
+        if self._consume_timeout():
+            # 同上：FOUP 一直不被取走时也要能复位
+            self.E84_ResetSig()
+            return 1
         if (
             not self.E84_InSig_Value["CS_0"]
             or not self.E84_InSig_Value["VALID"]
@@ -504,6 +527,7 @@ class E84Controller(QObject):
             self._stop_timeout()
             self.E84_InfoPin.set_output("LOAD_LED", LED_OFF)
             self.E84_InfoPin.set_output("UNLOAD_LED", LED_OFF)
+            self._unload_flow = None
             current_time = time.strftime("%H:%M:%S", time.localtime())
             logger.info(f"{current_time} TRANS OVER")
             return 2

@@ -500,5 +500,26 @@ class TestStandbyMediaSettingsRemoved(unittest.TestCase):
         self.assertFalse((qml_root / "commands" / "Config_standbyCommands.qml").exists())
 
 
+def test_every_theme_color_role_used_in_qml_exists() -> None:
+    """避免 UiTheme.color("拼错角色") 变成透明色这种静默 UI 缺陷"""
+    import re
+
+    qml_root = ROOT_DIR / "src" / "voc_app" / "gui" / "qml"
+    theme = (qml_root / "components" / "UiTheme.qml").read_text(encoding="utf-8")
+    roles = set(re.findall(r'^\s*(\w+):\s*"#', theme, re.M))
+    assert roles, "UiTheme 调色板解析失败"
+
+    missing: dict[str, list[str]] = {}
+    for path in qml_root.rglob("*.qml"):
+        text = path.read_text(encoding="utf-8")
+        for role in re.findall(r'UiTheme\.color\("([^"]+)"\)', text):
+            if role not in roles:
+                missing.setdefault(role, []).append(
+                    path.relative_to(qml_root).as_posix()
+                )
+
+    assert not missing, f"使用了不存在的主题颜色角色: {missing}"
+
+
 if __name__ == "__main__":
     unittest.main()

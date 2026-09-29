@@ -159,3 +159,54 @@ class DownloadOutcomeSignalTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+EMPTY_DEVICE_CSV = (
+    "timestamp, area_data, mark_data, AQ7PID, PM_AVG, PD_AVG, FM_AVG, PumpM_AVG\n"
+)
+
+
+class CsvParseMessageTests(unittest.TestCase):
+    """解析结果要能被界面直接展示（空文件不能表现为"空白图表"）"""
+
+    def setUp(self) -> None:
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.log_dir = Path(self._tmp.name) / "Log"
+        _write(self.log_dir / "csv_file" / "data202602261030.csv", DEVICE_CSV)
+        _write(self.log_dir / "csv_file" / "data202602261040.csv", EMPTY_DEVICE_CSV)
+        self.manager = CsvFileManager(log_dir=self.log_dir)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_normal_file_has_no_message(self) -> None:
+        self.manager.parse_csv_file("csv_file/data202602261030.csv")
+        self.assertEqual(self.manager.parseMessage, "")
+        # dataPointCount 是各列合计：7 个数据列 × 2 行
+        self.assertEqual(self.manager.dataPointCount, 14)
+
+    def test_header_only_file_reports_no_data_points(self) -> None:
+        self.manager.parse_csv_file("csv_file/data202602261040.csv")
+        self.assertEqual(self.manager.parseMessage, "该文件没有数据点")
+        self.assertEqual(self.manager.dataPointCount, 0)
+
+    def test_missing_file_reports_message(self) -> None:
+        self.manager.parse_csv_file("csv_file/nope.csv")
+        self.assertEqual(self.manager.parseMessage, "文件不存在")
+        self.assertEqual(self.manager.dataPointCount, 0)
+
+    def test_message_change_notifies_qml(self) -> None:
+        changes: list[int] = []
+        self.manager.parseStatusChanged.connect(lambda: changes.append(1))
+
+        self.manager.parse_csv_file("csv_file/data202602261040.csv")
+
+        self.assertTrue(changes)
+
+    def test_datalog_view_binds_parse_message(self) -> None:
+        qml = (
+            ROOT_DIR / "src" / "voc_app" / "gui" / "qml" / "views" / "DataLogView.qml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("parseMessage", qml)
