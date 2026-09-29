@@ -1,5 +1,34 @@
 # 变更记录
 
+## 2026-09-29 — 与下位机源码对齐（第二轮）
+
+### 采集时序
+- E84 Unload 改为**先启动采集、再断开对插并解锁**（对插承载到 FOUP 的网络通道，
+  原顺序会让 START 发不到下位机）。
+- E84 Unload 启动前补发 `{prefix}_sample_type_normal`：下位机 `VOC_Sample_Type`
+  是全局标志，只有 normal 模式 start 才写 CSV；此前一次测试模式会让整趟飞行不记录数据。
+- 已知前缀时跳过版本查询，控制连接独立 1.5s 超时且不重连重试，避免拖住机械动作。
+- E84 Load 改为**先下载日志、再发送 STOP**：下位机收到 stop 后 5 秒反挂载 SD 分区。
+
+### 数据正确性与可见性
+- 数据帧改为整帧校验（任一字段非法即丢弃），避免跳过字段造成通道错位与通道数误判。
+- 流式身份识别收紧：科学计数法、NaN/inf、报错文本、带前缀数据包不再污染 serverType。
+- OOC/OOS 越限产生报警（文案稳定，复用 60s 去重）；采集错误此前完全未接线，现已
+  通过主线程 `GuiAlarmNotifier` 写入报警列表与消息栏。
+- 设备 CSV 时间戳（`YYYY-MM-DD HH:MM:SS.mmm`）可解析、表头去空格、NaN 不画点。
+- 下载完成自动刷新文件列表并打开最新文件；0 个文件按错误上报。
+- 空 CSV 在 DataLog 页显示"该文件没有数据点"。
+- 远端日志目录默认改为下位机真实路径 `/home/root/files`。
+
+### E84 状态机
+- `WAIT_L_REQ`/`WAIT_U_REQ` 现在消费 60s 超时，卡死可恢复（原为死代码）。
+- load/unload 方向在握手瞬间锁定，不再按实时 `FOUP_status` 二次判定。
+
+### 升级器
+- FOUP 不可达不再阻塞 Loadport 升级，状态写 failed 而非永久 running。
+- 选最新包并归档到 `processed/`/`failed/`；解析器清理残留 work 目录。
+- 安装时把 `loadport/manifest.json` 写进 release，版本比较恢复有效。
+
 ## 2026-09-28 — 配置/数据目录与采集健壮性
 
 ### 运行期状态移出 release

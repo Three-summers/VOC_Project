@@ -303,3 +303,24 @@
     `CHANGELOG.md` 新增条项，GPIO 设计文档引脚/电平与代码对齐，删除失效的 `qml/.qmlls.ini`。
 - Risk Assessment: 低-中。配置/数据目录改动涉及现场文件位置，需在树莓派部署时确认
   `~/.local/share/voc`（或 `VOC_DATA_DIR`）可写；E84/GPIO 与真实 TCP 采集仍需实机验证。
+
+## Verification - 2026-09-29T11:40:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 与下位机源码（~/code_bak/voc_251028/files）对齐的采集时序、数据可见性、E84 状态机与升级器修复
+- Command:
+  - `.venv/bin/python -m pytest`（裸跑，conftest 已固定 offscreen 与临时数据目录）
+  - `QT_QPA_PLATFORM=offscreen VOC_DATA_DIR=/tmp/voc-r3 PYTHONPATH=src timeout 15 .venv/bin/python -m voc_app.gui.app`
+- Result: ✅ Passed
+- Details:
+  - 下位机依据：`socket_cmd_server.c` 命令表硬编码 `VOC_*`、`VOC_INFO="VOC,V1.0.0"`、
+    start 不回 ACK 且绑定 `current_fd`；`VOC_cmd_deal.c` 中 `VOC_Sample_Type` 决定是否写
+    CSV、stop 后 5 秒反挂载分区；`VOC_gen_csv.c` 文件名分钟级 + 时间戳字符串格式。
+  - 修复：Unload 先 START 后解锁；补 `sample_type_normal`；Load 先下载后 STOP；
+    整帧校验；越限报警与采集错误接线；设备 CSV 解析与列表刷新；空文件提示。
+  - E84：L_REQ/U_REQ 超时生效、方向握手锁定（两条 expectedFailure 转为通过）。
+  - 升级器：FOUP 不可达不阻断、包归档、残留 work 清理、release 写入 manifest。
+  - 测试：325 passed / 3 skipped / 0 xfailed；新增端到端用例（假下位机协议 → 下载 →
+    数据目录 → 刷新 → 解析出数据点；测试模式数据帧跨线程进入曲线模型）。
+  - 新增守卫：QML 中所有 `UiTheme.color("<role>")` 角色必须存在于调色板。
+- Risk Assessment: 中。时序与路径改动需在实机验证：对插是否确实承载网络、AMHS 的
+  READY/TR_REQ 时序、按键极性，以及 stop 后 5 秒反挂载是否影响下载时长。
