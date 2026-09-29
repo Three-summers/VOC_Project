@@ -18,15 +18,8 @@ Column {
         width: parent.width
     }
 
-    CustomButton {
-        text: "设置 IP"
-        width: parent.width
-        onClicked: console.log("Config/Loadport: 设置 IP")
-    }
-
-    CustomButton {
-        text: "设置时间"
-        width: parent.width
-        onClicked: console.log("Config/Loadport: 设置时间")
+    // 原来的"设置 IP / 设置时间"只打日志，已删除
+    CommandPlaceholder {
+        message: "Loadport 参数配置尚未接入后端"
     }
 }

@@ -12,8 +12,13 @@ Rectangle {
 
     property alias currentViewName: viewName.text
     property alias systemMessage: messageText.text
-    property bool isLoggedIn: false
-    property string loggedInUser: ""
+    // 登录状态直接取 Python 侧的 authManager，避免与命令面板门控各自维护状态
+    readonly property bool isLoggedIn: (typeof authManager !== "undefined" && authManager)
+        ? authManager.isAuthenticated
+        : false
+    readonly property string loggedInUser: (typeof authManager !== "undefined" && authManager)
+        ? authManager.currentUser
+        : ""
     property real scaleFactor: Components.UiTheme.controlScale
     property var alarmStoreRef: null
     property var updateStatusRef: null
@@ -131,9 +136,8 @@ Rectangle {
                 scaleFactor: titlePanel.scaleFactor
                 onClicked: {
                     if (titlePanel.isLoggedIn) {
-                        titlePanel.isLoggedIn = false;
-                        titlePanel.loggedInUser = "";
-                        console.log("Logged out");
+                        if (typeof authManager !== "undefined" && authManager)
+                            authManager.logout();
                     } else {
                         loginDialog.open();
                     }
@@ -275,10 +279,11 @@ Rectangle {
 
     LoginDialog {
         id: loginDialog
+        objectName: "login_dialog"
         popupAnchorItem: titlePanel.alarmPopupAnchorItem ? titlePanel.alarmPopupAnchorItem : null
         onLoggedIn: (username) => {
-            titlePanel.isLoggedIn = true;
-            titlePanel.loggedInUser = username;
+            // 登录状态已经由 authManager.login() 写入，这里只记录日志
+            console.log("Logged in as", username);
         }
     }
 }

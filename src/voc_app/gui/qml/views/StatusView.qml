@@ -58,7 +58,8 @@ Rectangle {
         anchors.fill: parent
         sourceComponent: {
             if (currentSubPage === "foup") return foupComponent
-            if (currentSubPage === "spectrum") return spectrumComponent
+            // 频谱页面暂时下线：需要时恢复下面这一行（并恢复子导航配置）
+            // if (currentSubPage === "spectrum") return spectrumComponent
             return loadportComponent
         }
     }

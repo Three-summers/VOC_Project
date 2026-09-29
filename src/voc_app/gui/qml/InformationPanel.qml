@@ -17,8 +17,9 @@ Rectangle {
     property var subNavigationConfig: ({
         "Status": [
             { key: "loadport", title: "Loadport" },
-            { key: "foup", title: "FOUP" },
-            { key: "spectrum", title: "频谱" }
+            { key: "foup", title: "FOUP" }
+            // 频谱页面暂时下线；恢复显示时把下面这一项取消注释即可
+            // , { key: "spectrum", title: "频谱" }
         ],
         "Config": [
             { key: "loadport", title: "Loadport" },

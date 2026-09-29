@@ -8,13 +8,9 @@ Column {
     anchors.margins: 10
     spacing: 10
 
-    CustomButton {
-        text: "导入配置"
-        width: parent.width
-    }
-
-    CustomButton {
-        text: "导出配置"
-        width: parent.width
+    // 该文件只作为"没有子页命令文件"时的兜底；
+    // 原来的导入/导出配置按钮没有任何动作，已删除。
+    CommandPlaceholder {
+        message: "本页暂无可用操作"
     }
 }

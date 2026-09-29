@@ -16,6 +16,11 @@ Rectangle {
     property real scaleFactor: Components.UiTheme.controlScale
     property var foupLimitRef: null
 
+    // 登录门控：未登录时整块命令面板不可点击（状态由 Python 侧 authManager 持有）
+    readonly property bool authenticated: (typeof authManager !== "undefined" && authManager)
+        ? authManager.isAuthenticated
+        : false
+
     // 清理待加载的组件，避免内存泄漏
     function _cleanupPendingComponent() {
         if (_pendingComponent) {
@@ -26,7 +31,11 @@ Rectangle {
 
     Loader {
         id: commandLoader
+        objectName: "command_panel_loader"
         anchors.fill: parent
+        // 未登录时禁用整块面板（父项 disabled 会拦截子按钮的鼠标/键盘事件）
+        enabled: commandPanel.authenticated
+        opacity: commandPanel.authenticated ? 1.0 : 0.45
         onLoaded: {
             if (!commandLoader.item)
                 return;
@@ -104,5 +113,21 @@ Rectangle {
     onScaleFactorChanged: {
         if (commandLoader.item && commandLoader.item.hasOwnProperty("scaleFactor"))
             commandLoader.item.scaleFactor = commandPanel.scaleFactor;
+    }
+
+    // 未登录提示（不拦截鼠标，仅说明为何按钮不可用）
+    Text {
+        objectName: "command_panel_login_hint"
+        anchors.top: parent.top
+        anchors.topMargin: Components.UiTheme.spacing("xl")
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: parent.width - Components.UiTheme.spacing("lg") * 2
+        visible: !commandPanel.authenticated
+        text: "请先登录后再操作"
+        horizontalAlignment: Text.AlignHCenter
+        wrapMode: Text.WordWrap
+        color: Components.UiTheme.color("textSecondary")
+        font.pixelSize: Components.UiTheme.fontSize("body")
+        z: 1
     }
 }

@@ -8,16 +8,9 @@ Column {
     anchors.margins: 10
     spacing: 10
 
-    CustomButton {
-        text: "Start Job"
-        width: parent.width
-    }
-    CustomButton {
-        text: "Stop Job"
-        width: parent.width
-    }
-    CustomButton {
-        text: "Pause Job"
-        width: parent.width
+    // 该文件只作为"没有子页命令文件"时的兜底；
+    // 原来的 Start/Stop/Pause Job 按钮没有任何动作，已删除。
+    CommandPlaceholder {
+        message: "本页暂无可用操作"
     }
 }

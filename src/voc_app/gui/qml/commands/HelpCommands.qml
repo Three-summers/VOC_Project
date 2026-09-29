@@ -8,12 +8,8 @@ Column {
     anchors.margins: 10
     spacing: 10
 
-    CustomButton {
-        text: "View Manual"
-        width: parent.width
-    }
-    CustomButton {
-        text: "Contact Support"
-        width: parent.width
+    // 原来的"View Manual / Contact Support"只打日志，已删除
+    CommandPlaceholder {
+        message: "帮助内容见中间面板"
     }
 }

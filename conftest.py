@@ -19,8 +19,21 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import pytest
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 _DATA_DIR = Path(tempfile.mkdtemp(prefix="voc-test-data-"))
 os.environ.setdefault("VOC_DATA_DIR", str(_DATA_DIR))
 atexit.register(shutil.rmtree, _DATA_DIR, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def qapp():
+    """QML 组件实例化共用的 QGuiApplication（按需创建，不是导入即创建）。"""
+    from PySide6.QtGui import QGuiApplication
+
+    app = QGuiApplication.instance()
+    if app is None:
+        app = QGuiApplication([])
+    return app

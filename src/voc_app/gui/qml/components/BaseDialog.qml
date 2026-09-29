@@ -11,6 +11,11 @@ Popup {
     property int anchorMargin: 24
     property int footerPadding: 12
 
+    // Qt Quick Controls 的 Popup 默认带 6px padding，会让 contentItem 四周内缩，
+    // 底部按钮区的白色矩形因此比对话框左右各窄 6px、底边还会溢出 12px。
+    // 这里清零，让内容（含底部按钮区）与对话框背景完全对齐。
+    padding: 0
+
     implicitWidth: popupAnchorItem && parent ? Math.min(parent.width * 0.8, 500) : 500
     width: implicitWidth
     implicitHeight: contentColumn.implicitHeight

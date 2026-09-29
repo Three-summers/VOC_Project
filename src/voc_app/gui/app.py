@@ -42,7 +42,7 @@ from voc_app.gui.performance_config import (
 
 apply_performance_settings()
 
-from PySide6.QtCore import QObject, QMetaObject, QTimer, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QMetaObject, Property, QTimer, Qt, Signal, Slot
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtWidgets import QApplication
 
@@ -68,15 +68,37 @@ from voc_app.version_info import get_loadport_version
 
 # 验证用户密钥
 class AuthenticationManager(QObject):
+    """登录状态唯一来源：QML 侧的命令面板门控与标题栏都读它。"""
+
+    authenticationChanged = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._users = {"admin": "123456", "user": "user"}
+        self._current_user = ""
+
+    @Property(bool, notify=authenticationChanged)
+    def isAuthenticated(self) -> bool:
+        return bool(self._current_user)
+
+    @Property(str, notify=authenticationChanged)
+    def currentUser(self) -> str:
+        return self._current_user
 
     @Slot(str, str, result=bool)
-    def login(self, username, password):
+    def login(self, username, password) -> bool:
         if username in self._users and self._users[username] == password:
+            if self._current_user != username:
+                self._current_user = username
+                self.authenticationChanged.emit()
             return True
         return False
+
+    @Slot()
+    def logout(self) -> None:
+        if self._current_user:
+            self._current_user = ""
+            self.authenticationChanged.emit()
 
 
 # 在后端隐藏特定图例，QML 中无此 API

@@ -18,23 +18,9 @@ Column {
         width: parent.width
     }
 
-    Repeater {
-        model: [
-            { text: "数控控制" },
-            { text: "连接控制" },
-            { text: "FTP 控制" }
-        ]
-
-        delegate: CustomButton {
-            width: parent.width
-            text: modelData.text
-            onClicked: console.log("FOUP 命令:", modelData.text)
-        }
-    }
-
-    CustomButton {
-        text: "启用自动 Docking"
-        width: parent.width
-        onClicked: console.log("FOUP: 自动 Docking")
+    // 原来的"数控控制 / 连接控制 / FTP 控制 / 启用自动 Docking"只打日志，
+    // 没有任何实际动作，已删除；等后端接口就绪后再补回来。
+    CommandPlaceholder {
+        message: "FOUP 控制命令尚未接入后端"
     }
 }
