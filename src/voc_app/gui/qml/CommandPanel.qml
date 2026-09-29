@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 import "./components"
 import "./components" as Components
@@ -31,6 +32,10 @@ Rectangle {
 
     // 命令区可滚动：按钮多于可视高度时（例如 Loadport 的 9 个按钮）仍能滚到
     // 最后一个，避免"故障复位"这类关键操作被底部导航挡住而不可点击（R09）。
+    // 内边距在这里统一提供（命令页不再各自 anchors.margins），并用 ScrollView
+    // 让内容真正随 contentY 位移；Loader 的 x/y 内缩保证高度统计覆盖内边距。
+    readonly property int contentMargin: Components.UiTheme.spacing("md")
+
     ScrollView {
         id: commandScroll
         objectName: "command_panel_scroll"
@@ -42,26 +47,33 @@ Rectangle {
         visible: commandPanel.authenticated
         enabled: commandPanel.authenticated
 
-        Loader {
-            id: commandLoader
-            objectName: "command_panel_loader"
+        Item {
             width: commandScroll.availableWidth
-            enabled: commandPanel.authenticated
-            onLoaded: {
-                if (!commandLoader.item)
-                    return;
-                if (commandLoader.item.hasOwnProperty("commandPanelRef"))
-                    commandLoader.item.commandPanelRef = commandPanel;
-                if (commandLoader.item.hasOwnProperty("informationPanelRef"))
-                    commandLoader.item.informationPanelRef = commandPanel.informationPanelRef;
-                if (commandLoader.item.hasOwnProperty("alarmStore"))
-                    commandLoader.item.alarmStore = commandPanel.alarmStoreRef;
-                if (commandLoader.item.hasOwnProperty("subPageKey"))
-                    commandLoader.item.subPageKey = commandPanel.currentSubPage;
-                if (commandLoader.item.hasOwnProperty("scaleFactor"))
-                    commandLoader.item.scaleFactor = commandPanel.scaleFactor;
-                if (commandLoader.item.hasOwnProperty("foupLimitRef"))
-                    commandLoader.item.foupLimitRef = commandPanel.foupLimitRef;
+            implicitHeight: commandLoader.height + commandPanel.contentMargin * 2
+
+            Loader {
+                id: commandLoader
+                objectName: "command_panel_loader"
+                x: commandPanel.contentMargin
+                y: commandPanel.contentMargin
+                width: parent.width - commandPanel.contentMargin * 2
+                enabled: commandPanel.authenticated
+                onLoaded: {
+                    if (!commandLoader.item)
+                        return;
+                    if (commandLoader.item.hasOwnProperty("commandPanelRef"))
+                        commandLoader.item.commandPanelRef = commandPanel;
+                    if (commandLoader.item.hasOwnProperty("informationPanelRef"))
+                        commandLoader.item.informationPanelRef = commandPanel.informationPanelRef;
+                    if (commandLoader.item.hasOwnProperty("alarmStore"))
+                        commandLoader.item.alarmStore = commandPanel.alarmStoreRef;
+                    if (commandLoader.item.hasOwnProperty("subPageKey"))
+                        commandLoader.item.subPageKey = commandPanel.currentSubPage;
+                    if (commandLoader.item.hasOwnProperty("scaleFactor"))
+                        commandLoader.item.scaleFactor = commandPanel.scaleFactor;
+                    if (commandLoader.item.hasOwnProperty("foupLimitRef"))
+                        commandLoader.item.foupLimitRef = commandPanel.foupLimitRef;
+                }
             }
         }
     }

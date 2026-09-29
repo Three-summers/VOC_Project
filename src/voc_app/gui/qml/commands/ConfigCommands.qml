@@ -5,7 +5,7 @@ Column {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    anchors.margins: 10
+    // 内边距由 CommandPanel 统一提供（保证命令区可滚动到最后一个按钮）
     spacing: 10
 
     // 该文件只作为"没有子页命令文件"时的兜底；

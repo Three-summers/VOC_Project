@@ -8,7 +8,7 @@ Column {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    anchors.margins: Components.UiTheme.spacing("md")
+    // 内边距由 CommandPanel 统一提供（保证命令区可滚动到最后一个按钮）
     spacing: Components.UiTheme.spacing("md")
 
     // 由 CommandPanel 注入，用于对话框定位

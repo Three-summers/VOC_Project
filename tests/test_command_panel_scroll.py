@@ -18,6 +18,9 @@ SRC_DIR = ROOT_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+# 注册 QQuickItem 类型，否则 property("contentItem") / mapToItem 无法转换
+from PySide6.QtQuick import QQuickItem  # noqa: E402,F401
+
 QML_ROOT = ROOT_DIR / "src" / "voc_app" / "gui" / "qml"
 
 # 真实主窗口中命令面板的可用高度（R09 证据：y=120..688）
@@ -85,29 +88,46 @@ def command_panel_env(qapp, tmp_path):
 
 
 def _buttons(window) -> list:
+    """取命令页里真实的按钮对象。
+
+    不能用 window.findChildren 全量搜索：同一批按钮会返回重复/陈旧的包装对象，
+    用它们做 mapToItem 会得到不随滚动变化的坐标，测试会假通过或假失败。
+    """
     from PySide6.QtCore import QObject
 
+    loader = window.findChild(QObject, "command_panel_loader")
+    assert loader is not None, "未找到命令页 Loader"
+    page = loader.property("item")
+    assert page is not None, "命令页尚未加载"
+
     result = []
-    for child in window.findChildren(QObject):
+    for child in page.children():
         try:
             text = child.property("text")
         except RuntimeError:
             continue
-        if isinstance(text, str) and text and hasattr(child, "property"):
-            if "Button" in child.metaObject().className():
-                result.append(child)
+        if "Button" in child.metaObject().className() and isinstance(text, str) and text:
+            result.append(child)
     return result
 
 
 def test_command_area_scrolls_and_reaches_last_button(command_panel_env) -> None:
-    from PySide6.QtCore import QObject
+    """验证真实几何：滚动前最后一个按钮在可视区外，滚到底后进入可视区。
+
+    注意不能只做 y/contentY 的算术——必须在窗口坐标系里比较（mapToItem），
+    否则会在"设了 ScrollView 的动态 contentY、内容其实没动"时误判为通过。
+    """
+    from PySide6.QtCore import QObject, QPointF
 
     window, app, _engine, _auth = command_panel_env
 
     scroll = window.findChild(QObject, "command_panel_scroll")
     assert scroll is not None, "命令区没有可滚动容器"
-    viewport_height = scroll.property("height")
-    content_height = scroll.property("contentHeight")
+    # ScrollView 本身不是 Flickable：必须操作它内部的 contentItem，
+    # 否则只是在 ScrollView 上创建了一个动态属性，内容并不会移动。
+    flick = scroll.property("contentItem")
+    viewport_height = flick.property("height")
+    content_height = flick.property("contentHeight")
     assert content_height > viewport_height, (
         f"内容({content_height})没有超过可视区({viewport_height})，用例前提不成立"
     )
@@ -115,13 +135,26 @@ def test_command_area_scrolls_and_reaches_last_button(command_panel_env) -> None
     buttons = _buttons(window)
     assert len(buttons) >= 9, f"命令按钮数量异常: {len(buttons)}"
     last = max(buttons, key=lambda item: item.property("y"))
-    # 滚到底部后，最后一个按钮必须落在可视区内
-    scroll.setProperty("contentY", content_height - viewport_height)
-    _pump(app, 0.3)
-    bottom_in_view = last.property("y") - scroll.property("contentY") + last.property("height")
-    assert bottom_in_view <= viewport_height + 1, (
-        f"滚到底后最后一个按钮仍在可视区之外: bottom={bottom_in_view}"
+
+    root_item = window.property("contentItem")
+
+    def window_y(item) -> float:
+        return item.mapToItem(root_item, QPointF(0, 0)).y()
+
+    bottom_before = window_y(last) + last.property("height")
+    assert bottom_before > viewport_height, (
+        f"修复前的前提不成立：最后一个按钮本应在可视区外 (bottom={bottom_before})"
     )
+
+    flick.setProperty("contentY", content_height - viewport_height)
+    _pump(app, 0.3)
+
+    assert flick.property("contentY") > 0, "滚动偏移没有生效"
+    bottom_after = window_y(last) + last.property("height")
+    assert bottom_after <= viewport_height + 1, (
+        f"滚到底后最后一个按钮仍在可视区之外: bottom={bottom_after}, viewport={viewport_height}"
+    )
+    assert window_y(last) < bottom_before, "内容没有随滚动位移"
 
 
 def test_command_buttons_are_disabled_when_logged_out(command_panel_env) -> None:
