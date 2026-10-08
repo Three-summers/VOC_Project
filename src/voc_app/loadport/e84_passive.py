@@ -45,11 +45,27 @@ class E84Controller(QObject):
     data_collection_start = Signal()  # Unload 时发出，通知开始采集
     data_collection_stop = Signal()  # Load 完成时发出，通知停止采集
 
-    def __init__(self, refresh_interval: float = 0.2):
-        """使用PySide6定时逻辑的E84控制器"""
+    def __init__(
+        self,
+        refresh_interval: float = 0.2,
+        revoke_on_handshake_loss: bool = True,
+        require_all_keys_for_load: bool = True,
+        safe_outputs_on_stop: bool = True,
+    ):
+        """使用PySide6定时逻辑的E84控制器
+
+        R01/R02/R04 的安全语义由构造参数控制，便于现场按设备口径关闭：
+
+        - ``revoke_on_handshake_loss``：GO/CS_0/VALID 被撤销时撤回输出并回到 IDLE；
+        - ``require_all_keys_for_load``：Load 完成必须三键全落，而不是任意一键；
+        - ``safe_outputs_on_stop``：``stop()`` 时撤回 READY/L_REQ/U_REQ 等输出。
+        """
 
         super().__init__()
         self.refresh_interval = refresh_interval
+        self.revoke_on_handshake_loss = bool(revoke_on_handshake_loss)
+        self.require_all_keys_for_load = bool(require_all_keys_for_load)
+        self.safe_outputs_on_stop = bool(safe_outputs_on_stop)
         self._key_debounce_ms = int(KeyDebounceSec * 1000)
 
         self.E84_InSig = {
@@ -106,6 +122,8 @@ class E84Controller(QObject):
 
         self.FOUP_status = True
         self.FOUP_old_status = True
+        # FOUP_docked 表示"完整落位"（三键全落），与"检测到载具"（任意一键）区分（R02）
+        self.FOUP_docked = False
 
         self.state = E84State.IDLE
         self.prev_state = None
@@ -149,13 +167,30 @@ class E84Controller(QObject):
             self.refresh_timer.start()
 
     def stop(self):
-        """停止定时器并清理状态"""
+        """停止定时器并清理状态。
+
+        R04：不能只停定时器。已经输出的 READY/L_REQ/U_REQ 必须显式撤回，
+        否则软件停止监控后外部仍可能看到有效握手信号。
+        """
 
         if self.refresh_timer.isActive():
             self.refresh_timer.stop()
         self._stop_timeout()
         self._key_debounce_timer.stop()
         self._pending_key_value = None
+        if self.safe_outputs_on_stop:
+            self._enter_safe_idle_state()
+
+    def _enter_safe_idle_state(self) -> None:
+        """回到 IDLE 并撤回握手输出（R04）。"""
+
+        self._unload_flow = None
+        self.state = E84State.IDLE
+        self.prev_state = None
+        self.E84_ResetSig()
+        self.E84_InfoPin.set_output("LOAD_LED", LED_OFF)
+        self.E84_InfoPin.set_output("UNLOAD_LED", LED_OFF)
+        logger.info("E84 已进入安全停机状态：READY/L_REQ/U_REQ 已撤回")
 
     def _run_cycle(self):
         self.Refresh_Input()
@@ -316,6 +351,8 @@ class E84Controller(QObject):
             and self.E84_Key_Value["KEY_1"]
             and self.E84_Key_Value["KEY_2"]
         )
+        # 区分"检测到载具"（任意一键）与"完整落位"（三键全落，R02）
+        self.FOUP_docked = bool(all_keys_on)
 
         if any_key:
             self.FOUP_status = True
@@ -418,6 +455,24 @@ class E84Controller(QObject):
         if interval > 0:
             self.timeout_timer.start(int(interval * 1000))
 
+    def _handshake_active(self) -> bool:
+        """E84 握手的三个前提输入是否仍然有效（R01）。"""
+
+        return bool(
+            self.E84_InSig_Value["GO"]
+            and self.E84_InSig_Value["CS_0"]
+            and self.E84_InSig_Value["VALID"]
+        )
+
+    def _handshake_revoked(self) -> bool:
+        """握手被撤销且需要安全复位时返回 True（R01）。
+
+        R01：进入各阶段后如果 GO/CS_0/VALID 被撤销，只保持 TR_REQ（或残留
+        BUSY）不应继续输出 READY。安全做法是撤回输出并回到 IDLE。
+        """
+
+        return self.revoke_on_handshake_loss and not self._handshake_active()
+
     def E84Handoff(self):
         if (
             self.E84_InSig_Value["GO"]
@@ -445,6 +500,11 @@ class E84Controller(QObject):
         if self._consume_timeout():
             self.E84_ResetSig()
             return 1
+        if self._handshake_revoked():
+            # R01：只保持 TR_REQ 但 GO/CS_0/VALID 已撤销时，不得置 READY
+            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回输出并回到 IDLE")
+            self.E84_ResetSig()
+            return 1
         if self.E84_InSig_Value["TR_REQ"]:
             self.E84_SigPin.set_output("READY", SIG_ON)
             logger.debug("set READY ON")
@@ -454,6 +514,11 @@ class E84Controller(QObject):
 
     def E84_wait_BUSY(self):
         if self._consume_timeout():
+            self.E84_ResetSig()
+            return 1
+        if self._handshake_revoked():
+            # R01：握手撤销后必须撤回已经置起的 READY
+            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 READY 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if self.E84_InSig_Value["BUSY"]:
@@ -468,6 +533,10 @@ class E84Controller(QObject):
             # 否则状态机会永久停在 WAIT_L_REQ（L_REQ、READY 一直输出）。
             self.E84_ResetSig()
             return 1
+        if self._handshake_revoked():
+            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 L_REQ 并回到 IDLE")
+            self.E84_ResetSig()
+            return 1
         if (
             not self.E84_InSig_Value["CS_0"]
             or not self.E84_InSig_Value["VALID"]
@@ -476,7 +545,13 @@ class E84Controller(QObject):
         ):
             self.E84_ResetSig()
             return 1
-        if self.FOUP_status:
+        # R02：完整落位（三键全落）才确认装载完成；只检测到载具不能撤回 L_REQ
+        docked = (
+            self.FOUP_docked
+            if self.require_all_keys_for_load
+            else self.FOUP_status
+        )
+        if docked:
             self.E84_SigPin.set_output("L_REQ", SIG_OFF)
             self.E84_ResetTimer(LongTimer)
             logger.debug("set L_REQ OFF")
@@ -486,6 +561,10 @@ class E84Controller(QObject):
     def E84_wait_U_REQ(self):
         if self._consume_timeout():
             # 同上：FOUP 一直不被取走时也要能复位
+            self.E84_ResetSig()
+            return 1
+        if self._handshake_revoked():
+            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 U_REQ 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if (
@@ -505,6 +584,10 @@ class E84Controller(QObject):
 
     def E84_wait_COMPT(self):
         if self._consume_timeout():
+            self.E84_ResetSig()
+            return 1
+        if self._handshake_revoked():
+            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 READY 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if self.E84_InSig_Value["COMPT"]:

@@ -141,11 +141,14 @@ class LoadportActuatorController(QObject):
         lock_client: AsciiSerialClient,
         insert_client: AsciiSerialClient,
         parent: QObject | None = None,
+        emit_fault_on_failure: bool = True,
     ):
         super().__init__(parent)
         self._lock_client = lock_client
         self._insert_client = insert_client
         self._action_lock = threading.Lock()
+        # R03：本机连接/写入失败是否与设备上报错误一样进入 E84 故障锁存
+        self._emit_fault_on_failure = bool(emit_fault_on_failure)
         self._lock_client.set_message_callback(self._on_lock_message)
         self._insert_client.set_message_callback(self._on_insert_message)
 
@@ -179,6 +182,21 @@ class LoadportActuatorController(QObject):
         logger.info(f"{name} 串口未连接，自动重连")
         client.connect()
 
+    def _handle_action_failure(self, source: str, label: str, exc: Exception) -> None:
+        """执行机构失败的统一入口（R03）。
+
+        本机连接失败、写入失败与设备主动上报的 ``error:`` 必须走同一条联锁
+        路径：除了动作失败提示，还要发出 ``serialErrorDetected``，让
+        LoadportBridge 把 E84 READY 拉低并锁存故障。只处理设备错误而忽略
+        本机通信异常，会让机械动作失败后握手仍保持有效。
+        """
+
+        message = f"{label}: {exc}"
+        logger.error(message)
+        self.actionFailed.emit(message)
+        if self._emit_fault_on_failure:
+            self.serialErrorDetected.emit(source, message)
+
     def run_unlock_only(self) -> bool:
         """只执行解锁动作。"""
 
@@ -191,9 +209,7 @@ class LoadportActuatorController(QObject):
                 self.actionSucceeded.emit(message)
                 return True
             except Exception as exc:  # noqa: BLE001
-                message = f"解锁动作失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("lock", "解锁动作失败", exc)
                 return False
 
     def run_lock_only(self) -> bool:
@@ -208,9 +224,7 @@ class LoadportActuatorController(QObject):
                 self.actionSucceeded.emit(message)
                 return True
             except Exception as exc:  # noqa: BLE001
-                message = f"锁定动作失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("lock", "锁定动作失败", exc)
                 return False
 
     def run_lock_reset(self) -> bool:
@@ -225,9 +239,7 @@ class LoadportActuatorController(QObject):
                 self.actionSucceeded.emit(message)
                 return True
             except Exception as exc:  # noqa: BLE001
-                message = f"锁定机构 reset 失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("lock", "锁定机构 reset 失败", exc)
                 return False
 
     def run_insert_reset(self) -> bool:
@@ -242,9 +254,7 @@ class LoadportActuatorController(QObject):
                 self.actionSucceeded.emit(message)
                 return True
             except Exception as exc:  # noqa: BLE001
-                message = f"对插机构 reset 失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("insert", "对插机构 reset 失败", exc)
                 return False
 
     def run_insert_for_load(self) -> bool:
@@ -259,9 +269,7 @@ class LoadportActuatorController(QObject):
                 self.actionSucceeded.emit(message)
                 return True
             except Exception as exc:  # noqa: BLE001
-                message = f"对插动作失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("insert", "对插动作失败", exc)
                 return False
 
     def run_insert_for_unload(self) -> bool:
@@ -276,9 +284,7 @@ class LoadportActuatorController(QObject):
                 self.actionSucceeded.emit(message)
                 return True
             except Exception as exc:  # noqa: BLE001
-                message = f"取消对插动作失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("insert", "取消对插动作失败", exc)
                 return False
 
     def run_unlock_for_unload(self) -> bool:
@@ -287,18 +293,20 @@ class LoadportActuatorController(QObject):
         with self._action_lock:
             try:
                 self._ensure_connected(self._insert_client, "insert")
-                self._ensure_connected(self._lock_client, "lock")
                 self._insert_client.move_to_step(8)
-                self._lock_client.set_unlock()
-                message = "Unload 动作完成：move_to_step(8) -> unlock"
-                logger.info(message)
-                self.actionSucceeded.emit(message)
-                return True
             except Exception as exc:  # noqa: BLE001
-                message = f"Unload 动作失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("insert", "Unload 动作失败", exc)
                 return False
+            try:
+                self._ensure_connected(self._lock_client, "lock")
+                self._lock_client.set_unlock()
+            except Exception as exc:  # noqa: BLE001
+                self._handle_action_failure("lock", "Unload 动作失败", exc)
+                return False
+            message = "Unload 动作完成：move_to_step(8) -> unlock"
+            logger.info(message)
+            self.actionSucceeded.emit(message)
+            return True
 
     def run_lock_for_load(self) -> bool:
         """Load 阶段：先锁定(lock)，再对插(move_to_step 4)。"""
@@ -306,18 +314,20 @@ class LoadportActuatorController(QObject):
         with self._action_lock:
             try:
                 self._ensure_connected(self._lock_client, "lock")
-                self._ensure_connected(self._insert_client, "insert")
                 self._lock_client.set_lock()
-                self._insert_client.move_to_step(4)
-                message = "Load 动作完成：lock -> move_to_step(4)"
-                logger.info(message)
-                self.actionSucceeded.emit(message)
-                return True
             except Exception as exc:  # noqa: BLE001
-                message = f"Load 动作失败: {exc}"
-                logger.error(message)
-                self.actionFailed.emit(message)
+                self._handle_action_failure("lock", "Load 动作失败", exc)
                 return False
+            try:
+                self._ensure_connected(self._insert_client, "insert")
+                self._insert_client.move_to_step(4)
+            except Exception as exc:  # noqa: BLE001
+                self._handle_action_failure("insert", "Load 动作失败", exc)
+                return False
+            message = "Load 动作完成：lock -> move_to_step(4)"
+            logger.info(message)
+            self.actionSucceeded.emit(message)
+            return True
 
     @Slot(result=bool)
     def unlockForUnload(self) -> bool:
@@ -809,6 +819,10 @@ if __name__ == "__main__":
     loadport_actuator_controller = LoadportActuatorController(
         lock_client=loadport_serial_lock_client,
         insert_client=loadport_serial_insert_client,
+        # R03：本机连接/写入失败是否与设备错误一样进入 E84 故障锁存
+        emit_fault_on_failure=bool(
+            loadport_cfg.get("e84_latch_on_actuator_fault", True)
+        ),
     )
 
     def on_loadport_serial_error(source: str, payload: str) -> None:
@@ -861,7 +875,18 @@ if __name__ == "__main__":
         try:
             from voc_app.loadport.e84_thread import E84ControllerThread
 
-            worker = E84ControllerThread()
+            worker = E84ControllerThread(
+                # R01/R02/R04：现场可关闭的安全语义（默认开启）
+                revoke_on_handshake_loss=bool(
+                    loadport_cfg.get("e84_revoke_on_handshake_loss", True)
+                ),
+                require_all_keys_for_load=bool(
+                    loadport_cfg.get("e84_require_all_keys", True)
+                ),
+                safe_outputs_on_stop=bool(
+                    loadport_cfg.get("e84_safe_outputs_on_stop", True)
+                ),
+            )
             loadport_bridge = LoadportBridge(
                 worker=worker,
                 alarm_store=alarm_store,

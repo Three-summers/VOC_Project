@@ -191,6 +191,18 @@ class FoupAcquisitionController(QObject):
             self.statusMessageChanged.emit()
         if emit_host:
             self.hostChanged.emit()
+            # R20：切换设备地址后必须放弃旧控制连接与旧身份，否则 E84 控制
+            # 命令仍会发往旧地址，而日志下载使用新地址。
+            self._switch_e84_endpoint()
+
+    def _switch_e84_endpoint(self) -> None:
+        """在 E84 控制锁内关闭旧控制连接并清除旧身份（R20）。"""
+
+        with self._e84_io_lock:
+            self._close_e84_socket()
+            with self._lock:
+                self._server_version = ""
+                self._command_prefix = ""
 
     @Property(str, notify=operationModeChanged)
     def operationMode(self) -> str:  # pyright: ignore
