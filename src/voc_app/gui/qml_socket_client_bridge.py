@@ -2,7 +2,7 @@ import socket
 import threading
 from typing import Optional, List
 
-from PySide6.QtCore import QObject, Signal, Slot, Property, QTimer
+from PySide6.QtCore import QObject, Signal, Slot, Property
 
 from voc_app.logging_config import get_logger
 
@@ -43,6 +43,12 @@ class QmlSocketClientBridge(QObject):
     connectedChanged = Signal(bool)
     busyChanged = Signal(bool)
 
+    # 内部信号：把异步收尾投递回本对象所属线程（通常是主线程）。
+    # 不能使用 QTimer.singleShot()：从 Python 工作线程调用时没有接收上下文，
+    # 回调不会回到主线程，busy 会永久保持 True，第二次操作永远被拒绝（R33）。
+    _asyncFinished = Signal()
+    _asyncFailed = Signal(str)
+
     def __init__(
         self,
         client_cls,  # 传入你的 Client 类
@@ -59,6 +65,10 @@ class QmlSocketClientBridge(QObject):
         self._lock = threading.RLock()
         self._max_message_size = int(max_message_size)
 
+        # 队列连接：发射发生在工作线程，槽在本对象所属（主）线程执行
+        self._asyncFinished.connect(self._on_async_finished)
+        self._asyncFailed.connect(self._on_async_failed)
+
     # ---------- 属性 ----------
 
     def _get_connected(self) -> bool:
@@ -73,9 +83,14 @@ class QmlSocketClientBridge(QObject):
 
     # ---------- 内部工具 ----------
 
-    def _post(self, fn, *args, **kwargs):
-        # 将调用切回主线程
-        QTimer.singleShot(0, lambda: fn(*args, **kwargs))
+    @Slot()
+    def _on_async_finished(self) -> None:
+        self._set_busy(False)
+
+    @Slot(str)
+    def _on_async_failed(self, message: str) -> None:
+        self.errorOccurred.emit(message)
+        self._set_busy(False)
 
     def _set_connected(self, v: bool):
         if self._connected != v:
@@ -105,13 +120,13 @@ class QmlSocketClientBridge(QObject):
                 result = func(*args, **kwargs)
             except Exception as e:
                 logger.error(f"异步操作失败: {e}", exc_info=True)
-                self.errorOccurred.emit(str(e))
+                # 在 worker 线程发射；队列投递回主线程后再清 busy
+                self._asyncFailed.emit(str(e))
             else:
                 if on_success_signal is not None:
                     on_success_signal.emit(result)
             finally:
-                # 切回主线程清除 busy
-                self._post(self._set_busy, False)
+                self._asyncFinished.emit()
 
         threading.Thread(target=worker, daemon=True).start()
 

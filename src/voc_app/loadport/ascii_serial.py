@@ -27,6 +27,7 @@ class AsciiSerialClient:
         message_callback: Optional[Callable[[str], None]] = None,
         serial_factory: Optional[Callable[..., Any]] = None,
         idle_sleep: float = 0.01,
+        connection_lost_callback: Optional[Callable[[Exception], None]] = None,
     ) -> None:
         self.port = port
         self.baudrate = baudrate
@@ -34,6 +35,7 @@ class AsciiSerialClient:
 
         self._rx_buffer = bytearray()
         self._message_callback = message_callback
+        self._connection_lost_callback = connection_lost_callback
         self._idle_sleep = idle_sleep
 
         self._serial_factory = serial_factory or self._default_serial_factory
@@ -41,6 +43,8 @@ class AsciiSerialClient:
         self._reader_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._write_lock = threading.Lock()
+        # 保护串口对象 / 读线程 / 失效状态的整体切换（R16）
+        self._state_lock = threading.RLock()
         self._last_error: Exception | None = None
         # 兼容旧代码：历史版本通过 client.device 调用底层方法，这里直接指向自身。
         self.device = self
@@ -62,12 +66,19 @@ class AsciiSerialClient:
         return serial.Serial(**kwargs)
 
     def _ensure_connected(self) -> None:
-        if not self._serial or not getattr(self._serial, "is_open", False):
+        if not self.is_connected:
             raise RuntimeError("串口尚未连接，请先调用 connect()")
 
+    def set_connection_lost_callback(
+        self, callback: Optional[Callable[[Exception], None]]
+    ) -> None:
+        self._connection_lost_callback = callback
+
     def _reader_loop(self) -> None:
-        assert self._serial is not None
         serial_obj = self._serial
+        if serial_obj is None:
+            return
+        failure: Exception | None = None
         while not self._stop_event.is_set() and getattr(serial_obj, "is_open", False):
             try:
                 waiting = getattr(serial_obj, "in_waiting", 0)
@@ -78,9 +89,37 @@ class AsciiSerialClient:
                 else:
                     time.sleep(self._idle_sleep)
             except Exception as exc:  # noqa: BLE001
-                self._last_error = exc
+                failure = exc
                 logger.error(f"串口读取异常: {exc}")
                 break
+        if failure is not None and not self._stop_event.is_set():
+            self._handle_reader_failure(serial_obj, failure)
+
+    def _handle_reader_failure(self, serial_obj: Any, exc: Exception) -> None:
+        """读线程异常退出：标记失效、释放串口并通知上层（R16）。
+
+        这里不能 join 当前线程，也不能直接调用 ``connect()``；上层收到通知后
+        在需要时可以安全地重建连接。
+        """
+        callback: Optional[Callable[[Exception], None]]
+        with self._state_lock:
+            if self._serial is not serial_obj:
+                # 串口已经被重连替换，旧线程的失败不再影响当前连接
+                return
+            self._last_error = exc
+            self._serial = None
+            self._reader_thread = None
+            callback = self._connection_lost_callback
+        try:
+            if getattr(serial_obj, "is_open", False):
+                serial_obj.close()
+        except Exception:  # noqa: BLE001
+            logger.debug("关闭失效串口时发生异常", exc_info=True)
+        if callback is not None:
+            try:
+                callback(exc)
+            except Exception:  # noqa: BLE001
+                logger.exception("串口失效回调执行失败")
 
     def _parse_chunk(self, chunk: bytes) -> None:
         self._rx_buffer.extend(chunk)
@@ -113,27 +152,60 @@ class AsciiSerialClient:
         self._message_callback = callback
 
     def connect(self) -> None:
-        if self._serial and getattr(self._serial, "is_open", False):
-            return
-        self._rx_buffer.clear()
-        self._last_error = None
-        self._serial = self._serial_factory(
-            port=self.port,
-            baudrate=self.baudrate,
-            timeout=self.timeout,
-        )
-        self._stop_event.clear()
-        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
-        self._reader_thread.start()
+        with self._state_lock:
+            if self.is_connected:
+                return
+            # 清理上一次失效/半死状态的资源，保证能够重建读线程（R16）
+            self._stop_event.set()
+            old_serial = self._serial
+            old_thread = self._reader_thread
+            self._serial = None
+            self._reader_thread = None
+
+        if (
+            old_thread is not None
+            and old_thread.is_alive()
+            and old_thread is not threading.current_thread()
+        ):
+            old_thread.join(timeout=1.0)
+        if old_serial is not None and getattr(old_serial, "is_open", False):
+            try:
+                old_serial.close()
+            except Exception:  # noqa: BLE001
+                logger.debug("关闭旧串口时发生异常", exc_info=True)
+
+        with self._state_lock:
+            self._rx_buffer.clear()
+            self._last_error = None
+            self._stop_event.clear()
+            self._serial = self._serial_factory(
+                port=self.port,
+                baudrate=self.baudrate,
+                timeout=self.timeout,
+            )
+            thread = threading.Thread(target=self._reader_loop, daemon=True)
+            self._reader_thread = thread
+            thread.start()
 
     def disconnect(self) -> None:
-        self._stop_event.set()
-        if self._reader_thread and self._reader_thread.is_alive():
-            self._reader_thread.join(timeout=1.0)
-        self._reader_thread = None
-        if self._serial and getattr(self._serial, "is_open", False):
-            self._serial.close()
-        self._serial = None
+        with self._state_lock:
+            self._stop_event.set()
+            serial_obj = self._serial
+            thread = self._reader_thread
+            self._serial = None
+            self._reader_thread = None
+
+        if (
+            thread is not None
+            and thread.is_alive()
+            and thread is not threading.current_thread()
+        ):
+            thread.join(timeout=1.0)
+        if serial_obj is not None and getattr(serial_obj, "is_open", False):
+            try:
+                serial_obj.close()
+            except Exception:  # noqa: BLE001
+                logger.debug("关闭串口时发生异常", exc_info=True)
 
     def __enter__(self) -> "AsciiSerialClient":
         self.connect()
@@ -143,9 +215,18 @@ class AsciiSerialClient:
         self.disconnect()
 
     def send_raw(self, data: bytes) -> None:
-        self._ensure_connected()
+        with self._state_lock:
+            serial_obj = self._serial
+            thread = self._reader_thread
+            if not (
+                serial_obj is not None
+                and getattr(serial_obj, "is_open", False)
+                and thread is not None
+                and thread.is_alive()
+            ):
+                raise RuntimeError("串口尚未连接，请先调用 connect()")
         with self._write_lock:
-            self._serial.write(data)
+            serial_obj.write(data)
 
     def send_line(self, line: str) -> None:
         text = line.strip()
@@ -162,7 +243,20 @@ class AsciiSerialClient:
 
     @property
     def is_connected(self) -> bool:
-        return bool(self._serial and getattr(self._serial, "is_open", False))
+        """串口打开且读线程仍存活才算已连接。
+
+        R16：读线程因异常退出后，串口对象可能仍是 open 状态，如果只看
+        ``serial.is_open``，界面会一直显示已连接，自动重连也永远不会触发。
+        """
+        with self._state_lock:
+            serial_obj = self._serial
+            thread = self._reader_thread
+        return bool(
+            serial_obj is not None
+            and getattr(serial_obj, "is_open", False)
+            and thread is not None
+            and thread.is_alive()
+        )
 
     @property
     def last_error(self) -> Exception | None:

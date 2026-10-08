@@ -40,8 +40,10 @@ def test_loadport_installer_switches_current_symlink(tmp_path: Path) -> None:
     assert (current / "src" / "voc_app" / "gui" / "app.py").read_text() == "new"
     assert runner.commands == [
         ["systemctl", "--user", "stop", "voc-gui.service"],
+        ["systemctl", "--user", "is-active", "voc-gui.service"],
         ["systemctl", "--user", "start", "voc-gui.service"],
         ["systemctl", "--user", "is-active", "voc-gui.service"],
+        ["systemctl", "--user", "show", "-p", "MainPID", "--value", "voc-gui.service"],
     ]
 
 

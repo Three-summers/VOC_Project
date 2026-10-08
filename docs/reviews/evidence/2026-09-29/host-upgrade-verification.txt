@@ -1,0 +1,51 @@
+# 真实 Ubuntu 主机升级验证（R13/R14/R27/R29/R30）
+# 主机: jinao@192.168.1.241
+# 日期: 2026-10-08 11:38:52 CST
+# 复现: 上传 tools/updater/voc_updater 与 tools/host_upgrade_verification/host_driver.py
+#       到 $BASE/updater/ 后执行 tools/host_upgrade_verification/run_host_verification.sh
+
+== host ==
+jinao
+Ubuntu 24.04.4 LTS
+Python 3.12.3
+systemd 255 (255.4-1ubuntu8.17)
+
+== baseline 1.0.0 ==
+is-active: active
+MainPID:   564867
+proc cwd:  /home/jinao/Project/voc_project/releases/loadport-1.0.0
+module:    /home/jinao/Project/voc_project/current/src/voc_app/__init__.py
+
+== R13: PYTHONPATH 决定实际加载的 release ==
+/home/jinao/Project/voc_project/current/src/voc_app/__init__.py
+
+== 升级到 2.0.0（真实 systemctl + 事务确认）==
+upgrade-ok 2.0.0
+current -> /home/jinao/Project/voc_project/releases/loadport-2.0.0
+is-active: active
+MainPID:   564867 -> 564885
+proc cwd:  /home/jinao/Project/voc_project/releases/loadport-2.0.0
+module:    /home/jinao/Project/voc_project/current/src/voc_app/__init__.py
+state:     {
+  "loadport_version": "2.0.0",
+  "update_state": "succeeded",
+  "update_message": "Update completed",
+  "loadport_target_version": "2.0.0"
+}
+
+== R14+R13: 进程 cwd 不属于目标 release 时必须回滚 ==
+expected-failure 3.0.0: upgrade failed, rolled back to previous release: running process 564917 cwd /home/jinao/Project/voc_project/run_stub does not belong to target release /home/jinao/Project/voc_project/releases/loadport-3.0.0
+current -> /home/jinao/Project/voc_project/releases/loadport-2.0.0
+is-active: active
+module:    /home/jinao/Project/voc_project/current/src/voc_app/__init__.py
+state:     {
+  "loadport_version": "2.0.0",
+  "update_state": "failed",
+  "update_message": "upgrade failed, rolled back to previous release: running process 564917 cwd /home/jinao/Project/voc_project/run_stub does not belong to target release /home/jinao/Project/voc_project/releases/loadport-3.0.0",
+  "loadport_target_version": "3.0.0"
+}
+
+== 恢复正确 unit 并确认 2.0.0 仍可正常启动 ==
+is-active: active
+proc cwd:  /home/jinao/Project/voc_project/releases/loadport-2.0.0
+HOST-VERIFY-DONE

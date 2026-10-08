@@ -104,6 +104,10 @@ from voc_app.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+# 幅度谱低于该阈值时视为"没有可测信号"（纯数值噪声），不参与最大值归一化。
+# 参见 updateFromTimeDomain：避免全零时域信号被转换成满量程 0 dB（R34）。
+_MIN_SIGNAL_MAGNITUDE = 1e-12
+
 
 class SpectrumDataModel(QObject):
     """
@@ -330,11 +334,19 @@ class SpectrumDataModel(QObject):
         # 计算幅度谱（只取正频率部分）
         magnitude = np.abs(spectrum[: fft_size // 2])
 
+        # 无信号单独处理（R34）：全零/近零时域数据的幅度谱只有数值噪声，
+        # 若继续"除以自身最大值"，会把静音归一化成满量程 0 dB。这里在峰值
+        # 低于数值噪声阈值时直接输出归一化下界（全 0），语义是"没有可测信号"。
+        peak = float(np.max(magnitude)) if magnitude.size else 0.0
+        if not np.isfinite(peak) or peak <= _MIN_SIGNAL_MAGNITUDE:
+            self.updateSpectrum(np.zeros(self._bin_count, dtype=np.float64))
+            return
+
         # 避免 log(0)
         magnitude = np.maximum(magnitude, 1e-10)
 
         # 转换为 dB（相对于最大值）
-        db = 20 * np.log10(magnitude / np.max(magnitude))
+        db = 20 * np.log10(magnitude / peak)
 
         # 归一化到 0.0~1.0
         normalized = (db - self._db_min) / (self._db_max - self._db_min)

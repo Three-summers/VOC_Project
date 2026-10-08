@@ -40,13 +40,51 @@ def test_foup_installer_updates_only_changed_ps_file(tmp_path: Path) -> None:
             "ssh",
             "-i",
             str(tmp_path / "id_rsa"),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
             "root@192.168.1.50",
             "mount /dev/mmcblk1p1 /tmp",
         ],
-        ["ssh", "-i", str(tmp_path / "id_rsa"), "root@192.168.1.50", "sync"],
-        ["ssh", "-i", str(tmp_path / "id_rsa"), "root@192.168.1.50", "reboot"],
+        [
+            "ssh",
+            "-i",
+            str(tmp_path / "id_rsa"),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "root@192.168.1.50",
+            "sync",
+        ],
+        [
+            "ssh",
+            "-i",
+            str(tmp_path / "id_rsa"),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "root@192.168.1.50",
+            "reboot",
+        ],
     ]
     assert runner.uploads == [(run_file, "root@192.168.1.50:/tmp/run")]
+    # R26：scp 必须复用 ssh 的密钥与非交互参数
+    assert runner.upload_commands == [
+        [
+            "scp",
+            "-i",
+            str(tmp_path / "id_rsa"),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            str(run_file),
+            "root@192.168.1.50:/tmp/run",
+        ]
+    ]
 
 
 def test_foup_installer_skips_when_no_files_changed(tmp_path: Path) -> None:

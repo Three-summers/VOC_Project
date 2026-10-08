@@ -30,10 +30,15 @@ atexit.register(shutil.rmtree, _DATA_DIR, ignore_errors=True)
 
 @pytest.fixture(scope="session")
 def qapp():
-    """QML 组件实例化共用的 QGuiApplication（按需创建，不是导入即创建）。"""
-    from PySide6.QtGui import QGuiApplication
+    """QML 组件实例化共用的 QApplication（按需创建，不是导入即创建）。
 
-    app = QGuiApplication.instance()
+    使用 ``QApplication`` 而不是 ``QGuiApplication``：QtCharts 的 QML
+    ``ChartView`` 在只有 QGuiApplication 时离屏实例化会段错误，而
+    ``QApplication`` 是 ``QGuiApplication`` 的子类，不影响其它 QML 测试。
+    """
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance()
     if app is None:
-        app = QGuiApplication([])
+        app = QApplication([])
     return app

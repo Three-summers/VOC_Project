@@ -32,6 +32,45 @@ Rectangle {
     property bool showOosLower: Components.UiConstants.defaultShowOosLower
     property bool showTarget: Components.UiConstants.defaultShowTarget
 
+    // ---------------------------------------------------------------
+    // 图表显示策略（system_config.json 的 chart 分区，context property chartOptions）
+    //   colorSyncWithLimits：界面红色是否与后台 _check_channel_limits 严格一致
+    //   yAxisMode：auto 按数据量纲决定下界，zero 保持历史"统一截到 0"（R22/R23）
+    // ---------------------------------------------------------------
+    readonly property var chartDisplayOptions: (typeof chartOptions !== "undefined" && chartOptions) ? chartOptions : null
+    property bool colorSyncWithLimits: chartDisplayOptions ? chartDisplayOptions.alarmColorSyncWithLimits !== false : true
+    property string yAxisMode: chartDisplayOptions ? (chartDisplayOptions.yAxisMode || "auto") : "auto"
+
+    // 与后台越限判定共用同一套开关语义：只有启用了显示开关的限界才着色
+    function limitViolated(value, upper, lower, showUpper, showLower) {
+        if (colorSyncWithLimits) {
+            if (showUpper && !isNaN(upper) && value > upper) return true;
+            if (showLower && !isNaN(lower) && value < lower) return true;
+            return false;
+        }
+        // 关闭同步：允许只做界面提示，不要求后台也报警
+        if (!isNaN(upper) && value > upper) return true;
+        if (!isNaN(lower) && value < lower) return true;
+        return false;
+    }
+
+    readonly property color currentValueColor: {
+        if (isNaN(currentValue)) return Components.UiTheme.color("textSecondary");
+        if (limitViolated(currentValue, oosLimitValue, oosLowerLimitValue,
+                          showOosUpper, showOosLower)) {
+            return Components.UiTheme.color("accentAlarm");
+        }
+        if (limitViolated(currentValue, oocLimitValue, oocLowerLimitValue,
+                          showOocUpper, showOocLower)) {
+            return Components.UiTheme.color("accentWarning");
+        }
+        return Components.UiTheme.color("accentSuccess");
+    }
+
+    // Y 轴实际范围（供测试与上层查询；轴对象不在 QObject 子对象树里）
+    readonly property real yAxisMin: yAxis.min
+    readonly property real yAxisMax: yAxis.max
+
     property var chartStyle: {
         "v1": {
             // OOS: R220, G82, B82
@@ -77,23 +116,8 @@ Rectangle {
                 }
                 font.pixelSize: Components.UiTheme.fontSize("subtitle")
                 font.bold: true
-                color: {
-                    // 根据值与限值关系显示不同颜色
-                    if (isNaN(chartCard.currentValue)) return Components.UiTheme.color("textSecondary");
-                    var val = chartCard.currentValue;
-                    // OOS 超限 - 红色
-                    if ((!isNaN(chartCard.oosLimitValue) && val > chartCard.oosLimitValue) ||
-                        (!isNaN(chartCard.oosLowerLimitValue) && val < chartCard.oosLowerLimitValue)) {
-                        return Components.UiTheme.color("accentAlarm");
-                    }
-                    // OOC 超限 - 橙色
-                    if ((!isNaN(chartCard.oocLimitValue) && val > chartCard.oocLimitValue) ||
-                        (!isNaN(chartCard.oocLowerLimitValue) && val < chartCard.oocLowerLimitValue)) {
-                        return Components.UiTheme.color("accentWarning");
-                    }
-                    // 正常 - 绿色
-                    return Components.UiTheme.color("accentSuccess");
-                }
+                // 颜色规则与后台越限判定共用（R22）
+                color: chartCard.currentValueColor
             }
         }
 
@@ -145,6 +169,7 @@ Rectangle {
 
             ValueAxis {
                 id: yAxis
+                objectName: "yAxis"
                 min: 0
                 max: 100
                 labelFormat: "%.0f"
@@ -330,6 +355,15 @@ Rectangle {
         }
     }
 
+    // 按数据与量纲决定 Y 轴下界：含负值的数据必须可见，全正数据仍从 0 起（R23）。
+    // yAxisMode == "zero" 时保持历史行为，统一截到 0。
+    function resolveYAxisMin(rawMin, padding) {
+        var lower = rawMin - padding;
+        if (yAxisMode === "zero") return Math.max(0, lower);
+        if (rawMin < 0) return lower;
+        return Math.max(0, lower);
+    }
+
     function updateAxesFromSeries() {
         if (!chartCard.seriesModel || !chartCard.seriesModel.hasData) {
             resetAxesToDefault();
@@ -362,6 +396,7 @@ Rectangle {
         }
 
         // Y 轴增加一点 Padding
+        var rawMinY = minY;
         if (minY === maxY) {
             minY = minY - 1;
             maxY = maxY + 1;
@@ -372,8 +407,8 @@ Rectangle {
 
         xAxis.min = new Date(minX - paddingX);
         xAxis.max = new Date(maxX + paddingX);
-        // yAxis.min = minY - paddingY;
-        yAxis.min = Math.max(0, minY - paddingY);
+        // 负值数据必须可见；全正数据仍从 0 起（R23）
+        yAxis.min = resolveYAxisMin(rawMinY, paddingY);
         yAxis.max = maxY + paddingY;
         updateLimitLines();
     }
@@ -482,6 +517,7 @@ Rectangle {
             minX = minX - 1000;
             maxX = maxX + 1000;
         }
+        var rawMinY = minY;
         if (minY === maxY) {
             minY = minY - 1;
             maxY = maxY + 1;
@@ -491,8 +527,8 @@ Rectangle {
         var paddingY = Math.max(0.5, Math.abs(maxY - minY) * 0.1);
         xAxis.min = new Date(minX - paddingX);
         xAxis.max = new Date(maxX + paddingX);
-        // yAxis.min = minY - paddingY;
-        yAxis.min = Math.max(0, minY - paddingY);
+        // 负值数据必须可见；全正数据仍从 0 起（R23）
+        yAxis.min = resolveYAxisMin(rawMinY, paddingY);
         yAxis.max = maxY + paddingY;
         updateLimitLines();
     }

@@ -46,13 +46,32 @@ class FoupInstaller:
     def _remote(self) -> str:
         return f"{self.ssh_user}@{self.host}"
 
+    def _ssh_auth_options(self) -> list[str]:
+        """ssh 与 scp 共用的认证/非交互参数（R26）。
+
+        只给 ssh 加 ``-i``、scp 不加时，配置了非默认密钥且 SSH agent 没有
+        等效身份的环境里，挂载能成功但上传会认证失败或等待交互输入。
+        """
+        return [
+            "-i",
+            str(self.ssh_key),
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+        ]
+
     def _run_remote(self, command: str) -> None:
-        args = ["ssh", "-i", str(self.ssh_key), self._remote(), command]
+        args = ["ssh", *self._ssh_auth_options(), self._remote(), command]
         result = self.runner.run(args, timeout=120)
         if result.returncode != 0:
             raise RuntimeError(f"remote command failed: {command}")
 
     def _upload(self, local_path: Path, remote_path: Path) -> None:
-        result = self.runner.upload(local_path, f"{self._remote()}:{remote_path}")
+        result = self.runner.upload(
+            local_path,
+            f"{self._remote()}:{remote_path}",
+            options=self._ssh_auth_options(),
+        )
         if result.returncode != 0:
             raise RuntimeError(f"upload failed: {local_path} -> {remote_path}")

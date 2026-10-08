@@ -30,6 +30,10 @@
     "serial_timeout_seconds": 1.0,
     "disable_e84_bridge": false
   },
+  "chart": {
+    "alarm_color_sync_with_limits": true,
+    "y_axis_mode": "auto"
+  },
   "update": {
     "state_file": ""
   }

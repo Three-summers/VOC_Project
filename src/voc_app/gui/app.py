@@ -61,6 +61,7 @@ from voc_app.gui.spectrum_model import SpectrumDataModel, SpectrumSimulator
 from voc_app.gui.standby_media import StandbyMediaController
 from voc_app.gui.file_tree_browser import FilePreviewController
 from voc_app.gui.foup_acquisition import FoupAcquisitionController
+from voc_app.gui.chart_options import chart_display_options
 from voc_app.gui.status_gpio import initialize_status_outputs
 from voc_app.loadport.ascii_serial import AsciiSerialClient
 from voc_app.version_info import get_loadport_version
@@ -746,6 +747,10 @@ if __name__ == "__main__":
     # 将性能配置传递给 QML，让频谱图组件根据环境调整效果
     spectrum_perf_config = get_spectrum_config_for_env()
     engine.rootContext().setContextProperty("spectrumPerfConfig", spectrum_perf_config)
+
+    # 图表显示策略：报警颜色是否同步后台限界判定、Y 轴是否允许负半轴（R22/R23）
+    chart_options = chart_display_options(app_paths.get_section("chart"))
+    engine.rootContext().setContextProperty("chartOptions", chart_options)
 
     alarm_store = AlarmStore()
     # alarm_store.addAlarm("2025-11-10 18:24:00", "Temperature above threshold")

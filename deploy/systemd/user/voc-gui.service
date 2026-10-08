@@ -5,6 +5,10 @@ After=graphical-session.target
 [Service]
 Type=simple
 WorkingDirectory=/home/kasp/Project/voc_project/current
+# R13：只切换 current 软链不会改变模块搜索路径。显式把 current/src 放到
+# PYTHONPATH 最前面，确保进程加载的是当前 release 的 voc_app，而不是虚拟环境
+# 里残留的旧路径。
+Environment=PYTHONPATH=/home/kasp/Project/voc_project/current/src
 ExecStart=/home/kasp/Project/voc_project/.venv/bin/python -m voc_app.gui.app
 Restart=on-failure
 RestartSec=3

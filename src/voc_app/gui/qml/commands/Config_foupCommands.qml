@@ -122,9 +122,12 @@ Column {
     // 弹窗配置 OOC/OOS/Target（按通道）
     Components.DataInputDialog {
         id: limitDialog
+        objectName: "limitDialog"
         title: "配置通道参数"
         popupAnchorItem: informationPanelRef ? informationPanelRef : Qt.application.activeWindow
         property int selectedChannel: 0
+        // 与"保存通道"共用的唯一状态来源：选择器显示必须始终跟随 selectedChannel（R08）
+        property var channelSelectorRef: null
         property string tempUnit: ""
         property real tempOOCUpper: Components.UiConstants.defaultOocUpper
         property real tempOOCLower: Components.UiConstants.defaultOocLower
@@ -139,7 +142,13 @@ Column {
         property var targetFieldRef: null
 
         function loadChannel(index) {
-            selectedChannel = Math.max(0, index || 0);
+            // 通道数可能变化，先收敛到可用范围，避免显示/保存到不存在的通道
+            var available = (typeof channelCount !== "undefined" && channelCount) ? channelCount : 1;
+            var maxIndex = Math.max(0, available - 1);
+            var target = Math.max(0, Math.min(maxIndex, index || 0));
+            selectedChannel = target;
+            // 选择器与保存通道共用同一状态，重开时不能保留上一次的 currentIndex（R08）
+            if (channelSelectorRef) channelSelectorRef.currentIndex = target;
             // 从后端获取配置
             if (acquisitionController) {
                 tempUnit = acquisitionController.getUnit(selectedChannel);
@@ -205,6 +214,7 @@ Column {
                         }
                         ComboBox {
                             id: channelSelector
+                            objectName: "channelSelector"
                             Layout.fillWidth: true
                             Layout.preferredHeight: Components.UiTheme.controlHeight("input")
                             model: Math.max(1, channelCount)
@@ -260,6 +270,7 @@ Column {
                                 }
                             }
                             onActivated: function(i) { limitDialog.loadChannel(i); }
+                            Component.onCompleted: limitDialog.channelSelectorRef = channelSelector
                         }
                     }
 

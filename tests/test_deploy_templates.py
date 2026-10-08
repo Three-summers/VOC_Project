@@ -12,6 +12,16 @@ def test_voc_gui_service_uses_current_symlink_and_module_entrypoint() -> None:
     assert "Restart=on-failure" in content
 
 
+def test_voc_gui_service_loads_code_from_current_release() -> None:
+    """R13：只切换 current 软链不会改变模块搜索路径，必须显式指向 current/src"""
+    content = (ROOT_DIR / "deploy" / "systemd" / "user" / "voc-gui.service").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "Environment=PYTHONPATH=/home/kasp/Project/voc_project/current/src" in content
+    ), "服务必须从 current/src 加载 voc_app，否则可能继续运行旧 release 的代码"
+
+
 def test_autostart_desktop_starts_systemd_service_not_python() -> None:
     content = (ROOT_DIR / "deploy" / "autostart" / "voc-gui.desktop").read_text(
         encoding="utf-8"

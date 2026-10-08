@@ -19,6 +19,7 @@ class UpdateStatusController(QObject):
         super().__init__(parent)
         self._state_file = Path(state_file)
         self._loadport_version = loadport_version or "unknown"
+        self._target_version = self._loadport_version
         self._update_state = "idle"
         self._update_message = ""
         self._timer: QTimer | None = None
@@ -31,6 +32,11 @@ class UpdateStatusController(QObject):
     @Property(str, notify=statusChanged)
     def loadportVersion(self) -> str:
         return self._loadport_version
+
+    @Property(str, notify=statusChanged)
+    def targetVersion(self) -> str:
+        """本次升级的目标版本；回滚后与 loadportVersion（实际运行版本）不同。"""
+        return self._target_version
 
     @Property(str, notify=statusChanged)
     def updateState(self) -> str:
@@ -54,17 +60,22 @@ class UpdateStatusController(QObject):
             return
 
         loadport_version = str(data.get("loadport_version") or self._loadport_version)
+        target_version = str(
+            data.get("loadport_target_version") or loadport_version
+        )
         update_state = str(data.get("update_state") or "idle")
         update_message = str(data.get("update_message") or "")
 
         if (
             loadport_version == self._loadport_version
+            and target_version == self._target_version
             and update_state == self._update_state
             and update_message == self._update_message
         ):
             return
 
         self._loadport_version = loadport_version
+        self._target_version = target_version
         self._update_state = update_state
         self._update_message = update_message
         self.statusChanged.emit()
