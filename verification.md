@@ -351,3 +351,33 @@
   - 主机验证产物已清理（临时 unit、`~/Project/voc_project`）。
 - Risk Assessment: 低-中。纯软件项已闭环；R01–R04、R18–R20 仍需现场设备口径与
   安全策略确认，真实 FOUP/SSH/断电演练仍待现场验证。
+
+## Verification - 2026-10-08T13:20:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 安全联锁项 R01/R02/R03/R04 与设备切换 R20（“除 R18/R19 外全部修复”）
+- Command:
+  - `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
+- Result: ✅ Passed
+- Details:
+  - 流程：先写失败测试并确认红（17 失败 / 4 通过），再修复到全绿；新增 3 个回归文件
+    （`test_e84_handshake_safety.py`、`test_actuator_fault_latch.py`、
+    `test_foup_host_switch.py`）。
+  - 全量测试：444 passed / 3 skipped；证据
+    `docs/reviews/evidence/2026-09-29/pytest-after-fixes.txt`。
+  - R01：用假 RPi.GPIO 驱动真实状态机，验证 GO/CS_0/VALID 撤销后
+    WAIT_TR_REQ 不置 READY、WAIT_BUSY/WAIT_L_REQ 撤回输出并回到 IDLE；开关
+    `loadport.e84_revoke_on_handshake_loss` 可恢复旧行为。
+  - R02：验证任意一键只置 `FOUP_status`（检测到载具）、三键全落才置
+    `FOUP_docked`，Load 完成必须完整落位才撤回 L_REQ；开关
+    `loadport.e84_require_all_keys` 可恢复旧口径。
+  - R03：验证 insert 写入失败、lock 连接失败、组合动作失败都会发出
+    `serialErrorDetected`，并驱动 LoadportBridge 进入 E84 故障锁存；
+    开关 `loadport.e84_latch_on_actuator_fault` 可关闭。
+  - R04：验证 `stop()` 回到 IDLE、撤回 READY/L_REQ/U_REQ 并关灯；开关
+    `loadport.e84_safe_outputs_on_stop` 可关闭。既有 E84 状态机测试保持通过。
+  - R20：验证修改 IP 后旧 E84 连接被关闭、旧身份被清除，新连接指向新地址；
+    采集中或空 IP 时不切换、不误关连接。
+  - 未改动 R18/R19：仍需先确定帧/文件大小阈值与采集会话清理策略。
+- Risk Assessment: 中。R01–R04 会改变现场握手/落位/停机时的 GPIO 行为，默认值按
+  “故障安全”选取，但必须在真机联调确认与 AMHS 时序、按键极性一致；不一致时用
+  `loadport.e84_*` 配置项逐项调整，无需改代码。

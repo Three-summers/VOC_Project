@@ -45,7 +45,23 @@
 | R29 | 已修复 | 状态文件区分 `loadport_version`（实际运行版本）与 `loadport_target_version`（目标版本）；回滚后写入实际版本，`UpdateStatusController` 暴露 `targetVersion` | `tests/test_updater_orchestrator.py`，真实主机验证 |
 | R30 | 已修复 | `UpdateOrchestrator.run` 把读包、读当前版本、安装全部纳入状态生命周期；任何前置失败都写 `failed`，不再残留 running 或沿用上一次 succeeded | `tests/test_updater_orchestrator.py` |
 
-### 3. 上一轮修复过程中发现的两处"自伤"，已一并纠正
+### 3. 2026-10-08 第二批：安全联锁项（R01–R04 + R20）
+
+这批原先挂"待决策"，本轮按**故障安全默认 + 配置开关**落地，现场如与设备口径不符
+可在 `system_config.json` 的 `loadport` 分区逐项关闭。
+
+| 编号 | 结论 | 采用的默认口径 | 配置开关 | 回归测试 |
+| --- | --- | --- | --- | --- |
+| R01 | 已修复 | 在会输出信号的阶段（WAIT_TR_REQ/WAIT_BUSY/WAIT_L_REQ/WAIT_U_REQ/WAIT_COMPT）检查 GO/CS_0/VALID 是否仍在；被撤销则撤回 READY/L_REQ/U_REQ 并回到 IDLE，不再对已撤销的请求继续响应 | `loadport.e84_revoke_on_handshake_loss`（默认 true） | `tests/test_e84_handshake_safety.py` |
+| R02 | 已修复 | 分离语义：`FOUP_status`=任意一键（检测到载具），新增 `FOUP_docked`=三键全落（完整落位）；**Load 完成必须 `FOUP_docked`** 才撤回 L_REQ，方向锁定仍按"是否检测到载具" | `loadport.e84_require_all_keys`（默认 true） | 同上 |
+| R03 | 已修复 | 统一执行机构失败入口：连接失败/写入失败与设备上报的 `error:` 一样发出 `serialErrorDetected`，进入 LoadportBridge 的 E84 故障锁存并拉低 READY | `loadport.e84_latch_on_actuator_fault`（默认 true） | `tests/test_actuator_fault_latch.py` |
+| R04 | 已修复 | `E84Controller.stop()` 除停定时器外，回到 IDLE 并撤回 READY/L_REQ/U_REQ、关闭 LOAD/UNLOAD LED（HO_AVBL/ES 反映物理在位，保持不动） | `loadport.e84_safe_outputs_on_stop`（默认 true） | `tests/test_e84_handshake_safety.py` |
+| R20 | 已修复 | 修改 FOUP IP 时，在与 E84 控制相同的锁内关闭旧控制连接并清除 `_server_version`/`_command_prefix`，下一次控制命令必然连到新地址；采集中不允许切换 | 无（行为本身即修复） | `tests/test_foup_host_switch.py` |
+
+> 需要现场复核的点：R02 的"完整落位"按三键全落判定；R04 未改动 HO_AVBL/ES（它们
+> 反映载具物理在位）。若现场口径不同，改配置即可，无需改代码。
+
+### 4. 上一轮修复过程中发现的两处"自伤"，已一并纠正
 
 1. **R15 曾被上一轮改动加重**：把 manifest 写到已存在的 release 目录上，
    会让"上次复制中断的残缺目录"看起来像完整版本（报告 R15 证据即此现象）。
@@ -57,31 +73,29 @@
    Loader 高度绑定造成 binding loop、以及在 `ScrollView` 上设 `contentY`
    只是创建动态属性（真正可滚动的是其内部 flickable）。
 
-## 二、未修复：仍需现场/策略确认（B 组）
+## 二、未修复：仍需现场/策略确认（仅剩 2 项）
 
 | 编号 | 待定问题 | 需要谁决定 |
 | --- | --- | --- |
-| R01 | 握手条件撤销时，各阶段应保持哪些输入、撤销后回到哪个安全状态并撤回哪些输出 | 现场/E84 时序确认 |
-| R02 | "检测到载具"与"完整落位"的判定口径（是否要求三键全落） | 现场接线与机械协议 |
-| R03 | 执行机构本机通信异常是否一律锁存并拉低 READY（会改变现场行为） | 设备安全策略 |
-| R04 | 控制器停止/应用退出时 GPIO 输出应置为何种状态 | 设备安全策略 |
-| R18 | 协议帧/文件大小上限的具体阈值与超限处理 | 容量与业务约定 |
+| R18 | 协议帧/文件大小上限的具体阈值与超限处理（拒绝关连接 vs 有界丢弃） | 容量与业务约定 |
 | R19 | 采集会话清理策略（绑定会话资源或禁止 500ms 内重启） | 交互约定 |
-| R20 | 修改 IP 时切换设备连接的时机与并发约束 | 交互约定 |
 
-原先列为"可继续排期"的 R08/R16/R17/R22/R23/R33/R34 与 R13/R14/R26/R27/R29/R30
-已在本批修复；剩余 B 组的共同点是**需要现场设备口径或安全策略**，不是纯软件可判定项。
+除 R18/R19 外，34 项缺陷的其余各项均已修复。R01–R04 本轮以"故障安全默认 +
+配置开关"落地：默认行为按上文口径执行，现场若与设备安全策略不一致，可通过
+`loadport.e84_*` 配置项逐项调整，不需要改代码。
 
 ## 三、验收与回归
 
 - 全量测试：`QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
-  → **422 passed / 3 skipped**（`conftest.py` 固定 offscreen 与临时数据目录；
+  → **444 passed / 3 skipped**（`conftest.py` 固定 offscreen 与临时数据目录；
   `qapp` fixture 使用 `QApplication`，因为 QtCharts 的 `ChartView` 在只有
   `QGuiApplication` 时离屏实例化会段错误）。
   证据：[pytest-after-fixes.txt](evidence/2026-09-29/pytest-after-fixes.txt)。
 - 新增回归用例覆盖本次修复的触发条件与外部可观察结果：真实 QML 组件里
   "重开后选择器与保存通道一致"、图表颜色与 Y 轴范围、串口失效后重建接收、
-  E84 线程清理顺序、异步桥接 busy 归零、静音频谱、升级事务回滚与服务重启确认。
+  E84 线程清理顺序、异步桥接 busy 归零、静音频谱、升级事务回滚与服务重启确认；
+  以及 E84 握手撤销后不置 READY/撤回输出、部分落位不确认装载、`stop()` 撤回
+  输出、执行机构本机失败进入锁存、切换 IP 放弃旧控制连接。
 - **真实 Ubuntu 主机验证**（`jinao@192.168.1.241`，Ubuntu 24.04.4 / systemd 255，
   真实 `systemctl --user`）：
   - `current/src` 经 `PYTHONPATH` 生效，导入的 `voc_app` 来自当前 release；

@@ -678,7 +678,7 @@ app_paths.prepare_runtime_paths()   # 建目录、生成用户配置、迁移旧
 | `paths` | `data_directory` | `app_paths.get_data_directory` |
 | `standby` | `media_directory`、`idle_timeout_seconds` | `standby_media.StandbyMediaController` |
 | `acquisition` | `host`、`port`、`operation_mode`、`normal_mode_remote_path`、`socket_timeout_seconds` | `foup_acquisition.FoupAcquisitionController` |
-| `loadport` | `lock_serial_port`、`insert_serial_port`、`baudrate`、`serial_timeout_seconds`、`disable_e84_bridge` | `app.py`（串口与 E84 桥接开关） |
+| `loadport` | `lock_serial_port`、`insert_serial_port`、`baudrate`、`serial_timeout_seconds`、`disable_e84_bridge`、`e84_revoke_on_handshake_loss`、`e84_require_all_keys`、`e84_safe_outputs_on_stop`、`e84_latch_on_actuator_fault` | `app.py`（串口、E84 桥接开关与 R01–R04 安全联锁口径） |
 | `chart` | `alarm_color_sync_with_limits`、`y_axis_mode` | `chart_options.chart_display_options` → 上下文属性 `chartOptions` → `ChartCard.qml`（报警颜色是否与后台限界一致、Y 轴负半轴策略） |
 | `update` | `state_file` | `update_status.UpdateStatusController` |
 
