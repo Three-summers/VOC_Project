@@ -1,5 +1,41 @@
 # 变更记录
 
+## 2026-10-08 — 审查遗留项与升级事务化（第三轮）
+
+### 界面与图表
+- 通道配置弹窗：选择器与保存通道共用唯一状态，重开后不再“显示第三通道、保存到
+  第一通道”（R08）。
+- 图表报警颜色按限界显示开关着色，与后台 `_check_channel_limits` 规则一致；
+  `system_config.json` 新增 `chart.alarm_color_sync_with_limits`，置 false 时可关闭
+  同步，允许“界面红色提示但不设后台报警”（R22）。
+- 图表 Y 轴下界按数据量纲决定：含负值时显示负半轴，全正数据仍从 0 起；新增
+  `chart.y_axis_mode`（`auto`/`zero`）控制策略（R23）。
+
+### 线程、串口与模型
+- 串口读线程异常退出后 `is_connected` 变为 False，释放失效串口并发出失效通知，
+  `connect()` 可重建串口与读线程（R16）。
+- E84 控制器线程停止时排队执行清理并有界等待线程退出，控制器定时器在所属线程内
+  停止，停止通知幂等（R17）。
+- QML Socket 桥接改用主线程队列信号清除 busy，不再“执行一次后永久忙碌”（R33）。
+- 全零/近零时域信号不再被频谱归一化成满量程 0 dB（R34）。
+
+### 升级器
+- systemd 服务通过 `PYTHONPATH=<base>/current/src` 加载当前 release；安装器校验
+  MainPID 的 `/proc/<pid>/cwd` 属于目标 release（R13）。
+- 停止 → 切换 current → 启动 → 确认事务化，任何异常回滚旧版本；stop 后必须确认
+  服务 inactive，并确认 MainPID 已更换（R14/R27）。
+- ssh 与 scp 共用 `-i <key>`、`BatchMode=yes`、`StrictHostKeyChecking=accept-new`（R26）。
+- 升级状态区分实际运行版本与目标版本（`loadport_target_version`），整个升级尝试
+  纳入 failed 生命周期，不再残留 running 或沿用上一次 succeeded（R29/R30）。
+
+### 测试与验证
+- 新增 9 个回归测试文件；全量 `pytest` → 422 passed / 3 skipped。
+- `conftest.py` 的 `qapp` 改用 `QApplication`：QtCharts 的 `ChartView` 在只有
+  `QGuiApplication` 时离屏实例化会段错误。
+- 真实 Ubuntu 主机（systemd --user）验证升级、服务重启确认与回滚，证据见
+  `docs/reviews/evidence/2026-09-29/host-upgrade-verification.txt`，
+  脚本见 `tools/host_upgrade_verification/`。
+
 ## 2026-09-29 — 与下位机源码对齐（第二轮）
 
 ### 采集时序

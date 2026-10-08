@@ -656,7 +656,7 @@ DataLogView:
 
 ```text
 <数据目录>/
-  system_config.json     # 现场配置（日志级别、待机媒体、采集 IP/端口、串口、更新状态文件）
+  system_config.json     # 现场配置（日志级别、待机媒体、采集 IP/端口、串口、图表显示策略、更新状态文件）
   channel_config.json    # 通道限界配置（首次启动从旧 gui/channel_config.json 迁移）
   Log/                   # 采集 CSV（下载目标，同时是 DataLog/FileView 的根目录）
 ```
@@ -679,6 +679,7 @@ app_paths.prepare_runtime_paths()   # 建目录、生成用户配置、迁移旧
 | `standby` | `media_directory`、`idle_timeout_seconds` | `standby_media.StandbyMediaController` |
 | `acquisition` | `host`、`port`、`operation_mode`、`normal_mode_remote_path`、`socket_timeout_seconds` | `foup_acquisition.FoupAcquisitionController` |
 | `loadport` | `lock_serial_port`、`insert_serial_port`、`baudrate`、`serial_timeout_seconds`、`disable_e84_bridge` | `app.py`（串口与 E84 桥接开关） |
+| `chart` | `alarm_color_sync_with_limits`、`y_axis_mode` | `chart_options.chart_display_options` → 上下文属性 `chartOptions` → `ChartCard.qml`（报警颜色是否与后台限界一致、Y 轴负半轴策略） |
 | `update` | `state_file` | `update_status.UpdateStatusController` |
 
 环境变量仍然优先于配置项：`VOC_DATA_DIR`、`VOC_SYSTEM_CONFIG`、`VOC_UPDATE_STATE_FILE`、
@@ -690,5 +691,8 @@ app_paths.prepare_runtime_paths()   # 建目录、生成用户配置、迁移旧
   导入期会调用 `apply_performance_settings()`，在 WSL2 且无 `/dev/dxg` 时把平台写成 `xcb`，
   一旦如此，后续任何 `QGuiApplication` 创建都会 abort（exit 134）。
 - 同一文件把 `VOC_DATA_DIR` 指向临时目录，保证测试不读写真实用户数据目录。
+- `qapp` fixture 创建的是 `QApplication`（而非 `QGuiApplication`）：QtCharts 的
+  `ChartView` 在只有 `QGuiApplication` 时离屏实例化会段错误；`QApplication` 是其子类，
+  其它 QML 测试不受影响。
 - `pyproject.toml` 的 `[tool.pytest.ini_options]` 限定 `testpaths = ["tests", "src"]`，
   避免把 `examples/` 下的联调脚本当成测试收集。

@@ -121,7 +121,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：实际三通道模型中选择第三通道，关闭再重新打开配置框。此时 `selectedChannel=0`，ComboBox 的 `currentIndex=2`。
 - 原因与影响：入口每次 `openWithChannel(0)`，但没有同步选择器显示；保存以 `selectedChannel` 为准。操作员可能无意修改第一通道的 OOC / OOS 阈值和单位。
 - 建议：让选择器与待保存通道共用一个状态来源；重开、模型变化和保存时保持一致，补充多通道往返操作测试。
-- 状态：⏳ 未开始 — 已独立复核确认存在（`openWithChannel(0)` 重置 `selectedChannel`，ComboBox 仍保留上一次 `currentIndex`），建议下一批修复
+- 状态：✅ 已完成（`e0ac126`）— 弹出框选择器与保存通道共用唯一状态，`loadChannel()` 收敛范围并回写 ComboBox 索引，重开不再错位；真实 QML 组件回归测试覆盖"选第三通道→关闭→重开"
 
 ### R09 — 默认尺寸下“故障复位”按钮被底部导航遮挡
 
@@ -165,7 +165,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：模板从 release 根目录执行 `python -m voc_app.gui.app`，项目却是 `src/` 布局。用现有虚拟环境在临时 release 目录查导入位置，仍得到原 checkout 的 `src/voc_app`；禁用 site / editable 路径后无法找到模块。
 - 原因与影响：仅改变 WorkingDirectory 不会自动把 `current/src` 加入模块搜索路径。根据虚拟环境安装方式，可能启动失败，也可能一直运行旧安装位置的代码；current 切换不等于代码切换。
 - 建议：明确让服务从当前 release 加载源码或独立安装产物，并验证启动进程实际模块路径与版本。复现未启动真实 systemd 服务。
-- 状态：⏳ 待决策 — 需先确定部署方式（release 内带 `src` 走 PYTHONPATH / 安装 wheel / 解除 venv 旧路径绑定）
+- 状态：✅ 已完成（`e0ac126`）— 服务模板显式设置 `PYTHONPATH=<base>/current/src`，确保加载当前 release；安装器再用 MainPID 的 `/proc/<pid>/cwd` 校验运行进程属于目标 release（真实主机验证通过）
 
 ### R14 — 新版本启动超时等异常不会触发回滚
 
@@ -173,7 +173,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：切换 current 后模拟 `systemctl start` 抛 `TimeoutExpired`，安装直接退出，current 仍指向新版本。
 - 原因与影响：只有 `is-active` 返回非零会进入回滚分支，启动、状态检查抛异常时不在恢复流程中。旧 GUI 已停止时可能形成持续停机。
 - 建议：把停止、切换、启动、确认纳入完整事务式恢复流程；错误后恢复旧链接并验证旧服务恢复，分别测试返回码失败与命令异常。
-- 状态：⏳ 待决策 — 需先确定升级事务化范围（启动超时等异常的回滚策略）
+- 状态：✅ 已完成（`e0ac126`）— 停止/切换/启动/确认事务化，启动返回非零、超时或确认失败的异常统一回滚旧版本（真实主机验证通过）
 
 ### R15 — 部分复制留下的 release 被直接复用，重试无法修复
 
@@ -188,12 +188,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 ### R16 — 串口读取线程死亡后仍显示已连接，自动重连无效
 
 位置：[ascii_serial.py:80](../../src/voc_app/loadport/ascii_serial.py#L80)。模拟读取异常后，读线程已经退出，`is_connected=True`；再次 `connect()` 不创建新串口或新读线程，工厂调用次数仍为 1。后续设备反馈及错误消息会丢失。应在读失败时更新连接状态、释放失效对象并允许重建接收线程，向上层发出明确故障通知。
-- 状态：⏳ 未开始 — 需先定义串口失效检测与读线程重建策略
+- 状态：✅ 已完成（`e0ac126`）— 读异常时释放失效串口、`is_connected` 变 False、`connection_lost_callback` 通知上层，`connect()` 可重建串口与读线程
 
 ### R17 — QThread 先退出，排队的控制器清理可能没有执行
 
 位置：[e84_thread.py:78](../../src/voc_app/loadport/e84_thread.py#L78)。工作线程正在处理 120 ms 模拟任务时调用 `stop()`，实测线程已结束但 worker 仍持有控制器、refresh timer 仍 active，并产生跨线程停止定时器警告。原因是排队 `stop_controller` 后立即 `quit()`。应等待 worker 清理完成后再退出线程，并处理有界等待和销毁顺序。
-- 状态：⏳ 未开始 — 需先定义有界等待与销毁顺序
+- 状态：✅ 已完成（`e0ac126`）— 排队 `stop_controller` 后有界等待线程真正退出（默认 5s，超时才终止）；worker 清理幂等，`stopped_controller` 只发一次
 
 ### R18 — 协议帧大小上限不能真正限制接收内存
 
@@ -218,12 +218,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 ### R22 — 图表报警颜色忽略了限界启用开关
 
 位置：[ChartCard.qml:85](../../src/voc_app/gui/qml/components/ChartCard.qml#L85)。默认 Noise 预设关闭下限，正常值 60 在 OOS 下限 80、OOC 下限 70 时仍显示报警红 `#e11d48`，真实组件已复现。后台越限检测尊重开关，界面颜色没有检查，导致“界面红色、后台无报警”。应共用或严格对齐限界判定规则。
-- 状态：⏳ 未开始 — 建议下一批修复：复用后台限界判定规则，消除“界面红色、后台无报警”
+- 状态：✅ 已完成（`e0ac126`）— 颜色判定按 `showOosUpper/showOosLower/showOoc*` 与后台规则对齐；新增 `chart.alarm_color_sync_with_limits`，关闭后可“界面红色、但不设后台报警”
 
 ### R23 — 图表统一把 Y 轴下界截到零，负数数据不可见
 
 位置：[ChartCard.qml:376](../../src/voc_app/gui/qml/components/ChartCard.qml#L376)、同文件 `:495`。CSV 含 `-10、-5` 且关闭参考线时，真实 ChartView 轴范围为 `[0,1]`，有效数据全部落在视口之外；实时路径也有同样约束。配置允许负值，温度等数据也可能为负。应按数据及业务量纲确定轴范围，不对通用图表统一截零。
-- 状态：⏳ 未开始 — 建议下一批修复：按数据与量纲决定 Y 轴范围，不再统一截零
+- 状态：✅ 已完成（`e0ac126`）— 新增 `resolveYAxisMin()`：含负值时显示负半轴，全正数据仍从 0 起；配置项 `chart.y_axis_mode`（`auto`/`zero`）控制策略
 
 ### R24 — 反复加载 CSV 会累积旧列对象及整份历史数据
 
@@ -238,12 +238,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 ### R26 — FOUP 的 SCP 上传没有使用配置的 SSH 密钥
 
 位置：[commands.py:34](../../tools/updater/voc_updater/commands.py#L34)、[foup.py:49](../../tools/updater/voc_updater/foup.py#L49)。捕获实际命令构造可见 SSH 使用 `-i <配置密钥>`，上传却只是 `scp local remote`。配置非默认密钥且 SSH agent 没有等效身份时，挂载可以成功，上传却认证失败或等待交互。应让 SSH 与 SCP 共用认证参数和非交互策略；本次未连接远端。
-- 状态：⏳ 未开始 — 建议与 R14/R27 一并在升级事务化中处理（SSH 与 SCP 共用认证参数）
+- 状态：✅ 已完成（`e0ac126`）— ssh 与 scp 共用 `-i <key>`、`BatchMode=yes`、`StrictHostKeyChecking=accept-new`
 
 ### R27 — 忽略停止服务失败，可将旧进程误记为升级成功
 
 位置：[loadport.py:36](../../tools/updater/voc_updater/loadport.py#L36)。注入 stop 返回码 1、start 与 is-active 返回码 0，安装器仍正常结束并切换 current。若旧服务根本未停止，后续 start 对已运行服务可能无效果，is-active 却依然成功。应检查每一步返回码，并确认实际运行进程属于目标版本；不能仅使用“服务 active”代表升级完成。
-- 状态：⏳ 未开始 — 建议与 R14/R29/R30 一并在升级事务化中处理（逐步检查返回码）
+- 状态：✅ 已完成（`e0ac126`）— stop 后必须确认服务 inactive；确认阶段校验 current 指向目标且 MainPID 已更换，避免把旧进程记成升级成功
 
 ### R28 — GUI 默认升级状态文件路径与部署设计不一致
 
@@ -253,12 +253,12 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 ### R29 — 回滚成功后界面仍把目标版本显示为当前版本
 
 位置：[orchestrator.py:79](../../tools/updater/voc_updater/orchestrator.py#L79)、[update_status.py:56](../../src/voc_app/gui/update_status.py#L56)。从版本 1 更新至 2，健康检查失败并成功回滚后，current 已回到 1，界面却显示 `Loadport v2 | Update: failed`。状态写入始终使用包版本，并覆盖 GUI 的当前版本。应区分目标版本与实际运行版本，回滚后重新读取当前版本。
-- 状态：⏳ 未开始 — 建议与 R14/R27/R30 一并在升级事务化中处理（区分目标版本与实际运行版本）
+- 状态：✅ 已完成（`e0ac126`）— 状态文件分开记录实际运行版本与 `loadport_target_version`，回滚后界面显示实际版本（真实主机验证通过）
 
 ### R30 — 包校验等前置步骤失败，不会正确记录失败状态
 
 位置：[orchestrator.py:28](../../tools/updater/voc_updater/orchestrator.py#L28)、同文件 `:32`。预置上次 succeeded 状态，再提交无效/缺失包，读取失败后状态仍是 succeeded；读取当前版本失败也位于安装阶段的异常处理之外，可能留下 running。应把整个升级尝试纳入状态生命周期，记录本次任务及阶段，不让旧成功状态冒充本次结果。
-- 状态：⏳ 未开始 — 建议与 R14/R27/R29 一并在升级事务化中处理（覆盖整个升级尝试的状态生命周期）
+- 状态：✅ 已完成（`e0ac126`）— 读包、读当前版本与安装全部纳入状态生命周期，任一失败都写 failed，不残留 running 或沿用上一次 succeeded
 
 ### R31 — manifest 的固件路径允许引用升级包外的文件
 
@@ -270,18 +270,19 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 位置：[pyproject.toml:10](../../pyproject.toml#L10)、[uv.lock:226](../../uv.lock#L226)，使用方为 `tools/updater/voc_updater/config.py`。
 
 TOML 对比确认 pyproject 声明 `PyYAML>=6.0`，但锁中项目依赖和包列表都没有 PyYAML。依赖严格锁定或 frozen 安装不能据此保证升级器可导入 `yaml`。应同步生成并提交锁文件，在干净环境验证升级器导入。离线 lock-check 因依赖缓存不足未完成，本结论依据文件内容对比，不声称已验证一次全新安装失败。
+- 状态：✅ 已完成（`dd31521`）— `uv.lock` 补齐 pyyaml 6.0.3，`uv lock --check` 通过
 
 ## 5. P3：当前未启用路径中的问题
-- 状态：✅ 已完成（`dd31521`）— `uv.lock` 补齐 pyyaml 6.0.3，`uv lock --check` 通过
 
 ### R33 — 通用异步 Socket 桥接执行一次后永久 busy
 
 位置：[qml_socket_client_bridge.py:76](../../src/voc_app/gui/qml_socket_client_bridge.py#L76)、同文件 `:114`。第一次异步操作已返回 `ok`，主 Qt 事件循环持续处理 500 ms 后 `busy` 仍为 True；第二次操作被“上一个操作尚未完成”拒绝。无接收上下文的 `QTimer.singleShot()` 在 Python 工作线程中没有把回调投递到主线程。应使用绑定主线程 QObject 的队列信号/调用。当前 QML 中未找到该桥接异步方法的实际调用，因此不把它描述为现有采集按钮必现故障。
-- 状态：⏳ 未开始 — 功能入口已隐藏，重新启用前修复（改用绑定主线程 QObject 的队列调用）
+- 状态：✅ 已完成（`e0ac126`）— 改用绑定主线程 QObject 的队列信号（`_asyncFinished`/`_asyncFailed`）清 busy，异步操作结束后可继续下一次
 
 ### R34 — 全零时域信号被频谱模型转换成满量程
 
 位置：[spectrum_model.py:334](../../src/voc_app/gui/spectrum_model.py#L334)。`updateFromTimeDomain([0] * 512)` 后，输出频谱最小值和最大值均为 1.0。幅度全部被夹到 `1e-10`，再除以自身最大值，得到全频 0 dB。应对无信号单独处理，并明确频谱的参考量及归一化语义。当前频谱页面已隐藏，按潜在功能问题处理。
+- 状态：✅ 已完成（`e0ac126`）— 峰值幅度低于数值噪声阈值（1e-12）时按“无信号”处理，输出归一化下界（全 0），不再经最大值归一化变成满量程
 
 ## 6. 能力边界、维护风险与实机待确认事项
 
@@ -311,6 +312,10 @@ TOML 对比确认 pyproject 声明 `PyYAML>=6.0`，但锁中项目依赖和包�
 | 第三批 | R16–R32 | 串口失效可恢复；线程和采集无跨会话清理；图表与报警规则一致；CSV 重载资源稳定；升级状态、认证参数、路径和依赖锁一致 |
 | 第四批 | R33–R34 及能力边界 | 在重新启用相关功能前补齐异步状态恢复、静音频谱及对应测试；完成真实设备和现场环境验证 |
 
+> 状态（2026-10-08）：第一至第四批中**纯软件可复现项已全部修复**；R13/R14/R26/R27/R29/R30
+> 已完成升级事务化并在真实 Ubuntu 主机上验证。R01–R04、R18–R20 仍需现场设备口径或
+> 安全策略确认，逐项状态见[修复状态](2026-09-29-fix-status.md)。
+
 回归测试应优先覆盖触发条件与外部可观察结果，例如磁盘内容、GPIO 输出、实际选择通道、服务加载路径和回滚版本。现有部分 QML 测试通过检查源码字符串判断行为，难以捕获布局遮挡、状态错位和生命周期问题，需要加入真实组件交互测试。
 
 ## 8. 验证证据索引
@@ -327,7 +332,11 @@ TOML 对比确认 pyproject 声明 `PyYAML>=6.0`，但锁中项目依赖和包�
 - [Loadport 命令区截图](evidence/2026-09-29/loadport-panel.png)
 - [通道配置弹窗截图](evidence/2026-09-29/channel-config.png)
 
+修复轮次追加：
+
+- [修复后完整 pytest 输出](evidence/2026-09-29/pytest-after-fixes.txt)
+- [真实 Ubuntu 主机升级验证](evidence/2026-09-29/host-upgrade-verification.txt)（脚本见 [tools/host_upgrade_verification](../../tools/host_upgrade_verification/README.md)）
+
 证据中的 `/tmp` 路径均为审查隔离目录。图表负值复现的最小装配曾缺少 `chartLegendHelper` 上下文而产生一条提示；该提示不计为产品错误，负值轴范围结论同时由对应轴设置代码确认。
 
 本报告是指定提交上的代码与软件行为审查，不替代设备联调验收。后续修复若改变文件行号，应按问题编号与函数名追踪。
-- 状态：⏳ 未开始 — 功能入口已隐藏，重新启用前修复（无信号单独处理并明确归一化语义）

@@ -23,6 +23,7 @@ VOC_Project/
 │       │   ├── channel_config.py  # 前缀预设与通道配置持久化
 │       │   ├── csv_model.py       # 图表系列模型与 CSV 文件管理
 │       │   ├── spectrum_model.py  # 频谱数据模型与模拟器
+│       │   ├── chart_options.py   # 图表显示策略（报警颜色同步、Y 轴范围）
 │       │   ├── standby_media.py   # 待机媒体控制器（读系统配置）
 │       │   ├── status_gpio.py     # 状态灯/蜂鸣器启动初始化
 │       │   ├── update_status.py   # 升级状态轮询
@@ -43,6 +44,7 @@ VOC_Project/
 ├── tools/updater/            # 独立升级器（部署在 release 之外）
 │   ├── update.py
 │   └── voc_updater/          # 配置、包校验、Loadport/FOUP 安装、状态写入
+├── tools/host_upgrade_verification/  # 真实 Ubuntu 主机升级事务验证脚本
 ├── tests/                    # 单元测试（pytest 收集范围之一）
 └── verification.md           # 历次验证记录（git 忽略，本地保留）
 ```
