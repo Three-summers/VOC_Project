@@ -6,7 +6,7 @@ R02：任意一颗落位传感器有效就把 FOUP 当成完整落位，载具�
      L_REQ，内部状态与 HO_AVBL/ES 不一致。
 R04：stop() 只停定时器，不撤回 READY / L_REQ / U_REQ 等硬件输出。
 
-三项都用假的 RPi.GPIO 驱动真实状态机，行为由构造参数控制，便于现场按口径关闭。
+三项都用假的 RPi.GPIO 驱动真实状态机；安全行为固定，不提供关闭开关。
 """
 
 from __future__ import annotations
@@ -86,8 +86,8 @@ ALL_INPUTS_IDLE = {
 HANDSHAKE_ACTIVE = {"GO": True, "CS_0": True, "VALID": True}
 
 
-def _make_controller(**kwargs) -> E84Controller:
-    controller = E84Controller(**kwargs)
+def _make_controller() -> E84Controller:
+    controller = E84Controller()
     controller.E84_InSig_Value = dict(ALL_INPUTS_IDLE)
     return controller
 
@@ -154,18 +154,6 @@ class E84HandshakeRevokeTests(unittest.TestCase):
         self.assertEqual(controller.state, E84State.IDLE)
         self.assertFalse(_output_on(controller, "L_REQ"))
 
-    def test_handshake_revoke_check_can_be_disabled(self) -> None:
-        controller = _make_controller(revoke_on_handshake_loss=False)
-        controller.state = E84State.WAIT_TR_REQ
-        controller.E84_InSig_Value.update(
-            {"GO": False, "CS_0": True, "VALID": True, "TR_REQ": True}
-        )
-
-        controller._process_state()
-
-        self.assertEqual(controller.state, E84State.WAIT_BUSY)
-        self.assertTrue(_output_on(controller, "READY"))
-
     def test_active_handshake_still_reaches_busy(self) -> None:
         controller = _make_controller()
         controller.state = E84State.WAIT_TR_REQ
@@ -231,20 +219,6 @@ class E84DockingTests(unittest.TestCase):
         self.assertEqual(controller.state, E84State.WAIT_COMPT)
         self.assertFalse(_output_on(controller, "L_REQ"))
 
-    def test_legacy_any_key_behaviour_can_be_restored(self) -> None:
-        controller = _make_controller(require_all_keys_for_load=False)
-        controller.state = E84State.WAIT_L_REQ
-        controller.FOUP_status = True
-        controller.FOUP_docked = False
-        controller.E84_SigPin.set_output("L_REQ", SIG_ON)
-        controller.E84_InSig_Value.update(
-            {"GO": True, "CS_0": True, "VALID": True, "TR_REQ": True, "BUSY": True}
-        )
-
-        controller._process_state()
-
-        self.assertEqual(controller.state, E84State.WAIT_COMPT)
-
 
 # ------------------------------------------------------------------ R04
 
@@ -271,28 +245,6 @@ class E84SafeStopTests(unittest.TestCase):
             )
         self.assertFalse(_led_on(controller, "LOAD_LED"))
         self.assertFalse(_led_on(controller, "UNLOAD_LED"))
-
-    def test_safe_stop_can_be_disabled(self) -> None:
-        controller = _make_controller(safe_outputs_on_stop=False)
-        controller.E84_SigPin.set_output("READY", SIG_ON)
-
-        controller.stop()
-
-        self.assertTrue(_output_on(controller, "READY"))
-
-
-class E84SafetyConfigTests(unittest.TestCase):
-    def test_bundled_config_exposes_e84_safety_switches(self) -> None:
-        import json
-
-        config = json.loads(
-            (SRC_DIR / "voc_app" / "system_config.json").read_text(encoding="utf-8")
-        )
-        loadport = config["loadport"]
-        self.assertTrue(loadport["e84_revoke_on_handshake_loss"])
-        self.assertTrue(loadport["e84_require_all_keys"])
-        self.assertTrue(loadport["e84_safe_outputs_on_stop"])
-        self.assertTrue(loadport["e84_latch_on_actuator_fault"])
 
 
 if __name__ == "__main__":

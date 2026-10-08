@@ -45,27 +45,18 @@ class E84Controller(QObject):
     data_collection_start = Signal()  # Unload 时发出，通知开始采集
     data_collection_stop = Signal()  # Load 完成时发出，通知停止采集
 
-    def __init__(
-        self,
-        refresh_interval: float = 0.2,
-        revoke_on_handshake_loss: bool = True,
-        require_all_keys_for_load: bool = True,
-        safe_outputs_on_stop: bool = True,
-    ):
+    def __init__(self, refresh_interval: float = 0.2):
         """使用PySide6定时逻辑的E84控制器
 
-        R01/R02/R04 的安全语义由构造参数控制，便于现场按设备口径关闭：
+        安全语义固定（R01/R02/R04）：
 
-        - ``revoke_on_handshake_loss``：GO/CS_0/VALID 被撤销时撤回输出并回到 IDLE；
-        - ``require_all_keys_for_load``：Load 完成必须三键全落，而不是任意一键；
-        - ``safe_outputs_on_stop``：``stop()`` 时撤回 READY/L_REQ/U_REQ 等输出。
+        - GO/CS_0/VALID 被撤销时撤回输出并回到 IDLE；
+        - Load 完成必须三键全落（完整落位），而不是任意一键；
+        - ``stop()`` 时撤回 READY/L_REQ/U_REQ 等输出。
         """
 
         super().__init__()
         self.refresh_interval = refresh_interval
-        self.revoke_on_handshake_loss = bool(revoke_on_handshake_loss)
-        self.require_all_keys_for_load = bool(require_all_keys_for_load)
-        self.safe_outputs_on_stop = bool(safe_outputs_on_stop)
         self._key_debounce_ms = int(KeyDebounceSec * 1000)
 
         self.E84_InSig = {
@@ -178,8 +169,9 @@ class E84Controller(QObject):
         self._stop_timeout()
         self._key_debounce_timer.stop()
         self._pending_key_value = None
-        if self.safe_outputs_on_stop:
-            self._enter_safe_idle_state()
+        # R04：不能只停定时器。已经输出的 READY/L_REQ/U_REQ 必须显式撤回，
+        # 否则软件停止监控后外部仍可能看到有效握手信号。
+        self._enter_safe_idle_state()
 
     def _enter_safe_idle_state(self) -> None:
         """回到 IDLE 并撤回握手输出（R04）。"""
@@ -465,13 +457,13 @@ class E84Controller(QObject):
         )
 
     def _handshake_revoked(self) -> bool:
-        """握手被撤销且需要安全复位时返回 True（R01）。
+        """握手前提被撤销时返回 True（R01）。
 
         R01：进入各阶段后如果 GO/CS_0/VALID 被撤销，只保持 TR_REQ（或残留
         BUSY）不应继续输出 READY。安全做法是撤回输出并回到 IDLE。
         """
 
-        return self.revoke_on_handshake_loss and not self._handshake_active()
+        return not self._handshake_active()
 
     def E84Handoff(self):
         if (
@@ -546,12 +538,7 @@ class E84Controller(QObject):
             self.E84_ResetSig()
             return 1
         # R02：完整落位（三键全落）才确认装载完成；只检测到载具不能撤回 L_REQ
-        docked = (
-            self.FOUP_docked
-            if self.require_all_keys_for_load
-            else self.FOUP_status
-        )
-        if docked:
+        if self.FOUP_docked:
             self.E84_SigPin.set_output("L_REQ", SIG_OFF)
             self.E84_ResetTimer(LongTimer)
             logger.debug("set L_REQ OFF")

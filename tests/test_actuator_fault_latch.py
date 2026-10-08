@@ -125,20 +125,6 @@ def test_multi_step_action_failure_is_latched_too() -> None:
     assert faults and faults[0][0] == "insert"
 
 
-def test_fault_signal_can_be_disabled_by_config() -> None:
-    insert = FakeSerialClient(fail_actions={"move_to_step(4)"})
-    controller = _controller(insert=insert, emit_fault_on_failure=False)
-    faults: list[tuple[str, str]] = []
-    failures: list[str] = []
-    controller.serialErrorDetected.connect(lambda s, p: faults.append((s, p)))
-    controller.actionFailed.connect(failures.append)
-
-    assert controller.run_insert_for_load() is False
-
-    assert failures, "关闭联锁信号后仍要报告动作失败"
-    assert faults == []
-
-
 def test_device_reported_error_still_emits_fault_signal() -> None:
     lock = FakeSerialClient()
     controller = _controller(lock=lock)

@@ -28,11 +28,7 @@
     "insert_serial_port": "/dev/ttyUSB2",
     "baudrate": 115200,
     "serial_timeout_seconds": 1.0,
-    "disable_e84_bridge": false,
-    "e84_revoke_on_handshake_loss": true,
-    "e84_require_all_keys": true,
-    "e84_safe_outputs_on_stop": true,
-    "e84_latch_on_actuator_fault": true
+    "disable_e84_bridge": false
   },
   "chart": {
     "alarm_color_sync_with_limits": true,

@@ -65,7 +65,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：进入 `WAIT_TR_REQ` 后，将 `GO / CS_0 / VALID` 置为 False，只保持 `TR_REQ=True`，状态仍进入 `wait_busy`，READY 仍被置为有效。
 - 原因与影响：阶段处理只看 TR_REQ 和超时，未确认握手前提仍成立，可能对已经撤销的请求继续响应。
 - 建议：明确各阶段必须保持的输入条件，条件撤销时回到安全状态并撤回输出；补充握手中途撤销的状态机测试。
-- 状态：✅ 已完成（本轮）— 输出阶段统一检查 GO/CS_0/VALID，撤销时撤回 READY/L_REQ/U_REQ 并回到 IDLE；`loadport.e84_revoke_on_handshake_loss` 可关闭
+- 状态：✅ 已完成（本轮）— 输出阶段统一检查 GO/CS_0/VALID，撤销时撤回 READY/L_REQ/U_REQ 并回到 IDLE（行为固定，无配置开关）
 
 ### R02 — 一颗落位传感器有效就被当成装载完成
 
@@ -73,7 +73,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：`KEY_0=True`、其余两键 False 时，`FOUP_status=True`，`WAIT_L_REQ` 进入 `wait_compt`；与此同时 HO_AVBL / ES 仍处于无效状态。
 - 原因与影响：`FOUP_status` 表示至少检测到载具，却被用作完整落位条件。载具尚未正确落位时就撤回 L_REQ，内部状态与可用信号不一致。
 - 建议：分离“检测到载具”和“完整落位”语义；装载完成条件应与落位传感器、消抖及设备协议一致。实机验证传感器先后触发和载具倾斜场景。
-- 状态：✅ 已完成（本轮）— 分离 `FOUP_status`（任意一键=检测到载具）与 `FOUP_docked`（三键全落=完整落位），Load 完成必须三键全落；`loadport.e84_require_all_keys` 可恢复旧口径
+- 状态：✅ 已完成（本轮）— 分离 `FOUP_status`（任意一键=检测到载具）与 `FOUP_docked`（三键全落=完整落位），Load 完成必须三键全落
 
 ### R03 — 执行机构本机通信异常没有进入 E84 故障锁存
 
@@ -81,7 +81,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：模拟 `insert.move_to_step()` 抛出 `OSError("USB write failed")`，仅产生报警；桥接对象的故障锁存仍为 False，E84 锁存方法调用次数为 0。
 - 原因与影响：串口返回 `error:` 会撤回 READY，但本机连接/写入异常只返回 False 并记录报警。机械动作失败后，握手没有得到同等级的故障处理。
 - 建议：统一执行机构失败入口，把连接失败、写入失败和设备主动上报错误纳入明确的联锁策略；避免只处理一种错误来源。
-- 状态：✅ 已完成（本轮）— 执行机构失败统一入口：连接失败/写入失败与设备上报错误一样发出 `serialErrorDetected` 并进入 E84 故障锁存；`loadport.e84_latch_on_actuator_fault` 可关闭
+- 状态：✅ 已完成（本轮）— 执行机构失败统一入口：连接失败/写入失败与设备上报错误一样发出 `serialErrorDetected` 并进入 E84 故障锁存
 
 ### R04 — 停止 E84 控制器时保留了有效硬件输出
 
@@ -89,7 +89,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 - 触发与证据：已输出 READY 和 U_REQ 后调用 `stop()`，两者仍保持有效。
 - 原因与影响：`stop()` 只停止定时器，没有设置停止状态的输出；GUI 退出链也没有明确执行这部分安全复位。软件停止监控后，外部可能仍看到有效握手信号。
 - 建议：定义并显式设置停机输出状态，在控制器所属线程完成后再退出；不能只依赖 QObject 删除或进程结束。断电/退出后的真实电平另做现场验证。
-- 状态：✅ 已完成（本轮）— `stop()` 回到 IDLE 并撤回 READY/L_REQ/U_REQ、关闭 LOAD/UNLOAD LED；`loadport.e84_safe_outputs_on_stop` 可关闭（HO_AVBL/ES 反映物理在位，未改动）
+- 状态：✅ 已完成（本轮）— `stop()` 回到 IDLE 并撤回 READY/L_REQ/U_REQ、关闭 LOAD/UNLOAD LED（HO_AVBL/ES 反映物理在位，未改动）
 
 ### R05 — 日志下载允许服务端指定目标目录之外的文件
 
@@ -313,9 +313,9 @@ TOML 对比确认 pyproject 声明 `PyYAML>=6.0`，但锁中项目依赖和包�
 | 第四批 | R33–R34 及能力边界 | 在重新启用相关功能前补齐异步状态恢复、静音频谱及对应测试；完成真实设备和现场环境验证 |
 
 > 状态（2026-10-08，安全联锁批后）：**34 项中仅剩 R18/R19 未修复**（需先定帧/文件大小
-> 阈值与采集会话清理策略）。R01–R04 以"故障安全默认 + `loadport.e84_*` 配置开关"落地；
-> R13/R14/R26/R27/R29/R30 的升级事务化与 R20 的设备切换已在真实 Ubuntu 主机 / 真实
-> systemd 上验证。逐项状态见[修复状态](2026-09-29-fix-status.md)。
+> 阈值与采集会话清理策略）。R01–R04 已按故障安全口径固定实现（无配置开关）；R13/R14/R26/
+> R27/R29/R30 的升级事务化与 R20 的设备切换已在真实 Ubuntu 主机 / 真实 systemd 上验证。
+> 逐项状态见[修复状态](2026-09-29-fix-status.md)。
 
 回归测试应优先覆盖触发条件与外部可观察结果，例如磁盘内容、GPIO 输出、实际选择通道、服务加载路径和回滚版本。现有部分 QML 测试通过检查源码字符串判断行为，难以捕获布局遮挡、状态错位和生命周期问题，需要加入真实组件交互测试。
 

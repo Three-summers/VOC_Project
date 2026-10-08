@@ -47,19 +47,18 @@
 
 ### 3. 2026-10-08 第二批：安全联锁项（R01–R04 + R20）
 
-这批原先挂"待决策"，本轮按**故障安全默认 + 配置开关**落地，现场如与设备口径不符
-可在 `system_config.json` 的 `loadport` 分区逐项关闭。
+这批原先挂"待决策"，本轮按**故障安全口径直接固定**实现，不新增配置项。
 
-| 编号 | 结论 | 采用的默认口径 | 配置开关 | 回归测试 |
-| --- | --- | --- | --- | --- |
-| R01 | 已修复 | 在会输出信号的阶段（WAIT_TR_REQ/WAIT_BUSY/WAIT_L_REQ/WAIT_U_REQ/WAIT_COMPT）检查 GO/CS_0/VALID 是否仍在；被撤销则撤回 READY/L_REQ/U_REQ 并回到 IDLE，不再对已撤销的请求继续响应 | `loadport.e84_revoke_on_handshake_loss`（默认 true） | `tests/test_e84_handshake_safety.py` |
-| R02 | 已修复 | 分离语义：`FOUP_status`=任意一键（检测到载具），新增 `FOUP_docked`=三键全落（完整落位）；**Load 完成必须 `FOUP_docked`** 才撤回 L_REQ，方向锁定仍按"是否检测到载具" | `loadport.e84_require_all_keys`（默认 true） | 同上 |
-| R03 | 已修复 | 统一执行机构失败入口：连接失败/写入失败与设备上报的 `error:` 一样发出 `serialErrorDetected`，进入 LoadportBridge 的 E84 故障锁存并拉低 READY | `loadport.e84_latch_on_actuator_fault`（默认 true） | `tests/test_actuator_fault_latch.py` |
-| R04 | 已修复 | `E84Controller.stop()` 除停定时器外，回到 IDLE 并撤回 READY/L_REQ/U_REQ、关闭 LOAD/UNLOAD LED（HO_AVBL/ES 反映物理在位，保持不动） | `loadport.e84_safe_outputs_on_stop`（默认 true） | `tests/test_e84_handshake_safety.py` |
-| R20 | 已修复 | 修改 FOUP IP 时，在与 E84 控制相同的锁内关闭旧控制连接并清除 `_server_version`/`_command_prefix`，下一次控制命令必然连到新地址；采集中不允许切换 | 无（行为本身即修复） | `tests/test_foup_host_switch.py` |
+| 编号 | 结论 | 固定的行为口径 | 回归测试 |
+| --- | --- | --- | --- |
+| R01 | 已修复 | 在会输出信号的阶段（WAIT_TR_REQ/WAIT_BUSY/WAIT_L_REQ/WAIT_U_REQ/WAIT_COMPT）检查 GO/CS_0/VALID 是否仍在；被撤销则撤回 READY/L_REQ/U_REQ 并回到 IDLE，不再对已撤销的请求继续响应 | `tests/test_e84_handshake_safety.py` |
+| R02 | 已修复 | 分离语义：`FOUP_status`=任意一键（检测到载具），新增 `FOUP_docked`=三键全落（完整落位）；**Load 完成必须 `FOUP_docked`** 才撤回 L_REQ，方向锁定仍按"是否检测到载具" | 同上 |
+| R03 | 已修复 | 统一执行机构失败入口：连接失败/写入失败与设备上报的 `error:` 一样发出 `serialErrorDetected`，进入 LoadportBridge 的 E84 故障锁存并拉低 READY | `tests/test_actuator_fault_latch.py` |
+| R04 | 已修复 | `E84Controller.stop()` 除停定时器外，回到 IDLE 并撤回 READY/L_REQ/U_REQ、关闭 LOAD/UNLOAD LED（HO_AVBL/ES 反映物理在位，保持不动） | `tests/test_e84_handshake_safety.py` |
+| R20 | 已修复 | 修改 FOUP IP 时，在与 E84 控制相同的锁内关闭旧控制连接并清除 `_server_version`/`_command_prefix`，下一次控制命令必然连到新地址；采集中不允许切换 | `tests/test_foup_host_switch.py` |
 
-> 需要现场复核的点：R02 的"完整落位"按三键全落判定；R04 未改动 HO_AVBL/ES（它们
-> 反映载具物理在位）。若现场口径不同，改配置即可，无需改代码。
+> 现场复核点：R02 的"完整落位"按三键全落判定；R04 未改动 HO_AVBL/ES（它们反映载具
+> 物理在位）。这四项行为无配置开关，如现场口径不同需改代码而非改配置。
 
 ### 4. 上一轮修复过程中发现的两处"自伤"，已一并纠正
 
@@ -80,14 +79,13 @@
 | R18 | 协议帧/文件大小上限的具体阈值与超限处理（拒绝关连接 vs 有界丢弃） | 容量与业务约定 |
 | R19 | 采集会话清理策略（绑定会话资源或禁止 500ms 内重启） | 交互约定 |
 
-除 R18/R19 外，34 项缺陷的其余各项均已修复。R01–R04 本轮以"故障安全默认 +
-配置开关"落地：默认行为按上文口径执行，现场若与设备安全策略不一致，可通过
-`loadport.e84_*` 配置项逐项调整，不需要改代码。
+除 R18/R19 外，34 项缺陷的其余各项均已修复。R01–R04 本轮按上文的"故障安全口径"
+直接实现，不新增配置项；如现场与设备安全策略不一致，需要调整代码中的对应行为。
 
 ## 三、验收与回归
 
 - 全量测试：`QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
-  → **444 passed / 3 skipped**（`conftest.py` 固定 offscreen 与临时数据目录；
+  → **439 passed / 3 skipped**（`conftest.py` 固定 offscreen 与临时数据目录；
   `qapp` fixture 使用 `QApplication`，因为 QtCharts 的 `ChartView` 在只有
   `QGuiApplication` 时离屏实例化会段错误）。
   证据：[pytest-after-fixes.txt](evidence/2026-09-29/pytest-after-fixes.txt)。

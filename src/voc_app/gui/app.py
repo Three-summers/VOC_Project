@@ -141,14 +141,11 @@ class LoadportActuatorController(QObject):
         lock_client: AsciiSerialClient,
         insert_client: AsciiSerialClient,
         parent: QObject | None = None,
-        emit_fault_on_failure: bool = True,
     ):
         super().__init__(parent)
         self._lock_client = lock_client
         self._insert_client = insert_client
         self._action_lock = threading.Lock()
-        # R03：本机连接/写入失败是否与设备上报错误一样进入 E84 故障锁存
-        self._emit_fault_on_failure = bool(emit_fault_on_failure)
         self._lock_client.set_message_callback(self._on_lock_message)
         self._insert_client.set_message_callback(self._on_insert_message)
 
@@ -185,17 +182,16 @@ class LoadportActuatorController(QObject):
     def _handle_action_failure(self, source: str, label: str, exc: Exception) -> None:
         """执行机构失败的统一入口（R03）。
 
-        本机连接失败、写入失败与设备主动上报的 ``error:`` 必须走同一条联锁
-        路径：除了动作失败提示，还要发出 ``serialErrorDetected``，让
-        LoadportBridge 把 E84 READY 拉低并锁存故障。只处理设备错误而忽略
-        本机通信异常，会让机械动作失败后握手仍保持有效。
+        本机连接失败、写入失败与设备主动上报的 ``error:`` 走同一条联锁路径：
+        除了动作失败提示，还发出 ``serialErrorDetected``，让 LoadportBridge
+        把 E84 READY 拉低并锁存故障。只处理设备错误而忽略本机通信异常，会让
+        机械动作失败后握手仍保持有效。
         """
 
         message = f"{label}: {exc}"
         logger.error(message)
         self.actionFailed.emit(message)
-        if self._emit_fault_on_failure:
-            self.serialErrorDetected.emit(source, message)
+        self.serialErrorDetected.emit(source, message)
 
     def run_unlock_only(self) -> bool:
         """只执行解锁动作。"""
@@ -819,10 +815,6 @@ if __name__ == "__main__":
     loadport_actuator_controller = LoadportActuatorController(
         lock_client=loadport_serial_lock_client,
         insert_client=loadport_serial_insert_client,
-        # R03：本机连接/写入失败是否与设备错误一样进入 E84 故障锁存
-        emit_fault_on_failure=bool(
-            loadport_cfg.get("e84_latch_on_actuator_fault", True)
-        ),
     )
 
     def on_loadport_serial_error(source: str, payload: str) -> None:
@@ -875,18 +867,7 @@ if __name__ == "__main__":
         try:
             from voc_app.loadport.e84_thread import E84ControllerThread
 
-            worker = E84ControllerThread(
-                # R01/R02/R04：现场可关闭的安全语义（默认开启）
-                revoke_on_handshake_loss=bool(
-                    loadport_cfg.get("e84_revoke_on_handshake_loss", True)
-                ),
-                require_all_keys_for_load=bool(
-                    loadport_cfg.get("e84_require_all_keys", True)
-                ),
-                safe_outputs_on_stop=bool(
-                    loadport_cfg.get("e84_safe_outputs_on_stop", True)
-                ),
-            )
+            worker = E84ControllerThread()
             loadport_bridge = LoadportBridge(
                 worker=worker,
                 alarm_store=alarm_store,

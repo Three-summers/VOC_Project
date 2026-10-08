@@ -30,18 +30,19 @@
 
 ### 安全联锁与设备切换（第二批）
 - E84 握手撤销（GO/CS_0/VALID 变低）时撤回 READY/L_REQ/U_REQ 并回到 IDLE，
-  不再对已撤销的请求继续响应（R01）；`loadport.e84_revoke_on_handshake_loss`。
+  不再对已撤销的请求继续响应（R01）。
 - 分离“检测到载具”（任意一键）与“完整落位”（三键全落）：Load 完成必须三键全落
-  才撤回 L_REQ（R02）；`loadport.e84_require_all_keys`。
+  才撤回 L_REQ（R02）。
 - 执行机构本机连接/写入失败与设备上报错误一样发出 `serialErrorDetected`，进入
-  E84 故障锁存并拉低 READY（R03）；`loadport.e84_latch_on_actuator_fault`。
+  E84 故障锁存并拉低 READY（R03）。
 - `E84Controller.stop()` 回到 IDLE 并撤回 READY/L_REQ/U_REQ、关闭 LOAD/UNLOAD LED
-  （R04）；`loadport.e84_safe_outputs_on_stop`。
+  （R04）。
 - 修改 FOUP IP 时在 E84 控制锁内关闭旧控制连接并清除旧身份，控制命令不再发往
   旧地址（R20）。
+- R01–R04 行为固定，不新增配置项。
 
 ### 测试与验证
-- 新增 12 个回归测试文件；全量 `pytest` → 444 passed / 3 skipped。
+- 新增 12 个回归测试文件；全量 `pytest` → 439 passed / 3 skipped。
 - `conftest.py` 的 `qapp` 改用 `QApplication`：QtCharts 的 `ChartView` 在只有
   `QGuiApplication` 时离屏实例化会段错误。
 - 真实 Ubuntu 主机（systemd --user）验证升级、服务重启确认与回滚，证据见
