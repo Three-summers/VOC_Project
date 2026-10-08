@@ -46,7 +46,7 @@ VOC_Project/
 │   └── voc_updater/          # 配置、包校验、Loadport/FOUP 安装、状态写入
 ├── tools/host_upgrade_verification/  # 真实 Ubuntu 主机升级事务验证脚本
 ├── tests/                    # 单元测试（pytest 收集范围之一）
-└── verification.md           # 历次验证记录（git 忽略，本地保留）
+└── verification.md           # 历次验证记录（追加式，含真实主机验证）
 ```
 
 ## 配置与运行期数据

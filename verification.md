@@ -324,3 +324,30 @@
   - 新增守卫：QML 中所有 `UiTheme.color("<role>")` 角色必须存在于调色板。
 - Risk Assessment: 中。时序与路径改动需在实机验证：对插是否确实承载网络、AMHS 的
   READY/TR_REQ 时序、按键极性，以及 stop 后 5 秒反挂载是否影响下载时长。
+
+## Verification - 2026-10-08T12:05:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 审查遗留项 R08/R16/R17/R22/R23/R33/R34 + 升级事务化 R13/R14/R26/R27/R29/R30
+- Command:
+  - `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
+  - 真实主机：`jinao@192.168.1.241`（Ubuntu 24.04.4 / systemd 255），
+    `tools/host_upgrade_verification/run_host_verification.sh`
+- Result: ✅ Passed
+- Details:
+  - 流程：先写失败测试并确认红（19 + 13 项），再修复到全绿；新增 9 个回归文件。
+  - 全量测试：422 passed / 3 skipped；证据
+    `docs/reviews/evidence/2026-09-29/pytest-after-fixes.txt`。
+  - R08 真实 QML 组件验证"选第三通道 → 关闭 → 重开"选择器与保存通道一致；
+    R22/R23 用真实 ChartView 验证颜色与 Y 轴范围（含配置项
+    `chart.alarm_color_sync_with_limits`、`chart.y_axis_mode`）；
+    R33 验证异步桥接 busy 可靠清零；R17 验证 120ms 清理期间 stop() 有界等待且
+    无跨线程定时器警告；R16 验证读线程死亡后可重建接收；R34 验证静音不再满量程。
+  - 真实主机升级：1.0.0 → 2.0.0 成功且 MainPID 变化、进程 cwd 属于目标 release；
+    构造"运行进程 cwd 不属于目标 release"的 3.0.0 升级，安装器回滚到 2.0.0，
+    状态记录实际版本 2.0.0 / 目标版本 3.0.0 / failed。证据
+    `docs/reviews/evidence/2026-09-29/host-upgrade-verification.txt`。
+  - 环境：`conftest.py` 的 `qapp` 改为 `QApplication`（QtCharts `ChartView` 在只有
+    `QGuiApplication` 时离屏实例化会段错误）。
+  - 主机验证产物已清理（临时 unit、`~/Project/voc_project`）。
+- Risk Assessment: 低-中。纯软件项已闭环；R01–R04、R18–R20 仍需现场设备口径与
+  安全策略确认，真实 FOUP/SSH/断电演练仍待现场验证。
