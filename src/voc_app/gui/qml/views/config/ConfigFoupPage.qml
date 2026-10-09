@@ -123,7 +123,7 @@ Item {
 
                 Text {
                     text: root._hasFoupAcq
-                          ? (root._foupAcq.operationMode === "normal" ? "正常模式（下载）" : "测试模式（实时）")
+                          ? (root._foupAcq.operationMode === "normal" ? "正常模式（采集存储，停止时下载）" : "测试模式（实时）")
                           : "--"
                     font.pixelSize: Components.UiTheme.fontSize("subtitle")
                     font.bold: true

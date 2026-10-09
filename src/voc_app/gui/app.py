@@ -911,7 +911,7 @@ if __name__ == "__main__":
     # if csv_file_manager.csvFiles:
     #     csv_file_manager.parse_csv_file(csv_file_manager.csvFiles[0])
 
-    app.aboutToQuit.connect(foup_acquisition.stopAcquisition)
+    app.aboutToQuit.connect(foup_acquisition.shutdown)
     # app.aboutToQuit.connect(spectrum_simulator.stop)
     app.aboutToQuit.connect(loadport_serial_lock_client.disconnect)
     app.aboutToQuit.connect(loadport_serial_insert_client.disconnect)

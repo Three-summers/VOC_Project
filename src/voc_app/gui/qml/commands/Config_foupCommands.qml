@@ -44,6 +44,8 @@ Column {
         // text: "切换模式（当前: " + (operationMode === "normal" ? "正常" : "测试") + "）"
         text: "切换模式"
         width: parent.width
+        // 采集会话进行中不允许切模式：否则"停止采集"的含义会随模式漂移
+        enabled: acquisitionController && !acquisitionController.running
         onClicked: {
             if (!acquisitionController) {
                 console.warn("foupAcquisition 未注入");
@@ -82,23 +84,36 @@ Column {
         onClicked: limitDialog.openWithChannel(0)
     }
 
-    CustomButton {
-        text: acquisitionController && acquisitionController.running ? "采集中" : "开始采集"
+    Text {
+        visible: operationMode === "normal"
+        text: "正常模式：下位机把数据写入自身存储，本页不显示实时曲线。"
+              + "点击“停止采集并下载日志”时会先自动下载日志，再通知下位机停止。"
+        color: Components.UiTheme.color("textSecondary")
+        font.pixelSize: Components.UiTheme.fontSize("caption")
         width: parent.width
-        enabled: acquisitionController && !acquisitionController.running && operationMode === "test"
+        wrapMode: Text.WordWrap
+    }
+
+    CustomButton {
+        objectName: "foupStartButton"
+        text: acquisitionController && acquisitionController.running
+              ? (operationMode === "normal" ? "正常模式采集中" : "采集中")
+              : (operationMode === "normal" ? "开始采集（正常模式）" : "开始采集（测试模式）")
+        width: parent.width
+        enabled: acquisitionController && !acquisitionController.running
         status: acquisitionController && acquisitionController.running ? "processing" : "normal"
         onClicked: {
             if (!acquisitionController) {
                 console.warn("foupAcquisition 未注入");
                 return;
             }
-            acquisitionController.operationMode = "test";
             acquisitionController.startAcquisition();
         }
     }
 
     CustomButton {
-        text: "停止采集"
+        objectName: "foupStopButton"
+        text: operationMode === "normal" ? "停止采集并下载日志" : "停止采集"
         width: parent.width
         enabled: acquisitionController && acquisitionController.running
         onClicked: {

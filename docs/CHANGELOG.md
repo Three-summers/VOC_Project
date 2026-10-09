@@ -23,6 +23,87 @@
 - 主动端若继续用这份 Arduino 测试程序，台架上仍需把 GO 接地（`checkstatus()`
   会因 GO 报 `error 7` 拒绝发起）。
 
+## 2026-10-09 — 修复"命令发不出去 / 客户端自动断开"
+
+### 现象与根因
+现场表现为下位机日志只记录到第一条命令后就 `Client N disconnected.`，后续命令
+从未执行：
+
+```text
+Accepted connection from 192.168.1.4:43985 (fd: 10)
+[info] recv cm5 msg get_function_version_info
+Client 10 disconnected.
+```
+
+根因在下位机 `socket_cmd_server.c` 的连接读循环（EPOLLET，一直 read 到 EAGAIN
+**或 EOF**）：客户端"发完命令立刻 close"时，同一轮 read 会先读到命令再读到 FIN，
+于是走 `if (done) { close(fd); }` 分支，**`process_client_message()` 不被调用**，
+缓冲区里已收到的命令被整批丢弃。
+
+旧实现正好命中：正常模式启动是"版本查询 → 发采样类型 + start → 立刻
+`finally: _close_socket()`"。版本查询有往返所以被单独处理，后两条命令与 FIN
+同批到达即被丢弃。E84 路径因为复用常驻控制连接、发完不关，所以没有这个问题。
+
+### 修复（客户端，不改固件）
+- 正常模式启动成功后**保留连接**，不再 `finally` 关闭；`start` 命令没有 ACK，
+  连接保留到停止阶段由 `_run_normal_stop` 关闭。
+- 正常模式停止改为：先释放旧会话连接 → 下载日志 → 用**全新连接**发
+  `{prefix}_data_coll_ctrl_stop` → 读到 ACK 后再关闭。
+- 测试模式停止 `_send_stop_command(wait_ack=True)`：等 stop 的 ACK 再关连接。
+- `_send_command()` 现在返回是否发送成功；`_send_sample_type_command()` 同步返回。
+  正常模式启动时命令发送失败会抛错并写入 `errorOccurred`/状态，不再静默显示
+  "采集中"。
+
+### 测试
+- `tests/test_foup_normal_session.py` 扩充到 10 项，直接锁定根因：
+  `start` 之后连接必须保持打开（`c0:close` 不得出现）、stop 必须"下载 → 发送 →
+  读到 ACK → 再关闭"、发送失败必须报错、退出不误发命令。
+- 全量 `pytest` → 459 passed / 3 skipped。
+
+### 建议（下位机，未修改）
+`socket_cmd_server.c` 在 `if (done)` 之前应先处理已收到的数据，否则任何"发完即关"
+的客户端都会丢命令：
+
+```c
+process_client_message(conn);      // 先处理本轮已收到的命令
+if (done) {
+    printf("Client %d disconnected.\n", conn->fd);
+    close(conn->fd);
+    free(conn);
+}
+```
+
+## 2026-10-09 — 正常模式手动采集与 E84 路径对齐
+
+### 采集流程
+- 正常模式「开始采集」改为真正启动采集：先发 `{prefix}_sample_type_normal`
+  （下位机 `VOC_Sample_Type` 是全局标志，上一次测试模式会残留），再发
+  `{prefix}_data_coll_ctrl_start`；随后不进入接收循环，界面不显示实时曲线。
+- 正常模式停止按 E84 Load 的顺序执行：**先下载日志、再发
+  `{prefix}_data_coll_ctrl_stop`**。下位机收到 stop 后 5 秒反挂载 SD 分区，
+  先停再下载只能读到空挂载点；下载失败时仍尽力补发 stop。
+- `e84StopDataCollectionForLoad` 与手动正常模式共用新的
+  `_download_logs_then_stop(context)`，两条路径的顺序保证一致。
+- 停止分派依据"是否存在正常模式会话"而不是当前模式：会话进行中切模式仍走
+  "先下载再停止"。
+- 删除 DataLog 命令面板的「下载日志（正常模式）」按钮：下载已由停止动作自动
+  执行；`logsDownloaded` 仍会刷新文件列表并自动打开最新日志。
+
+### 界面
+- Config → FOUP：normal 模式下「开始采集（正常模式）」不再被禁用；停止按钮在
+  normal 下文案为「停止采集并下载日志」；采集进行中禁止切换模式与修改 IP。
+- 采集模式展示改为「正常模式（采集存储，停止时下载）」。
+
+### 退出
+- GUI 退出改用新的 `FoupAcquisitionController.shutdown()`：只释放资源，不再
+  触发下载/停止，避免退出时下载线程被进程杀死、或把下位机停在半途。
+
+### 测试
+- 新增 `tests/test_foup_normal_session.py`：start 命令序列、正常模式不产生实时
+  曲线、停止顺序为"下载 → stop"、下载失败仍补发 stop、会话中切模式仍正确停止、
+  退出不误发命令，以及正常模式下开始按钮可点。
+- 全量 `pytest` → 457 passed / 3 skipped。
+
 ## 2026-10-08 — 部署路径收敛（部署脚手架）
 
 ### 路径只填一次

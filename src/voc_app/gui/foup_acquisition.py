@@ -114,6 +114,8 @@ class FoupAcquisitionController(QObject):
         self._sample_index: int = 0
         self._last_timestamp_ms: float = 0.0
         self._detected_channel_count: int = 0
+        # 正常模式手动会话：start 已下发、下位机正在写存储，等待"下载并停止"
+        self._normal_session_active: bool = False
         # 记录采集循环被中断的原因（超时 / 对端关闭 / 异常），用于显式报错
         self._last_recv_error: str = ""
 
@@ -298,19 +300,66 @@ class FoupAcquisitionController(QObject):
             self._command_prefix = ""
             self._channel_count = 0
             self._detected_channel_count = 0
+            self._normal_session_active = False
 
-        target = self._run_normal_mode if op_mode == "normal" else self._run_test_mode
-        self._set_status("准备下载日志" if op_mode == "normal" else "正在连接...")
+        target = self._run_normal_start if op_mode == "normal" else self._run_test_mode
+        self._set_status(
+            "正常模式：正在启动下位机采集..." if op_mode == "normal" else "正在连接..."
+        )
         self._worker = threading.Thread(target=target, daemon=True)
         self._worker.start()
 
     @Slot()
     def stopAcquisition(self) -> None:
+        with self._lock:
+            op_mode = self._operation_mode
+            normal_active = self._normal_session_active
+        # 依据"是否存在正常模式会话"分派，而不是当前模式：会话进行中若模式被改过，
+        # 仍必须走"先下载再停止"，否则下位机会保持采集且 SD 不反挂载。
+        is_normal_session = normal_active or (
+            op_mode == "normal" and self._worker is not None and self._worker.is_alive()
+        )
+        if is_normal_session:
+            # 正常模式手动会话：下位机收到 stop 后 5 秒会反挂载 SD 分区，
+            # 因此必须"先下载日志、再发停止命令"（与 E84 Load 路径一致）。
+            self._stop_event.set()
+            worker = self._worker
+            if worker is not None and worker.is_alive():
+                # 启动阶段尚未结束：先等它收尾，避免 start 落在 stop 之后
+                worker.join(timeout=2.0)
+            self._stop_event.clear()
+            with self._lock:
+                normal_active = self._normal_session_active
+            if not normal_active:
+                # 启动阶段被中止，没有会话需要停止
+                self._close_socket()
+                self._set_running(False)
+                self._set_status("已停止")
+                return
+            self._set_status("正常模式：正在下载日志...")
+            self._worker = threading.Thread(target=self._run_normal_stop, daemon=True)
+            self._worker.start()
+            return
+
         self._stop_event.set()
         self._set_status("正在停止...")
         self._send_stop_command()
         self._close_e84_socket()
         QTimer.singleShot(500, self._cleanup)
+
+    @Slot()
+    def shutdown(self) -> None:
+        """应用退出：只释放资源，不触发下载或停止命令。
+
+        ``aboutToQuit`` 时若触发"下载并停止"，下载线程会随进程一起被杀掉，
+        既下不到数据也可能让下位机停在半途；退出时保持下位机状态不变最安全。
+        """
+        self._stop_event.set()
+        self._close_socket()
+        self._close_e84_socket()
+        with self._lock:
+            self._normal_session_active = False
+        self._set_running(False)
 
     @Slot(result=bool)
     def e84StartDataCollectionForUnload(self) -> bool:
@@ -343,7 +392,11 @@ class FoupAcquisitionController(QObject):
 
     @Slot(result=bool)
     def e84StopDataCollectionForLoad(self) -> bool:
-        """E84 Load 阶段：先下载日志，再发送采集停止命令。
+        """E84 Load 阶段：先下载日志，再发送采集停止命令。"""
+        return self._download_logs_then_stop("E84 Load")
+
+    def _download_logs_then_stop(self, context: str) -> bool:
+        """先下载日志，再发送采集停止命令（E84 Load 与手动正常模式共用）。
 
         下位机收到 stop 后会在 5 秒后反挂载 SD 分区（VOC_cmd_deal.c 的
         end_collect_data），先 stop 再下载会读到空的挂载点。设备每写一行都
@@ -351,15 +404,15 @@ class FoupAcquisitionController(QObject):
         """
         with self._e84_io_lock:
             try:
-                self._set_status("E84 Load：下载日志")
+                self._set_status(f"{context}：下载日志")
                 saved_files = self._download_logs()
                 count = self._report_download(saved_files)
-                self._set_status(f"E84 Load 日志下载完成: {count} 个文件")
+                self._set_status(f"{context} 日志下载完成: {count} 个文件")
             except Exception as exc:
                 # 下载失败也要尽力停止采集，否则下位机持续写文件、不关闭文件
                 self._best_effort_stop_command()
                 self._close_e84_socket()
-                message = f"E84 Load 下载日志失败: {exc}"
+                message = f"{context} 下载日志失败: {exc}"
                 logger.error(message)
                 self.errorOccurred.emit(message)
                 self._set_status(message)
@@ -371,7 +424,7 @@ class FoupAcquisitionController(QObject):
                 return True
             except Exception as exc:
                 self._close_e84_socket()
-                message = f"E84 Load 停止采集失败: {exc}"
+                message = f"{context} 停止采集失败: {exc}"
                 logger.error(message)
                 self.errorOccurred.emit(message)
                 self._set_status(message)
@@ -427,7 +480,8 @@ class FoupAcquisitionController(QObject):
                 pass
             self._set_status(f"异常: {exc}")
         finally:
-            self._send_stop_command()
+            # 下位机对 stop 回 ACK；等 ACK 回来再关闭，避免 stop 被服务端丢弃
+            self._send_stop_command(wait_ack=True)
             self._close_socket()
             self._set_running(False)
             emit_status = False
@@ -442,45 +496,68 @@ class FoupAcquisitionController(QObject):
                     pass
             self._stop_event.clear()
 
-    def _run_normal_mode(self) -> None:
+    def _run_normal_start(self) -> None:
+        """正常模式（手动）：声明正常采样并启动下位机采集。
+
+        与测试模式不同，这里**不进入接收循环**：下位机把数据写进自己的存储，
+        界面上没有实时曲线可看。停止时再由 ``_run_normal_stop`` 先下载后停止。
+        """
         try:
             with self._lock:
                 host, port = self._host, self._port
-            self._communicator = SocketCommunicator(host, port, timeout=self._socket_timeout)
+            self._communicator = SocketCommunicator(
+                host, port, timeout=self._socket_timeout
+            )
             self._set_running(True)
-            self._set_status("查询版本...")
+            self._set_status("正常模式：查询版本...")
             self._perform_version_query()
-            self._send_sample_type_command()
-        except Exception as exc:
-            try:
-                self.errorOccurred.emit(f"FOUP 连接异常: {exc}")
-            except RuntimeError:
-                pass
-            self._set_status(f"异常: {exc}")
-        finally:
-            self._close_socket()
-
-        if self._stop_event.is_set():
-            self._set_running(False)
-            self._set_status("已停止")
-            self._stop_event.clear()
-            return
-
-        try:
-            self._set_status("正在下载日志...")
-            saved_files = self._download_logs()
-            count = self._report_download(saved_files)
             if self._stop_event.is_set():
+                # 启动过程中收到停止请求：还没有会话可停，直接复位
+                self._set_running(False)
                 self._set_status("已停止")
-            else:
-                self._set_status(f"下载完成: {count} 个文件")
+                self._close_socket()
+                return
+            # 下位机 VOC_Sample_Type 是全局标志：只有先声明 normal，
+            # start 才会把 CSV 写到 SD；上一次测试模式会把它留成 test。
+            if not self._send_sample_type_command():
+                raise RuntimeError("采样类型命令发送失败（连接已断开）")
+            start_cmd = self._select_command("start")
+            if not start_cmd or not self._send_command(start_cmd):
+                raise RuntimeError("启动采集命令发送失败（连接已断开）")
+            with self._lock:
+                self._normal_session_active = True
+            self._set_status("正常模式采集中（下位机写入存储，界面不显示实时曲线）")
+            # 成功路径**故意不关闭连接**：下位机 socket 服务在收到 FIN 的同一轮
+            # read 中会把尚未处理的缓冲整批丢弃，而 start 命令没有 ACK，发完就关
+            # 会让它静默失效（现象：服务端只记录到版本查询，随后就"客户端断开"）。
+            # 连接保留到停止阶段，由 _run_normal_stop 关闭。
+            return
         except Exception as exc:
+            with self._lock:
+                self._normal_session_active = False
             try:
-                self.errorOccurred.emit(f"FOUP 下载异常: {exc}")
+                self.errorOccurred.emit(f"FOUP 正常模式启动失败: {exc}")
             except RuntimeError:
                 pass
             self._set_status(f"异常: {exc}")
+            self._set_running(False)
+        self._close_socket()
+
+    def _run_normal_stop(self) -> None:
+        """正常模式（手动）停止：先下载日志，再发送停止命令。"""
+        # 会话连接已完成使命（start 早已被处理），且可能已随 FOUP 离网而失效；
+        # 停止阶段用全新连接，保证读到的 ACK 属于本次 stop 命令。
+        self._close_socket()
+        self._close_e84_socket()
+        try:
+            ok = self._download_logs_then_stop("正常模式")
+            if ok:
+                # 等 stop 的 ACK 回来再关闭，避免命令被服务端同批丢弃
+                self._e84_recv_message()
         finally:
+            with self._lock:
+                self._normal_session_active = False
+            self._close_e84_socket()
             self._set_running(False)
             self._stop_event.clear()
 
@@ -640,20 +717,28 @@ class FoupAcquisitionController(QObject):
         }
         return f"{prefix}_{actions.get(key, key)}"
 
-    def _send_sample_type_command(self) -> None:
+    def _send_sample_type_command(self) -> bool:
         with self._lock:
             op_mode = self._operation_mode
         cmd_key = "sample_normal" if op_mode == "normal" else "sample_test"
         cmd = self._select_command(cmd_key)
-        if cmd:
-            self._send_command(cmd)
+        if not cmd:
+            return False
+        return self._send_command(cmd)
 
-    def _send_stop_command(self) -> None:
+    def _send_stop_command(self, wait_ack: bool = False) -> None:
         if not self._communicator:
             return
         cmd = self._select_command("stop")
-        if cmd:
-            self._send_command(cmd)
+        if not cmd:
+            return
+        if not self._send_command(cmd):
+            return
+        if wait_ack:
+            # 下位机对 stop 回 ACK。必须等 ACK 回来再关闭连接：服务端在收到 FIN
+            # 的同一轮 read 中会把尚未处理的缓冲整批丢弃，发完就关会让 stop 静默
+            # 丢失，下位机继续采集且不反挂载 SD。
+            self._recv_message()
 
     def _handle_line(self, text: str) -> None:
         cleaned = text.strip()
@@ -965,15 +1050,22 @@ class FoupAcquisitionController(QObject):
             return None
         return self._recv_exact_from_communicator(self._communicator, size)
 
-    def _send_command(self, text: str) -> None:
+    def _send_command(self, text: str) -> bool:
+        """发送一条命令，返回是否成功发出。
+
+        以前发送失败被静默吞掉，调用方会误以为命令已经下发（例如正常模式的
+        ``start`` 丢失后界面仍显示"采集中"）。现在由调用方判断并显式报错。
+        """
         if not self._communicator:
-            return
+            return False
         try:
             payload = text.encode("utf-8")
             header = struct.pack(">I", len(payload))
             self._communicator.send(header + payload)
+            return True
         except Exception as exc:
             logger.error(f"send_command error: {exc}")
+            return False
 
     # ---- Channel config slots ----
 

@@ -60,3 +60,10 @@ def test_functional_command_panels_are_untouched() -> None:
     assert "startAcquisition" in _read("commands/Config_foupCommands.qml")
     assert "closeAlarms" in _read("commands/AlarmsCommands.qml")
     assert "plotSelectedColumns" in _read("commands/DataLogCommands.qml")
+
+
+def test_datalog_download_button_is_removed() -> None:
+    """正常模式下载已改为"停止采集"时自动执行，DataLog 不再有手动下载入口。"""
+    text = _read("commands/DataLogCommands.qml")
+    assert "下载日志（正常模式）" not in text, "DataLog 仍有手动下载按钮"
+    assert "startAcquisition" not in text, "DataLog 不应再触发采集"

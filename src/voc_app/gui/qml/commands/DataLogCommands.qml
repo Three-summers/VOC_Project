@@ -15,17 +15,6 @@ Column {
 
     property var commandPanelRef: null
     property var informationPanelRef: null
-    readonly property var acquisitionController: (typeof foupAcquisition !== "undefined") ? foupAcquisition : null
-    property string normalPathText: (acquisitionController && acquisitionController.normalModeRemotePath) ? acquisitionController.normalModeRemotePath : "Log"
-
-    Connections {
-        target: acquisitionController
-        function onNormalModeRemotePathChanged() {
-            normalPathText = acquisitionController.normalModeRemotePath
-            if (remotePathField)
-                remotePathField.text = normalPathText
-        }
-    }
 
     function dataLogView() {
         if (!commandPanelRef || commandPanelRef.currentView !== "DataLog")
@@ -73,22 +62,6 @@ Column {
             const view = dataLogCommands.dataLogView();
             if (view && view.openSaveDialog)
                 view.openSaveDialog();
-        }
-    }
-
-    CustomButton {
-        text: acquisitionController && acquisitionController.running ? "采集中" : "下载日志（正常模式）"
-        width: parent.width
-        enabled: acquisitionController && !acquisitionController.running
-        status: acquisitionController && acquisitionController.running ? "processing" : "normal"
-        onClicked: {
-            if (!acquisitionController) {
-                console.warn("foupAcquisition 未注入");
-                return;
-            }
-            normalPathText = acquisitionController.normalModeRemotePath || "Log";
-            acquisitionController.operationMode = "normal";
-            acquisitionController.startAcquisition();
         }
     }
 }
