@@ -161,7 +161,7 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs
 
 ### R13 — systemd 切换 current 后可能仍运行原有代码
 
-- 位置：[voc-gui.service:7](../../deploy/systemd/user/voc-gui.service#L7)。
+- 位置：[voc-gui.service.in](../../deploy/systemd/user/voc-gui.service.in)（部署时由 `deploy/install.sh` 渲染 `@VOC_BASE@`/`@VOC_PYTHON@`）。
 - 触发与证据：模板从 release 根目录执行 `python -m voc_app.gui.app`，项目却是 `src/` 布局。用现有虚拟环境在临时 release 目录查导入位置，仍得到原 checkout 的 `src/voc_app`；禁用 site / editable 路径后无法找到模块。
 - 原因与影响：仅改变 WorkingDirectory 不会自动把 `current/src` 加入模块搜索路径。根据虚拟环境安装方式，可能启动失败，也可能一直运行旧安装位置的代码；current 切换不等于代码切换。
 - 建议：明确让服务从当前 release 加载源码或独立安装产物，并验证启动进程实际模块路径与版本。复现未启动真实 systemd 服务。

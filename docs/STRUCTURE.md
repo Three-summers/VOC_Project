@@ -8,7 +8,7 @@ VOC_Project/
 ├── conftest.py               # 测试隔离：强制 offscreen Qt + 临时数据目录
 ├── docs/                     # 文档（架构、结构、变更、验证）
 │   └── superpowers/          # 设计与实施计划（specs / plans）
-├── deploy/                   # systemd --user 单元与 autostart 模板
+├── deploy/                   # 部署脚手架：install.sh + systemd/autostart 模板 + updater 配置示例
 ├── examples/                 # 手工联调脚本（模拟服务端、串口交互示例）
 ├── src/
 │   └── voc_app/

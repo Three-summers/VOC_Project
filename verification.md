@@ -380,3 +380,30 @@
 - Risk Assessment: 中。R01–R04 会改变现场握手/落位/停机时的 GPIO 行为，默认按
   “故障安全”实现且没有关闭开关，必须在真机联调确认与 AMHS 时序、按键极性一致；
   不一致时需要调整代码。
+
+## Verification - 2026-10-08T14:20:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 部署路径收敛——systemd/updater 模板 + `deploy/install.sh` + `config.yaml.example`
+- Command:
+  - `bash deploy/install.sh`（临时 VOC_BASE / VOC_SYSTEMD_USER_DIR / VOC_AUTOSTART_DIR）
+  - `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
+  - 真实主机 `jinao@192.168.1.241`：上传 `deploy/` 与 `tools/updater/`，运行
+    `deploy/install.sh` 后用 `systemctl --user` 启停 GUI 服务
+- Result: ✅ Passed
+- Details:
+  - 路径不再写死：`deploy/systemd/user/*.in` 用 `@VOC_BASE@`/`@VOC_PYTHON@`/
+    `@QT_QPA_PLATFORM@` 占位符，`install.sh` 的 `VOC_BASE` 是唯一入口；渲染时若
+    仍有未替换占位符会直接报错。
+  - `install.sh` 创建部署目录、渲染并安装 3 个单元与 autostart、生成
+    `updater/config.yaml`、按需复制升级器并执行 `daemon-reload`；默认不覆盖现场
+    `config.yaml`（`--force-config` 才覆盖），两项都有回归用例。
+  - `config.yaml.example` 渲染后能被真实的 `voc_updater.config.load_config` 解析
+    （host/port/ssh_key/scope 均校验）。
+  - 真实主机：`VOC_BASE=$HOME/voc_deploy_check` 运行 install.sh，渲染出的
+    `voc-gui.service` 被 systemd 直接接受，`is-active=active`，进程 cwd 解析到
+    `releases/loadport-1.0.0`，实际加载模块来自 `current/src`；证据
+    `docs/reviews/evidence/2026-09-29/host-deploy-scaffold.txt`。验证后已删除临时
+    单元、autostart 与目录。
+  - 未改动 R18/R19。
+- Risk Assessment: 低。改动只涉及部署脚手架与模板，不触碰运行期逻辑；现场首次部署
+  仍需按 `deploy/README.md` 的“后续步骤”建 venv 并放入首个 release。

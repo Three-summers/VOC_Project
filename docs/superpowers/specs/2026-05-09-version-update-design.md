@@ -336,6 +336,11 @@ foup:
 
 FOUP 的真实 IP、SSH 用户和密钥路径以后按现场网络配置修正。设计上 updater 不依赖 WSL2 开发机的 SSH 配置。
 
+> 实现更新（2026-10-08）：上文 `/home/kasp/Project/voc_project` 只是示例现场路径，实际
+> 不再写死在单元里。`deploy/systemd/user/*.in` 是模板，`deploy/install.sh` 以
+> `VOC_BASE` 为唯一路径入口一次性渲染单元与 `updater/config.yaml`；配置模板见
+> `deploy/updater/config.yaml.example`。手工部署时替换模板里的 `@...@` 占位符即可。
+
 ## 9. Loadport 升级流程
 
 ```text

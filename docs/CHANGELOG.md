@@ -1,5 +1,22 @@
 # 变更记录
 
+## 2026-10-08 — 部署路径收敛（部署脚手架）
+
+### 路径只填一次
+- `deploy/systemd/user/*.service|*.path` 改为 `*.in` 模板，现场路径统一用
+  `@VOC_BASE@` / `@VOC_PYTHON@` / `@QT_QPA_PLATFORM@` 占位符，不再写死
+  `/home/kasp/Project/voc_project`。
+- 新增 `deploy/install.sh`：`VOC_BASE` 是唯一路径入口，负责创建部署目录、渲染并
+  安装 systemd 用户单元与 autostart、生成 `updater/config.yaml`、按需复制升级器，
+  并执行 `systemctl --user daemon-reload`。幂等，默认不覆盖现场 `config.yaml`
+  （`--force-config` 才覆盖）。
+- 新增 `deploy/updater/config.yaml.example`：升级器配置模板，`install.sh` 渲染，
+  也可手工复制后替换 `@...@` 占位符；渲染结果能被 `load_config` 直接解析。
+- 新增 `deploy/README.md`：脚手架用法与可配置项说明。
+- 回归测试 `tests/test_deploy_templates.py` 重写：校验模板占位符、渲染后无残留
+  占位符、`config.yaml` 可被真实 `load_config` 解析，以及 `install.sh` 在自定义
+  基目录下一次性渲染全部产物。
+
 ## 2026-10-08 — 审查遗留项与升级事务化（第三轮）
 
 ### 界面与图表

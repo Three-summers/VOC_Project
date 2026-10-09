@@ -20,7 +20,8 @@
   - `gui/`：PySide6 + QML 图形界面
   - `loadport/`：E84 协议与 GPIO 控制、串口工具
 - `tools/updater/`：独立部署的升级器（包校验、release 切换、FOUP 更新、状态写入）
-- `deploy/`：`systemd --user` 单元与 autostart 模板
+- `deploy/`：`systemd --user` 单元与 autostart 模板，以及一次性渲染脚本 `install.sh`
+  （现场路径只在 `VOC_BASE` 填一次）与 `updater/config.yaml.example`
 - `tests/`：pytest 单元测试（`src` 内部另有 4 个测试文件）
 - `conftest.py`：测试隔离（强制 offscreen Qt、临时数据目录）
 
