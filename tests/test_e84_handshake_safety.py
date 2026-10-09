@@ -1,7 +1,7 @@
 """E84 握手撤销、落位判定与停机输出的安全回归（R01 / R02 / R04）。
 
-R01：进入 WAIT_TR_REQ / WAIT_BUSY 后撤销 GO/CS_0/VALID，状态机仍会置 READY，
-     对已经撤销的请求继续响应。
+R01：进入 WAIT_TR_REQ / WAIT_BUSY 后撤销 CS_0/VALID，状态机仍会置 READY，
+     对已经撤销的请求继续响应。（GO 已于 2026-10-09 从接口删除，不再参与判定。）
 R02：任意一颗落位传感器有效就把 FOUP 当成完整落位，载具未正确落位时就撤回
      L_REQ，内部状态与 HO_AVBL/ES 不一致。
 R04：stop() 只停定时器，不撤回 READY / L_REQ / U_REQ 等硬件输出。
@@ -75,7 +75,6 @@ GPIO = sys.modules["RPi.GPIO"]
 
 
 ALL_INPUTS_IDLE = {
-    "GO": False,
     "CS_0": False,
     "VALID": False,
     "TR_REQ": False,
@@ -83,7 +82,7 @@ ALL_INPUTS_IDLE = {
     "COMPT": False,
 }
 
-HANDSHAKE_ACTIVE = {"GO": True, "CS_0": True, "VALID": True}
+HANDSHAKE_ACTIVE = {"CS_0": True, "VALID": True}
 
 
 def _make_controller() -> E84Controller:
@@ -110,7 +109,7 @@ class E84HandshakeRevokeTests(unittest.TestCase):
         controller.state = E84State.WAIT_TR_REQ
         # 握手前提已撤销，但 TR_REQ 仍是高
         controller.E84_InSig_Value.update(
-            {"GO": False, "CS_0": True, "VALID": True, "TR_REQ": True}
+            {"CS_0": False, "VALID": True, "TR_REQ": True}
         )
 
         controller._process_state()
@@ -130,7 +129,7 @@ class E84HandshakeRevokeTests(unittest.TestCase):
         controller.state = E84State.WAIT_BUSY
         controller.E84_SigPin.set_output("READY", SIG_ON)
         controller.E84_InSig_Value.update(
-            {"GO": False, "CS_0": True, "VALID": True, "TR_REQ": True, "BUSY": False}
+            {"CS_0": False, "VALID": True, "TR_REQ": True, "BUSY": False}
         )
 
         controller._process_state()
@@ -146,7 +145,7 @@ class E84HandshakeRevokeTests(unittest.TestCase):
         controller.state = E84State.WAIT_L_REQ
         controller.E84_SigPin.set_output("L_REQ", SIG_ON)
         controller.E84_InSig_Value.update(
-            {"GO": False, "CS_0": True, "VALID": True, "TR_REQ": True, "BUSY": True}
+            {"CS_0": False, "VALID": True, "TR_REQ": True, "BUSY": True}
         )
 
         controller._process_state()
@@ -163,6 +162,25 @@ class E84HandshakeRevokeTests(unittest.TestCase):
 
         self.assertEqual(controller.state, E84State.WAIT_BUSY)
         self.assertTrue(_output_on(controller, "READY"))
+
+    def test_go_signal_is_removed_and_no_longer_gates_handshake(self) -> None:
+        """GO 未接线（2026-10-09 删除）：残留的 GO=False 不得再阻断握手。"""
+
+        controller = _make_controller()
+        self.assertNotIn("GO", controller.E84_InSig, "GO 引脚应从输入接口中删除")
+        self.assertNotIn("GO", controller.E84_InSig_Value)
+        # 即使读入字典里残留一个恒为低的 GO，握手也必须照常建立
+        controller.E84_InSig_Value.update(
+            {"GO": False, "CS_0": True, "VALID": True}
+        )
+
+        controller._process_state()
+
+        self.assertEqual(
+            controller.state,
+            E84State.WAIT_TR_REQ,
+            "GO 已删除，不得再作为握手前提",
+        )
 
 
 # ------------------------------------------------------------------ R02
@@ -198,7 +216,7 @@ class E84DockingTests(unittest.TestCase):
         controller.FOUP_docked = False
         controller.E84_SigPin.set_output("L_REQ", SIG_ON)
         controller.E84_InSig_Value.update(
-            {"GO": True, "CS_0": True, "VALID": True, "TR_REQ": True, "BUSY": True}
+            {"CS_0": True, "VALID": True, "TR_REQ": True, "BUSY": True}
         )
 
         controller._process_state()

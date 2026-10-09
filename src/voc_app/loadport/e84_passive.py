@@ -67,7 +67,7 @@ class E84Controller(QObject):
 
         安全语义固定（R01/R02/R04）：
 
-        - GO/CS_0/VALID 被撤销时撤回输出并回到 IDLE；
+        - CS_0/VALID 被撤销时撤回输出并回到 IDLE；
         - Load 完成必须三键全落（完整落位），而不是任意一键；
         - ``stop()`` 时撤回 READY/L_REQ/U_REQ 等输出。
         """
@@ -76,8 +76,9 @@ class E84Controller(QObject):
         self.refresh_interval = refresh_interval
         self._key_debounce_ms = int(KeyDebounceSec * 1000)
 
+        # GO(BCM22) 已在现场确认未接线、不携带信息，2026-10-09 从接口中彻底删除：
+        # 既不再读入，也不再作为握手前提（原 R01 判定只剩 CS_0 + VALID）。
         self.E84_InSig = {
-            "GO": 22,
             "CS_0": 9,
             "VALID": 10,
             "TR_REQ": 5,
@@ -101,18 +102,17 @@ class E84Controller(QObject):
 
         # 【临时】仅作引脚记录：这些 E84 信息灯已停用（见 _InfoKeyOnlyController），
         # 控制器不再申请/驱动它们，避免与状态指示灯 GPIO7/GPIO25 冲突。
+        # SENSOR_LED(GPIO23) 随 GO 输入一起删除，不再出现在配置里。
         self.E84_InfoLED = {
             "CODE_LED": 18,
             "CHARGE_LED": 7,
             "PLACED_LED": 8,
             "LOAD_LED": 25,
             "UNLOAD_LED": 24,
-            "SENSOR_LED": 23,
             "ALARM_LED": 12,
         }
 
         self.E84_InSig_Value = {
-            "GO": False,
             "CS_0": False,
             "VALID": False,
             "TR_REQ": False,
@@ -140,7 +140,6 @@ class E84Controller(QObject):
         self.led_cnt = 0
         self._actuator_error_latched = False
         self._error_latch_reported = False
-        self._go_signal_low_reported = False
         # 本次传输方向（True=卸载）。在 E84Handoff 时锁定，避免中途 FOUP
         # 已离位导致 WAIT_BUSY 阶段把卸载误判成装载。
         self._unload_flow: bool | None = None
@@ -399,20 +398,6 @@ class E84Controller(QObject):
             else:
                 logger.info("FOUP 移走")
 
-        if self.E84_InSig_Value["GO"]:
-            if self._go_signal_low_reported:
-                self._go_signal_low_reported = False
-                logger.info("GO 信号恢复为高，SENSOR_LED 点亮")
-            self.E84_InfoPin.set_output("SENSOR_LED", LED_ON)
-        else:
-            self.E84_InfoPin.set_output("SENSOR_LED", LED_OFF)
-            # 只在 GO 由高变低时上报一次，避免每 0.2s 刷屏告警
-            if not self._go_signal_low_reported:
-                self._go_signal_low_reported = True
-                message = "GO 信号为低，SENSOR_LED 熄灭"
-                logger.warning(message)
-                self.warning.emit(message)
-
         if self.led_cnt > 10:
             self.led_cnt = 0
         self.led_cnt += 1
@@ -471,18 +456,20 @@ class E84Controller(QObject):
             self.timeout_timer.start(int(interval * 1000))
 
     def _handshake_active(self) -> bool:
-        """E84 握手的三个前提输入是否仍然有效（R01）。"""
+        """E84 握手的前提输入是否仍然有效（R01）。
+
+        GO 已在现场确认未接线（2026-10-09 删除），不再参与判定；握手前提就是
+        标准的 CS_0 + VALID。
+        """
 
         return bool(
-            self.E84_InSig_Value["GO"]
-            and self.E84_InSig_Value["CS_0"]
-            and self.E84_InSig_Value["VALID"]
+            self.E84_InSig_Value["CS_0"] and self.E84_InSig_Value["VALID"]
         )
 
     def _handshake_revoked(self) -> bool:
         """握手前提被撤销时返回 True（R01）。
 
-        R01：进入各阶段后如果 GO/CS_0/VALID 被撤销，只保持 TR_REQ（或残留
+        R01：进入各阶段后如果 CS_0/VALID 被撤销，只保持 TR_REQ（或残留
         BUSY）不应继续输出 READY。安全做法是撤回输出并回到 IDLE。
         """
 
@@ -490,8 +477,7 @@ class E84Controller(QObject):
 
     def E84Handoff(self):
         if (
-            self.E84_InSig_Value["GO"]
-            and self.E84_InSig_Value["CS_0"]
+            self.E84_InSig_Value["CS_0"]
             and self.E84_InSig_Value["VALID"]
         ):
             logger.debug("检测到握手请求")
@@ -516,8 +502,8 @@ class E84Controller(QObject):
             self.E84_ResetSig()
             return 1
         if self._handshake_revoked():
-            # R01：只保持 TR_REQ 但 GO/CS_0/VALID 已撤销时，不得置 READY
-            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回输出并回到 IDLE")
+            # R01：只保持 TR_REQ 但 CS_0/VALID 已撤销时，不得置 READY
+            logger.warning("握手前提已撤销（CS_0/VALID），撤回输出并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if self.E84_InSig_Value["TR_REQ"]:
@@ -533,7 +519,7 @@ class E84Controller(QObject):
             return 1
         if self._handshake_revoked():
             # R01：握手撤销后必须撤回已经置起的 READY
-            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 READY 并回到 IDLE")
+            logger.warning("握手前提已撤销（CS_0/VALID），撤回 READY 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if self.E84_InSig_Value["BUSY"]:
@@ -549,7 +535,7 @@ class E84Controller(QObject):
             self.E84_ResetSig()
             return 1
         if self._handshake_revoked():
-            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 L_REQ 并回到 IDLE")
+            logger.warning("握手前提已撤销（CS_0/VALID），撤回 L_REQ 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if (
@@ -574,7 +560,7 @@ class E84Controller(QObject):
             self.E84_ResetSig()
             return 1
         if self._handshake_revoked():
-            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 U_REQ 并回到 IDLE")
+            logger.warning("握手前提已撤销（CS_0/VALID），撤回 U_REQ 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if (
@@ -597,7 +583,7 @@ class E84Controller(QObject):
             self.E84_ResetSig()
             return 1
         if self._handshake_revoked():
-            logger.warning("握手前提已撤销（GO/CS_0/VALID），撤回 READY 并回到 IDLE")
+            logger.warning("握手前提已撤销（CS_0/VALID），撤回 READY 并回到 IDLE")
             self.E84_ResetSig()
             return 1
         if self.E84_InSig_Value["COMPT"]:

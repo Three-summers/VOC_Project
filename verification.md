@@ -434,3 +434,24 @@
 - Risk Assessment: 中偏低。桌面 UI 的可见性未验证（SSH 无 DISPLAY，用 offscreen）；
   稳定窗口 2s 是工程默认，若现场升级对时长敏感可调整
   `LoadportInstaller.settle_seconds`。真实 FOUP/SSH/断电演练仍未做。
+
+## Verification - 2026-10-09T18:30:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 删除未接线的 E84 `GO` 输入（握手前提收敛为 CS_0 + VALID，含 SENSOR_LED）
+- Command:
+  - `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
+- Result: ✅ Passed（460 passed / 3 skipped）
+- Details:
+  - 现场确认 `GO`(BCM22) 未接线。原实现要求 `GO and CS_0 and VALID` 才握手，而 GO
+    上拉、未接线时恒为低电平 → 被动端永远不响应 `CS_0/VALID`（第一版
+    `E84Passive.py:221` 同样如此）。
+  - 已删除：GO 引脚/读入/`_go_signal_low_reported` 告警、`SENSOR_LED`(GPIO23)
+    驱动与配置项；`_handshake_active()`、`E84Handoff()` 改为 `CS_0 + VALID`，R01
+    各阶段的撤销判定同样只剩 CS_0/VALID。
+  - R01 回归用例改为撤销 `CS_0`；新增 `test_go_signal_is_removed_and_no_longer_gates_handshake`
+    断言 GO 已从 `E84_InSig`/`E84_InSig_Value` 消失，且残留 `GO=False` 不影响握手。
+  - 未验证：真机释放 GPIO22 后与真实主动端/Arduino 的整机握手，需台架或现场复测；
+    Arduino 主机程序仍在 `checkstatus()` 里判 GO，台架上需把 GO 接地（已与用户确认
+    本版不改该程序）。
+- Risk Assessment: 低。改动只放宽了一个在现场不接线的非 E84 信号作为前提，握手前提
+  回到标准 `CS_0 + VALID`；已输出的 READY/L_REQ/U_REQ 撤回逻辑未改动。

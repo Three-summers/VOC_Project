@@ -66,7 +66,6 @@ from voc_app.loadport.e84_passive import E84Controller, E84State  # noqa: E402
 
 
 ALL_INPUTS_IDLE = {
-    "GO": False,
     "CS_0": False,
     "VALID": False,
     "TR_REQ": False,
@@ -91,7 +90,7 @@ class E84HappyPathTests(unittest.TestCase):
 
         # FOUP 在位 → 应当走 Unload 流程
         controller.FOUP_status = True
-        controller.E84_InSig_Value.update({"GO": True, "CS_0": True, "VALID": True})
+        controller.E84_InSig_Value.update({"CS_0": True, "VALID": True})
         controller._process_state()
         self.assertEqual(controller.state, E84State.WAIT_TR_REQ)
         self.assertEqual(starts, [True], "Unload 开始时应发出采集启动信号")
@@ -146,7 +145,7 @@ class E84TimingRegressionTests(unittest.TestCase):
         FOUP 被提前提走会走错分支。"""
         controller = _make_controller()
         controller.FOUP_status = True  # FOUP 在位 → 本次是 Unload
-        controller.E84_InSig_Value.update({"GO": True, "CS_0": True, "VALID": True})
+        controller.E84_InSig_Value.update({"CS_0": True, "VALID": True})
         controller._process_state()
         self.assertEqual(controller.state, E84State.WAIT_TR_REQ)
 

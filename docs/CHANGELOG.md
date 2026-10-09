@@ -1,5 +1,28 @@
 # 变更记录
 
+## 2026-10-09 — 删除未接线的 GO 输入，握手前提收敛为 CS_0 + VALID
+
+### 背景
+现场确认 E84 的 `GO`（BCM22）从第一版（`LoadPort_src_250710`）起就没有接线、
+不携带任何信息，但被动端一直把它当握手前提：`E84Handoff()` 与 R01 之后的每个
+阶段都要求 `GO and CS_0 and VALID`。GO 是上拉输入，未接线时恒为低电平，等于
+握手永远建立不起来；主动端（Arduino 测试程序）同样会因 GO 报 `sensor error`。
+
+### 变更
+- `src/voc_app/loadport/e84_passive.py`：删除 `GO` 输入引脚（BCM22）、
+  `E84_InSig_Value` 中的条目，以及"GO 信号为低"的边沿告警；`_handshake_active()`
+  与 `E84Handoff()` 只判 `CS_0 + VALID`（R01 的安全语义不变）。
+- `SENSOR_LED`(GPIO23) 属于已停用的 E84 信息灯（`_InfoKeyOnlyController` 的
+  `set_output` 早已是空操作），随 GO 一并从 `E84_InfoLED` 中移除。
+- 回归：`tests/test_e84_handshake_safety.py` 的 R01 撤销用例改为撤销 `CS_0`，
+  新增用例断言 GO 已不在 `E84_InSig`/`E84_InSig_Value` 中，且残留 `GO=False`
+  不再阻断握手。
+
+### 影响
+- 行为变化：GO 的任何电平都不再影响握手，现场不必保证它接地。
+- 主动端若继续用这份 Arduino 测试程序，台架上仍需把 GO 接地（`checkstatus()`
+  会因 GO 报 `error 7` 拒绝发起）。
+
 ## 2026-10-08 — 部署路径收敛（部署脚手架）
 
 ### 路径只填一次
