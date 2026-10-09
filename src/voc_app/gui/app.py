@@ -843,6 +843,25 @@ if __name__ == "__main__":
     serial_error_handled_by_bridge = False
     enable_e84_bridge = not disable_e84_bridge
 
+    # 命令面板是否需要登录：由配置文件控制（gui.require_login_for_command_panel，
+    # 默认 true 保持原有安全行为）；环境变量 COMMAND_PANEL_REQUIRE_LOGIN 优先，
+    # 便于现场调试时临时放开。关闭时未登录也能操作命令面板。
+    gui_cfg = app_paths.get_section("gui")
+    env_require_login = os.environ.get("COMMAND_PANEL_REQUIRE_LOGIN", "").strip().lower()
+    if env_require_login:
+        require_login_for_command_panel = env_require_login in {"1", "true", "yes"}
+    else:
+        require_login_for_command_panel = bool(
+            gui_cfg.get("require_login_for_command_panel", True)
+        )
+    engine.rootContext().setContextProperty(
+        "requireLoginForCommandPanel", require_login_for_command_panel
+    )
+    logger.info(
+        "命令面板登录门控: %s",
+        "启用（未登录不可操作）" if require_login_for_command_panel else "已放开（未登录可操作）",
+    )
+
     qml_file = APP_DIR / "qml" / "main.qml"
     engine.load(str(qml_file))
 

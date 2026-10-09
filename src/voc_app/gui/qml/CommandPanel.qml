@@ -17,10 +17,15 @@ Rectangle {
     property real scaleFactor: Components.UiTheme.controlScale
     property var foupLimitRef: null
 
-    // 登录门控：未登录时整块命令面板不可点击（状态由 Python 侧 authManager 持有）
-    readonly property bool authenticated: (typeof authManager !== "undefined" && authManager)
-        ? authManager.isAuthenticated
-        : false
+    // 登录门控：未登录时整块命令面板不可点击（登录状态由 Python 侧 authManager 持有）。
+    // 是否启用该门控由配置文件 gui.require_login_for_command_panel 决定（默认启用），
+    // Python 侧注入 requireLoginForCommandPanel；关闭时 authenticated 恒为 true。
+    readonly property bool requireLogin: (typeof requireLoginForCommandPanel !== "undefined")
+        ? requireLoginForCommandPanel
+        : true
+    readonly property bool authenticated: requireLogin
+        ? ((typeof authManager !== "undefined" && authManager) ? authManager.isAuthenticated : false)
+        : true
 
     // 清理待加载的组件，避免内存泄漏
     function _cleanupPendingComponent() {

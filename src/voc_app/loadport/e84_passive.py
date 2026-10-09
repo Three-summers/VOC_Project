@@ -24,6 +24,23 @@ IN_PUL_UP = 1
 IN_PUL_DOWN = 2
 
 
+class _InfoKeyOnlyController(GPIOController):
+    """【临时】只读 FOUP 按键、完全不动 E84 信息灯的控制器。
+
+    E84 信息灯的引脚（GPIO7/8/12/18/23/24/25）与状态指示灯（GPIO7 红、GPIO25 黄）
+    冲突，而现场这些 E84 信息灯已不再使用，因此：
+
+    - 构造时不再 setup 任何输出引脚（调用方传空输出字典）；
+    - ``set_output()`` 变成空操作，原有约 20 处写灯调用点无需改动。
+
+    恢复 E84 信息灯时，把 ``E84_InfoPin`` 换回 ``GPIOController`` 并传回
+    ``E84_InfoLED`` 即可。
+    """
+
+    def set_output(self, pin_name: str, state: bool) -> None:  # noqa: ARG002
+        return
+
+
 class E84State(StrEnum):
     """E84状态机的字符串枚举"""
 
@@ -82,6 +99,8 @@ class E84Controller(QObject):
             "KEY_2": 16,
         }
 
+        # 【临时】仅作引脚记录：这些 E84 信息灯已停用（见 _InfoKeyOnlyController），
+        # 控制器不再申请/驱动它们，避免与状态指示灯 GPIO7/GPIO25 冲突。
         self.E84_InfoLED = {
             "CODE_LED": 18,
             "CHARGE_LED": 7,
@@ -129,8 +148,12 @@ class E84Controller(QObject):
         self.E84_SigPin = GPIOController(
             self.E84_InSig, self.E84_OutSig, IN_PUL_UP, SIG_OFF
         )
-        self.E84_InfoPin = GPIOController(
-            self.E84_FoupKey, self.E84_InfoLED, IN_PUL_DOWN, LED_OFF
+        # 【临时】E84 信息灯停用：其引脚与状态指示灯冲突（GPIO7/GPIO25），
+        # 现场也不再使用这些 E84 灯。这里只保留 FOUP 按键输入，
+        # 输出字典传空、set_output 为空操作，因此不会再申请或驱动任何灯的引脚。
+        # 原实现：GPIOController(self.E84_FoupKey, self.E84_InfoLED, IN_PUL_DOWN, LED_OFF)
+        self.E84_InfoPin = _InfoKeyOnlyController(
+            self.E84_FoupKey, {}, IN_PUL_DOWN, LED_OFF
         )
         self.E84_InSig_Value = self.E84_SigPin.read_all_inputs()
         self.E84_Key_Value = self.E84_InfoPin.read_all_inputs()

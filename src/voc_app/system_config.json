@@ -34,6 +34,9 @@
     "alarm_color_sync_with_limits": true,
     "y_axis_mode": "auto"
   },
+  "gui": {
+    "require_login_for_command_panel": true
+  },
   "update": {
     "state_file": ""
   }

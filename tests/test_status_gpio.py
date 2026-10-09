@@ -39,20 +39,21 @@ def test_initialize_status_outputs_explicitly_turns_on_only_green() -> None:
     assert STATUS_OUTPUT_PINS == {
         "buzzer": 14,
         "red": 7,
-        "yellow": 26,
-        "green": 25,
+        "yellow": 25,
+        "green": 26,
     }
-    # Buzzer active-high: starts LOW (silent).
+    # Buzzer defaults HIGH (new hardware revision; previously LOW).
     # LEDs active-low: start HIGH (off); only green ends LOW (on).
+    # 黄灯/绿灯引脚已对调：yellow=GPIO25、green=GPIO26。
     assert gpio.calls == [
         ("setmode", gpio.BCM),
-        ("setup", 14, gpio.OUT, gpio.LOW),
-        ("output", 14, gpio.LOW),
+        ("setup", 14, gpio.OUT, gpio.HIGH),
+        ("output", 14, gpio.HIGH),
         ("setup", 7, gpio.OUT, gpio.HIGH),
         ("output", 7, gpio.HIGH),
-        ("setup", 26, gpio.OUT, gpio.HIGH),
-        ("output", 26, gpio.HIGH),
         ("setup", 25, gpio.OUT, gpio.HIGH),
         ("output", 25, gpio.HIGH),
-        ("output", 25, gpio.LOW),
+        ("setup", 26, gpio.OUT, gpio.HIGH),
+        ("output", 26, gpio.HIGH),
+        ("output", 26, gpio.LOW),
     ]
