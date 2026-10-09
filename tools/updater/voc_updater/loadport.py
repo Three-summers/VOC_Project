@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+import time
 from pathlib import Path
 
 from .commands import CommandRunner, copy_tree
@@ -22,6 +23,7 @@ class LoadportInstaller:
         runner: CommandRunner,
         stop_timeout: int = 60,
         start_timeout: int = 60,
+        settle_seconds: float = 2.0,
     ) -> None:
         self.releases_dir = Path(releases_dir)
         self.current_link = Path(current_link)
@@ -30,6 +32,9 @@ class LoadportInstaller:
         self.runner = runner
         self.stop_timeout = int(stop_timeout)
         self.start_timeout = int(start_timeout)
+        # 启动确认的稳定窗口：真实部署测试发现，新版可能在 start 之后几十毫秒
+        # 就退出，若立即判定会把已经死掉的进程记成升级成功。
+        self.settle_seconds = float(settle_seconds)
 
     def install(self, version: str, app_dir: str | Path) -> Path:
         self.releases_dir.mkdir(parents=True, exist_ok=True)
@@ -95,13 +100,31 @@ class LoadportInstaller:
     def _confirm_running(self, target: Path) -> None:
         if not self._service_is_active():
             raise RuntimeError("GUI service did not become active after upgrade")
+        pid_before = self._main_pid()
+
+        # 稳定窗口：等服务真的活下来再复查。真实部署测试中，一个启动即退出的
+        # release 在 start 后几十毫秒才死；立即确认会误判成功（服务随后 inactive，
+        # current 却停在新版本上）。
+        if self.settle_seconds > 0:
+            time.sleep(self.settle_seconds)
+        if not self._service_is_active():
+            raise RuntimeError(
+                "GUI service exited during the post-start settle window"
+            )
+        pid_after = self._main_pid()
+        if pid_before and pid_after and pid_before != pid_after:
+            raise RuntimeError(
+                "GUI service restarted during the post-start settle window "
+                f"({pid_before} -> {pid_after})"
+            )
+
         current_target = self._current_target()
         if current_target is None or current_target != target.resolve():
             raise RuntimeError(
                 f"current link points to {current_target}, expected {target}"
             )
         # 进程 cwd 必须位于目标 release，确认服务真的加载了新代码（R13）
-        self._verify_process_release(self._main_pid(), target)
+        self._verify_process_release(pid_after or pid_before, target)
 
     def _service_is_active(self) -> bool:
         return self._systemctl("is-active").returncode == 0

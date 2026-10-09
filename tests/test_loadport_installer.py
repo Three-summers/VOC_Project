@@ -32,6 +32,7 @@ def test_loadport_installer_switches_current_symlink(tmp_path: Path) -> None:
         gui_service="voc-gui.service",
         systemctl_scope="user",
         runner=runner,
+        settle_seconds=0,
     )
 
     installer.install(version="1.2.3", app_dir=new_app)
@@ -42,6 +43,8 @@ def test_loadport_installer_switches_current_symlink(tmp_path: Path) -> None:
         ["systemctl", "--user", "stop", "voc-gui.service"],
         ["systemctl", "--user", "is-active", "voc-gui.service"],
         ["systemctl", "--user", "start", "voc-gui.service"],
+        ["systemctl", "--user", "is-active", "voc-gui.service"],
+        ["systemctl", "--user", "show", "-p", "MainPID", "--value", "voc-gui.service"],
         ["systemctl", "--user", "is-active", "voc-gui.service"],
         ["systemctl", "--user", "show", "-p", "MainPID", "--value", "voc-gui.service"],
     ]
@@ -65,6 +68,7 @@ def test_loadport_installer_rolls_back_when_start_check_fails(tmp_path: Path) ->
         gui_service="voc-gui.service",
         systemctl_scope="user",
         runner=runner,
+        settle_seconds=0,
     )
 
     try:
@@ -99,6 +103,7 @@ def test_install_copies_manifest_so_version_can_be_read(tmp_path: Path) -> None:
         gui_service="voc-gui.service",
         systemctl_scope="user",
         runner=FakeCommandRunner(),
+        settle_seconds=0,
     )
 
     installer.install(version="1.2.3", app_dir=new_app)
@@ -132,6 +137,7 @@ def test_install_repairs_manifest_in_existing_release(tmp_path: Path) -> None:
         gui_service="voc-gui.service",
         systemctl_scope="user",
         runner=FakeCommandRunner(),
+        settle_seconds=0,
     )
 
     installer.install(version="1.2.3", app_dir=new_app)

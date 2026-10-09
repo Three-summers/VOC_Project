@@ -39,6 +39,8 @@ def _installer(tmp_path: Path, runner=None) -> LoadportInstaller:
         gui_service="voc-gui.service",
         systemctl_scope="user",
         runner=runner or FakeCommandRunner(),
+        # 稳定窗口在单元测试里不真的等待
+        settle_seconds=0,
     )
 
 

@@ -1,0 +1,100 @@
+# 真实 Ubuntu 主机完整部署测试（jinao@192.168.1.241）
+
+分阶段结果（同一台真实主机、真实 venv、真实 systemd --user、真实 update.py）：
+
+1. 依赖：python3 -m venv + pip 安装 PySide6 6.12.0（含 QtCharts）、numpy 2.5.3、
+   pyserial 3.5、PyYAML 6.0.3。
+2. deploy/install.sh：VOC_BASE=$HOME/Project/voc_project，渲染并安装 3 个单元 +
+   autostart + updater/config.yaml（FOUP 指向本地版本桩 127.0.0.1:65432）。
+3. 首个 release loadport-0.1.0（来自仓库快照）+ current 软链；启动 voc-gui.service：
+   is-active=active，cwd=releases/loadport-0.1.0，PYTHONPATH=current/src，
+   QT_QPA_PLATFORM=offscreen（SSH 无 DISPLAY）；首次启动生成
+   ~/.local/share/voc/{system_config.json,channel_config.json,Log}。
+4. 投放 0.2.0 升级包：voc-updater.path 触发 update.py，升级成功，MainPID 更换，
+   current→0.2.0，包归档到 updates/processed/，状态 succeeded。
+5. 投放 0.3.0（app.py 启动即 sys.exit(0)）：**发现缺陷** —— 安装器 start 后立即确认，
+   进程尚未退出，于是记成 succeeded，随后服务 inactive、current 停在新版本。
+6. 故障注入（临时把服务 WorkingDirectory 指到 run_stub）：安装器检测到运行进程 cwd
+   不属于目标 release，回滚成功，状态 failed（实际 0.2.0 / 目标 0.4.0），包进 failed/。
+7. 修复（R35，稳定窗口后复查 is-active 与 MainPID）后重新投放 0.5.0（启动即退出）：
+   正确回滚到 0.2.0，状态 failed，服务 active，包进 failed/。
+8. 投放 0.6.0（正常应用）：升级成功（3s，含 2s 稳定窗口），current→0.6.0，
+   MainPID 更换，服务 active，状态 succeeded。
+
+说明：SSH 会话没有 DISPLAY，GUI 用 QT_QPA_PLATFORM=offscreen 运行；这是为了在无图形
+会话下验证真实进程/依赖/systemd，界面本身的可见性仍建议在有显示器的会话复核。
+
+## 主机最终快照
+== host ==
+jinao
+Ubuntu 24.04.4 LTS
+Python 3.12.3
+systemd 255 (255.4-1ubuntu8.17)
+
+== systemd 单元 ==
+voc-gui.service:     active / disabled
+voc-updater.path:    active / enabled
+voc-updater.service: inactive
+WorkingDirectory:    /home/jinao/Project/voc_project/current
+MainPID=1187659 cwd=/home/jinao/Project/voc_project/releases/loadport-0.6.0
+
+== 部署根 ==
+总计 32
+drwxrwxr-x  8 jinao jinao 4096 10月  9 13:07 .
+drwxrwxr-x  3 jinao jinao 4096 10月  9 13:01 ..
+lrwxrwxrwx  1 jinao jinao   55 10月  9 13:07 current -> /home/jinao/Project/voc_project/releases/loadport-0.6.0
+drwxrwxr-x  8 jinao jinao 4096 10月  9 13:07 releases
+drwxrwxr-x  2 jinao jinao 4096 10月  9 13:05 state
+drwxrwxr-x  3 jinao jinao 4096 10月  9 13:02 updater
+drwxrwxr-x  4 jinao jinao 4096 10月  9 13:07 updates
+drwxrwxr-x  5 jinao jinao 4096 10月  9 13:01 .venv
+drwxrwxr-x 12 jinao jinao 4096 10月  9 13:07 work
+
+== releases ==
+loadport-0.1.0
+loadport-0.2.0
+loadport-0.3.0
+loadport-0.4.0
+loadport-0.5.0
+loadport-0.6.0
+current -> /home/jinao/Project/voc_project/releases/loadport-0.6.0
+
+== state/update_status.json ==
+{
+  "loadport_version": "0.6.0",
+  "update_state": "succeeded",
+  "update_message": "Update completed",
+  "loadport_target_version": "0.6.0"
+}
+
+== updates ==
+/home/jinao/Project/voc_project/updates
+/home/jinao/Project/voc_project/updates/failed
+/home/jinao/Project/voc_project/updates/failed/voc-update-0.4.0.tar.gz
+/home/jinao/Project/voc_project/updates/failed/voc-update-0.5.0.tar.gz
+/home/jinao/Project/voc_project/updates/processed
+/home/jinao/Project/voc_project/updates/processed/voc-update-0.2.0.tar.gz
+/home/jinao/Project/voc_project/updates/processed/voc-update-0.3.0.tar.gz
+/home/jinao/Project/voc_project/updates/processed/voc-update-0.6.0.tar.gz
+
+== 运行期数据目录 ==
+总计 24
+drwxrwxr-x  3 jinao jinao 4096 10月  9 13:04 .
+drwx------ 16 jinao jinao 4096 10月  9 13:04 ..
+-rw-rw-r--  1 jinao jinao 5470 10月  9 13:04 channel_config.json
+drwxrwxr-x  2 jinao jinao 4096 10月  9 13:04 Log
+-rw-rw-r--  1 jinao jinao  964 10月  9 13:04 system_config.json
+
+== venv 依赖 ==
+numpy              2.5.3
+pyserial           3.5
+PySide6            6.12.0
+PySide6_Addons     6.12.0
+PySide6_Essentials 6.12.0
+PySide6_Pdf        6.12.0.140
+PySide6_WebEngine  6.12.0.140
+PyYAML             6.0.3
+shiboken6          6.12.0
+
+== 停止测试用 FOUP 桩 ==
+stopped
