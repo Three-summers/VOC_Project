@@ -17,6 +17,16 @@
   占位符、`config.yaml` 可被真实 `load_config` 解析，以及 `install.sh` 在自定义
   基目录下一次性渲染全部产物。
 
+### 真实部署测试与 R35
+- 在真实 Ubuntu 主机（`jinao@192.168.1.241`）做完整部署测试：真实 venv +
+  PySide6 6.12/QtCharts，`deploy/install.sh` 装单元与配置，真实 GUI 服务上线，
+  `voc-updater.path` + 真实 `update.py` 完成 0.2.0、0.6.0 升级与 0.5.0 回滚。
+- **R35（新发现）**：`_confirm_running` 在 `start` 后立即确认，新版若几十毫秒后
+  退出仍被记为 `succeeded`（真实主机上 0.3.0 复现：状态成功但服务 inactive）。
+  修复：启动确认增加稳定窗口（默认 2s）后复查 `is-active` 并比对 MainPID；
+  任一不满足即回滚。回归测试 `tests/test_upgrade_health_check.py`。
+- 证据：`docs/reviews/evidence/2026-09-29/host-real-deployment.txt`。
+
 ## 2026-10-08 — 审查遗留项与升级事务化（第三轮）
 
 ### 界面与图表
@@ -59,7 +69,7 @@
 - R01–R04 行为固定，不新增配置项。
 
 ### 测试与验证
-- 新增 12 个回归测试文件；全量 `pytest` → 439 passed / 3 skipped。
+- 新增 12 个回归测试文件；全量 `pytest` → 446 passed / 3 skipped。
 - `conftest.py` 的 `qapp` 改用 `QApplication`：QtCharts 的 `ChartView` 在只有
   `QGuiApplication` 时离屏实例化会段错误。
 - 真实 Ubuntu 主机（systemd --user）验证升级、服务重启确认与回滚，证据见

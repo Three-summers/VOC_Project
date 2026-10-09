@@ -407,3 +407,30 @@
   - 未改动 R18/R19。
 - Risk Assessment: 低。改动只涉及部署脚手架与模板，不触碰运行期逻辑；现场首次部署
   仍需按 `deploy/README.md` 的“后续步骤”建 venv 并放入首个 release。
+
+## Verification - 2026-10-09T13:10:00+08:00
+- Executor: DeepSeek Harness
+- Scope: 真实 Ubuntu 主机完整部署测试 + 新发现缺陷 R35（启动确认竞态）
+- Command:
+  - 主机 `jinao@192.168.1.241`：`python3 -m venv` + pip 安装 PySide6 6.12.0（含
+    QtCharts）/numpy/pyserial/PyYAML；`deploy/install.sh`；`systemctl --user`
+    启停 `voc-gui.service`；`voc-updater.path` 触发真实 `update.py`
+  - `QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
+- Result: ✅ Passed（并发现+修复 R35）
+- Details:
+  - 真实 GUI 上线：`is-active=active`，进程 cwd 指向 `releases/loadport-*`，
+    `PYTHONPATH=current/src`，首次启动生成 `~/.local/share/voc/{system_config.json,
+    channel_config.json,Log}`；日志确认加载真实依赖栈（QtMultimedia/FFmpeg，
+    QtCharts QML），无 RPi.GPIO 与 ttyUSB 时按预期降级。
+  - 真实升级：0.2.0、0.6.0 经 `voc-updater.path` + `update.py` 成功，MainPID 更换、
+    current 切换、包归档 `processed/`、状态 `succeeded`；注入 cwd 故障的 0.4.0 与
+    启动即退出的 0.5.0 均回滚，包归档 `failed/`，状态记录实际/目标版本。
+  - **R35**：修复前投放启动即 `sys.exit(0)` 的 0.3.0，被记 `succeeded` 而服务随后
+    inactive；修复（稳定窗口后复查 `is-active` 与 MainPID）后同场景正确回滚。
+    回归测试 `tests/test_upgrade_health_check.py`；全量 446 passed / 3 skipped。
+  - 证据：`docs/reviews/evidence/2026-09-29/host-real-deployment.txt`。主机部署保留
+    在 `~/Project/voc_project`（0.6.0，服务 active，path 单元 enabled），测试用
+    FOUP 版本桩已停止。
+- Risk Assessment: 中偏低。桌面 UI 的可见性未验证（SSH 无 DISPLAY，用 offscreen）；
+  稳定窗口 2s 是工程默认，若现场升级对时长敏感可调整
+  `LoadportInstaller.settle_seconds`。真实 FOUP/SSH/断电演练仍未做。

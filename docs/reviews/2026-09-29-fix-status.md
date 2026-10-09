@@ -72,6 +72,19 @@
    Loader 高度绑定造成 binding loop、以及在 `ScrollView` 上设 `contentY`
    只是创建动态属性（真正可滚动的是其内部 flickable）。
 
+### 5. 2026-10-08 真实部署测试新增：R35（新版启动后立即退出仍记成功）
+
+在真实 Ubuntu 主机做完整部署测试时发现（不在原 34 项内）：
+
+| 编号 | 问题 | 修复 | 回归测试 |
+| --- | --- | --- | --- |
+| R35 | `LoadportInstaller._confirm_running` 在 `start` 后立即确认。新版若在几十毫秒后退出（缺依赖、配置错误、启动即崩），确认时进程还活着 → 记 `succeeded`、`current` 留在新版本，随后服务实际 inactive | 启动确认增加稳定窗口（默认 2s）后复查 `is-active`，并比对 MainPID 是否变化；任一不满足即回滚 | `tests/test_upgrade_health_check.py` |
+
+真实主机复现与修复后验证见
+[host-real-deployment.txt](evidence/2026-09-29/host-real-deployment.txt)：
+修复前 0.3.0（启动即退出）被记成功、服务 inactive；修复后 0.5.0 同场景正确回滚到
+0.2.0，正常升级 0.6.0 仍成功（约 3s，含 2s 稳定窗口）。
+
 ## 二、未修复：仍需现场/策略确认（仅剩 2 项）
 
 | 编号 | 待定问题 | 需要谁决定 |
@@ -85,7 +98,7 @@
 ## 三、验收与回归
 
 - 全量测试：`QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q --tb=short -rs`
-  → **439 passed / 3 skipped**（`conftest.py` 固定 offscreen 与临时数据目录；
+  → **446 passed / 3 skipped**（`conftest.py` 固定 offscreen 与临时数据目录；
   `qapp` fixture 使用 `QApplication`，因为 QtCharts 的 `ChartView` 在只有
   `QGuiApplication` 时离屏实例化会段错误）。
   证据：[pytest-after-fixes.txt](evidence/2026-09-29/pytest-after-fixes.txt)。
@@ -94,8 +107,15 @@
   E84 线程清理顺序、异步桥接 busy 归零、静音频谱、升级事务回滚与服务重启确认；
   以及 E84 握手撤销后不置 READY/撤回输出、部分落位不确认装载、`stop()` 撤回
   输出、执行机构本机失败进入锁存、切换 IP 放弃旧控制连接。
-- **真实 Ubuntu 主机验证**（`jinao@192.168.1.241`，Ubuntu 24.04.4 / systemd 255，
-  真实 `systemctl --user`）：
+- **真实 Ubuntu 主机完整部署测试**（`jinao@192.168.1.241`，Ubuntu 24.04.4 /
+  systemd 255）：真实 `python3 -m venv` + PySide6 6.12.0（含 QtCharts）/numpy/
+  pyserial/PyYAML；`deploy/install.sh` 渲染并安装单元与 `updater/config.yaml`；
+  以真实 release 启动 `voc-gui.service`（active、cwd 指向 release、
+  `PYTHONPATH=current/src`、生成 `~/.local/share/voc`）；`voc-updater.path` 触发真实
+  `update.py` 完成 0.2.0、0.6.0 两次升级与 0.5.0 一次回滚。
+  证据：[host-real-deployment.txt](evidence/2026-09-29/host-real-deployment.txt)。
+  该测试发现并修复了 R35。
+- **真实 Ubuntu 主机验证**（升级事务专项，`jinao@192.168.1.241`）：
   - `current/src` 经 `PYTHONPATH` 生效，导入的 `voc_app` 来自当前 release；
   - 1.0.0 → 2.0.0 升级成功，MainPID 变化（564867 → 564885），进程 cwd 属于目标 release；
   - 构造"运行进程 cwd 不属于目标 release"的 3.0.0 升级：安装器识别并回滚到 2.0.0，
