@@ -2,7 +2,7 @@
 Description=Watch VOC update packages
 
 [Path]
-PathExistsGlob=/home/kasp/Project/voc_project/updates/*.tar.gz
+PathExistsGlob=@VOC_BASE@/updates/*.tar.gz
 
 [Install]
 WantedBy=default.target

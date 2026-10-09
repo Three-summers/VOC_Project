@@ -1,0 +1,62 @@
+# 真实 Ubuntu 主机验证：deploy/install.sh 渲染的单元可被 systemd --user 直接使用
+# 主机: jinao@192.168.1.241  日期: 2026-10-09 11:34:31 CST
+
+== host ==
+jinao
+Ubuntu 24.04.4 LTS
+systemd 255 (255.4-1ubuntu8.17)
+
+== 运行 deploy/install.sh（VOC_BASE=/home/jinao/voc_deploy_check） ==
+== VOC 部署脚手架 ==
+部署根:       /home/jinao/voc_deploy_check
+python:       /usr/bin/python3
+systemd 单元: /home/jinao/.config/systemd/user
+
+已创建部署目录: /home/jinao/voc_deploy_check/{updater,updates,releases,state,work}
+已渲染单元: /home/jinao/.config/systemd/user/voc-gui.service
+已渲染单元: /home/jinao/.config/systemd/user/voc-updater.path
+已渲染单元: /home/jinao/.config/systemd/user/voc-updater.service
+已安装自启动项: /home/jinao/.config/autostart/voc-gui.desktop
+已生成配置: /home/jinao/voc_deploy_check/updater/config.yaml
+已复制: /home/jinao/voc_deploy_check/updater/update.py
+已复制: /home/jinao/voc_deploy_check/updater/voc_updater
+已执行: systemctl --user daemon-reload
+
+后续步骤（脚本不代做）：
+  1) 建 venv 并装依赖（树莓派再加 RPi.GPIO）:
+       python3 -m venv "/home/jinao/voc_deploy_check/.venv"
+       "/home/jinao/voc_deploy_check/.venv/bin/pip" install PySide6 numpy pyserial PyYAML RPi.GPIO
+  2) 放入首个 release（或直接把升级包放进 updates/ 由升级器安装）:
+       ln -sfn "/home/jinao/voc_deploy_check/releases/loadport-<version>" "/home/jinao/voc_deploy_check/current"
+  3) 启用并启动:
+       systemctl --user enable --now voc-updater.path
+       systemctl --user start voc-gui.service
+       systemctl --user is-active voc-gui.service
+
+== 渲染出的 voc-gui.service ==
+[Unit]
+Description=VOC Loadport GUI
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jinao/voc_deploy_check/current
+# R13：只切换 current 软链不会改变模块搜索路径。显式把 current/src 放到
+# PYTHONPATH 最前面，确保进程加载的是当前 release 的 voc_app，而不是虚拟环境
+# 里残留的旧路径。
+Environment=PYTHONPATH=/home/jinao/voc_deploy_check/current/src
+ExecStart=/usr/bin/python3 -m voc_app.gui.app
+Restart=on-failure
+RestartSec=3
+Environment=QT_QPA_PLATFORM=wayland
+
+[Install]
+WantedBy=default.target
+
+is-active: active
+pid:       1148681
+cwd:       /home/jinao/voc_deploy_check/releases/loadport-1.0.0
+module:    /home/jinao/voc_deploy_check/current/src/voc_app/__init__.py
+config:      base_dir: /home/jinao/voc_deploy_check
+autostart: installed
+HOST-DEPLOY-CHECK-DONE

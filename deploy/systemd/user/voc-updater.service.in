@@ -1,0 +1,7 @@
+[Unit]
+Description=Run VOC updater
+
+[Service]
+Type=oneshot
+WorkingDirectory=@VOC_BASE@/updater
+ExecStart=@VOC_PYTHON@ @VOC_BASE@/updater/update.py --config @VOC_BASE@/updater/config.yaml

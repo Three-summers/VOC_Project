@@ -1,0 +1,38 @@
+# VOC 升级器配置模板
+#
+# 推荐用法：运行 `deploy/install.sh`，它会用部署根把 `@...@` 占位符渲染成
+# `$VOC_BASE/updater/config.yaml`；路径只在 install.sh 的 VOC_BASE 处填一次。
+#
+# 手工用法：把本文件复制为 `updater/config.yaml`，然后把下面所有 `@...@` 形式的
+# 占位符替换成现场值（不要保留任何未替换的占位符）。
+#
+# 加载方：tools/updater/voc_updater/config.py 的 load_config()。
+# 缺失任何必填项都会在启动时报 "missing required config key"。
+
+paths:
+  base_dir: @VOC_BASE@
+  updates_dir: @VOC_BASE@/updates
+  work_dir: @VOC_BASE@/work
+  releases_dir: @VOC_BASE@/releases
+  current_link: @VOC_BASE@/current
+  state_file: @VOC_BASE@/state/update_status.json
+  log_file: @VOC_BASE@/state/update.log
+
+services:
+  gui_service: voc-gui.service
+  # user：systemctl --user（当前部署方式）；system：系统级 systemd
+  systemctl_scope: user
+
+python:
+  # 运行 GUI 与升级器的解释器（通常是部署根下的 venv）
+  executable: @VOC_PYTHON@
+
+foup:
+  host: @FOUP_HOST@
+  port: @FOUP_PORT@
+  ssh_user: @FOUP_SSH_USER@
+  ssh_key: @FOUP_SSH_KEY@
+  remote_mount_device: @FOUP_MOUNT_DEVICE@
+  remote_mount_point: @FOUP_MOUNT_POINT@
+  remote_run_path: @FOUP_RUN_PATH@
+  remote_pl_path: @FOUP_PL_PATH@
